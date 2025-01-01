@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <iostream>
 
 // memory allocated on the page boundary
 void *alloc_writable_memory(size_t size) {
@@ -25,6 +26,17 @@ int make_memory_executable(void *m, size_t size) {
   return 0;
 }
 
+void emit_add(unsigned char* m) {
+  unsigned char code[] = {
+    0xb3, 0x00, 
+    0xb5, 0x00, 
+    0x67, 0x80, 
+    0x00, 0x00
+  };
+
+  memcpy(m, code, sizeof(code));
+}
+
 void emit_code_into_memory(unsigned char* m) {
 
   // riscv-64 code for the write syscall
@@ -42,20 +54,24 @@ void emit_code_into_memory(unsigned char* m) {
 }
 
 const size_t SIZE = 1024;
-typedef void (*JittedFunc)(const char*, int);
+typedef long int (*JittedFunc)(long int, long int);
 
 // Allocates RW memory, emits the code into it and sets it to RX before
 // executing.
 void emit_to_rw_run_from_rx() {
 
   void *m = alloc_writable_memory(SIZE);
-  emit_code_into_memory((unsigned char*) m);
+
+  std::cout << "i was here before emit add" << std::endl;
+
+  emit_add((unsigned char*) m);
   make_memory_executable(m, SIZE);
 
-  const char *text = "Hello World!\n";
-  const int len = strlen(text);
+  std::cout << "i was here before" << std::endl;
+
   JittedFunc func = (JittedFunc) m;
-  func(text, len);
+  long int b = func(1, 2);
+  std::cout << b;
 }
 
 int main() {
