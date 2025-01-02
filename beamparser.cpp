@@ -6,11 +6,9 @@
 #include <fstream>
 #include <iosfwd>
 #include <iostream>
-#include <memory>
 #include <stdexcept>
 #include <string>
 #include <sys/types.h>
-#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -48,7 +46,7 @@ AtomChunk parse_atom_chunk(std::ifstream &stream) {
   uint32_t num_atoms = read_big_endian(stream);
   std::vector<std::string> atoms;
 
-  for (int i = 0; i < num_atoms; i++) {
+  for (uint32_t i = 0; i < num_atoms; i++) {
     uint8_t atom_length = read_byte(stream);
     std::string atom_name = read_string(stream, atom_length);
 
@@ -71,6 +69,27 @@ enum Tag {
   // EXT_ALLOC_LIST,
   // EXT_LITERAL
 };
+
+constexpr std::string TagToString(Tag tag) {
+  switch (tag) {
+  case LITERAL:
+    return "Literal";
+  case INTEGER:
+    return "Integer";
+  case ATOM:
+    return "Atom";
+  case X_REGISTER:
+    return "X Register";
+  case Y_REGISTER:
+    return "Y Register";
+  case LABEL:
+    return "Label";
+  case CHARACTER:
+    return "Character";
+  default:
+    throw std::logic_error("Unknown tag");
+  }
+}
 
 enum Tag parse_tag(uint8_t tag_byte) {
   const uint8_t mask = 0b111;
@@ -100,14 +119,14 @@ enum Tag parse_tag(uint8_t tag_byte) {
   }
 }
 
-using ArgNumber = std::variant<uint64_t, std::unique_ptr<uint8_t[]>>;
+using ArgNumber = std::variant<uint64_t, std::vector<uint8_t>>;
 ArgNumber parse_argument_number(std::ifstream &stream, uint8_t tag_byte) {
 
   if (tag_byte >> 3 == 0b11111) {
     uint8_t num_following_bytes = read_byte(stream);
 
-    auto value = std::make_unique<uint8_t[]>(num_following_bytes);
-    stream.read(reinterpret_cast<char *>(value.get()), num_following_bytes);
+    std::vector<uint8_t> value(num_following_bytes);
+    stream.read(reinterpret_cast<char *>(value.data()), num_following_bytes);
 
     return value;
   }
@@ -125,7 +144,7 @@ ArgNumber parse_argument_number(std::ifstream &stream, uint8_t tag_byte) {
         value |= static_cast<uint64_t>(next_byte) << (i * 8);
       }
 
-      return num_following_bytes;
+      return value;
 
     } else {
 
@@ -142,6 +161,7 @@ ArgNumber parse_argument_number(std::ifstream &stream, uint8_t tag_byte) {
 }
 
 using Argument = std::pair<enum Tag, ArgNumber>;
+
 struct Instruction {
   uint8_t opCode;
   std::vector<Argument> arguments;
@@ -163,10 +183,11 @@ CodeChunk parse_code_chunk(std::ifstream &stream) {
 
   // TODO use these for optimising allocations
   const uint32_t sub_size = read_big_endian(stream);
-  const uint32_t instruction_set_version = read_big_endian(stream);
-  const uint32_t op_code_max = read_big_endian(stream);
   const uint32_t label_count = read_big_endian(stream);
-  const uint32_t function_count = read_big_endian(stream);
+
+  const uint32_t _op_code_max [[maybe_unused]] = read_big_endian(stream);
+  const uint32_t _instruction_set_version [[maybe_unused]] = read_big_endian(stream);
+  const uint32_t _function_count [[maybe_unused]] = read_big_endian(stream);
 
   // skip till subsize amount forward
   stream.seekg(chunk_start + static_cast<std::streamoff>(sub_size));
@@ -215,7 +236,7 @@ BeamFile read_chunks(const std::string &filename) {
   }
 
   const std::string version = read_string(input, 4);
-  const uint32_t total_length = read_big_endian(input);
+  const uint32_t _total_length [[maybe_unused]] = read_big_endian(input);
   const std::string beam_text = read_string(input, 4);
 
   auto atom_chunk = std::optional<AtomChunk>();
@@ -243,34 +264,6 @@ BeamFile read_chunks(const std::string &filename) {
   return BeamFile(*atom_chunk, *code_chunk);
 }
 
-std::vector<Instruction>
-parse_code_section(const std::vector<uint8_t> &code_section) {
-  std::vector<Instruction> instructions;
-
-  for (size_t chunk_index = 0; chunk_index < code_section.size();) {
-    uint8_t op_code = code_section[chunk_index++];
-    uint8_t arity = op_arities[op_code];
-
-    std::vector<Argument> args(3);
-
-    for (int i = 0; i < arity; i++) {
-      uint8_t tag_byte = read_byte(std::ifstream & stream) enum Tag tag =
-          parse_tag(code_section[chunk_index]);
-
-      // NOTE assuming no extended tags here, so we must parse the same bit
-      // TODO support extended tags
-      ArgNumber num;
-      tie(num, chunk_index) = parse_argument_number(code_section, chunk_index);
-
-      args[i] = std::make_pair(tag, std::move(num));
-    }
-
-    instructions.push_back(Instruction(op_code, std::move(args)));
-  }
-
-  return instructions;
-}
-
 int main(int argc, char *argv[]) {
   if (argc != 2) {
     std::cerr << "Needs a filename argument" << std::endl;
@@ -279,8 +272,12 @@ int main(int argc, char *argv[]) {
 
   const std::string filename = argv[1];
   const auto chunks = read_chunks(filename);
-  const auto code_chunk = chunks.at("Code");
+  const auto code_chunk = chunks.code_chunk;
 
-  for (const auto &instruction : code_chunk) {
+  for (const auto &instruction : code_chunk.instructions) {
+    std::cout << "op code: " << instruction.opCode << "\n";
+    for (const auto &arg : instruction.arguments) {
+      std::cout << "\t" << TagToString(arg.first);
+    }
   }
 }
