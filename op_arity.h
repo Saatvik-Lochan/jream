@@ -2,6 +2,7 @@
 #define OP_ARITY
 
 const int op_arities[] = {
+    -1, // dummy for indexing
     1, // label
     3, // func_info
     0, // int_code_end
