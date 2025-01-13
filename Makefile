@@ -4,13 +4,16 @@ DEBUGFLAGS = -g -O0
 
 all: beamparser
 
-beamparser: beamparser.o exceptions.o
-	$(CXX) -o $@ $^
+beamparser: beamparser.o exceptions.o external_term.o
+	$(CXX) -o $@ $^ -lz
 
 beamparser.o: beamparser.cpp exceptions.h op_arity.h
 	$(CXX) $(CXXFLAGS) -c $<
 
 exceptions.o: exceptions.cpp exceptions.h
+	$(CXX) $(CXXFLAGS) -c $<
+
+external_term.o: external_term.cpp external_term.h
 	$(CXX) $(CXXFLAGS) -c $<
 
 clean:

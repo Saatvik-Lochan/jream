@@ -1,4 +1,5 @@
 #include "exceptions.h"
+#include "external_term.h"
 #include "int_from_bytes.h"
 #include "op_arity.h"
 #include <cassert>
@@ -249,7 +250,8 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
     uint8_t op_code = read_byte(stream);
     uint8_t arity = op_arities[op_code];
 
-    std::cout << std::format("op_code: {}, arity: {} ", op_code, arity)
+    std::cout << std::format("name: {}, op_code: {}, arity: {} ",
+                             op_names[op_code], op_code, arity)
               << std::endl;
 
     std::vector<Argument> args(3);
@@ -258,7 +260,7 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
       uint8_t tag_byte = read_byte(stream);
       enum Tag tag = parse_tag(tag_byte);
 
-      std::cout << "\t" << TagToString(tag) << std::endl;
+      std::cout << "\t" << TagToString(tag) << ": ";
 
       switch (tag) {
       case LITERAL:
@@ -267,12 +269,16 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
       case X_REGISTER:
       case Y_REGISTER:
       case LABEL:
-      case CHARACTER:
-        parse_argument_number(stream, tag_byte);
+      case CHARACTER: {
+        auto index = parse_argument_number(stream, tag_byte);
+        std::cout << std::get<uint64_t>(index);
         break;
-      case EXT_LITERAL:
-        parse_extended_literal(stream);
+      }
+      case EXT_LITERAL: {
+        auto index = parse_extended_literal(stream);
+        std::cout << "index " << std::get<uint64_t>(index);
         break;
+      }
       case EXT_LIST:
       case EXT_FPREG:
       case EXT_ALLOC_LIST: {
@@ -283,6 +289,8 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
       default:
         throw std::logic_error("invalid tag");
       }
+
+      std::cout << std::endl;
 
       // NOTE assuming no extended tags here, so we must parse the same bit
       // TODO support extended tags
@@ -297,30 +305,36 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
   return CodeChunk(std::move(instructions));
 }
 
- 
+struct LiteralChunk {
+  std::vector<ErlTerm> literals;
 
-void parse_literal_chunk(std::ifstream &stream, uint32_t unaligned_chunk_size) {
+  LiteralChunk(std::vector<ErlTerm> literals) : literals(std::move(literals)) {}
+};
+
+LiteralChunk parse_literal_chunk(std::ifstream &stream,
+                                 uint32_t unaligned_chunk_size) {
   uint32_t uncompressed_size = read_big_endian(stream);
 
   if (uncompressed_size == 0) {
-    throw NotImplementedException("Uncompressed size is 0 but LitT chunk exists");
+    throw NotImplementedException(
+        "Uncompressed size is 0 but LitT chunk exists");
   }
-
 
   // since we've already read the uncompressed size from the chunk
   uint32_t compressed_size = unaligned_chunk_size - 4;
   std::vector<uint8_t> compressed_data(compressed_size);
-  stream.read(reinterpret_cast<char *>(compressed_data.data()), compressed_size);
+  stream.read(reinterpret_cast<char *>(compressed_data.data()),
+              compressed_size);
 
   std::vector<uint8_t> uncompressed_data(uncompressed_size);
 
   z_stream literal_stream = {
-    .next_in = compressed_data.data(),
-    .avail_in = compressed_size,
-    .next_out = uncompressed_data.data(),
-    .avail_out = uncompressed_size,
-    .zalloc = Z_NULL,
-    .zfree = Z_NULL,
+      .next_in = compressed_data.data(),
+      .avail_in = compressed_size,
+      .next_out = uncompressed_data.data(),
+      .avail_out = uncompressed_size,
+      .zalloc = Z_NULL,
+      .zfree = Z_NULL,
   };
 
   const int init_result = inflateInit(&literal_stream);
@@ -333,19 +347,33 @@ void parse_literal_chunk(std::ifstream &stream, uint32_t unaligned_chunk_size) {
 
   if (inflate_result != Z_STREAM_END) {
     if (inflate_result == Z_OK) {
-      throw std::runtime_error("zlib inflate was successful, but did not complete fully");
+      throw std::runtime_error(
+          "zlib inflate was successful, but did not complete fully");
     }
 
     throw std::runtime_error("zlib inflate failed");
   }
 
-  
-  /*uint32_t num_literals = read_big_endian(stream);*/
-  /**/
-  /*for (uint32_t i = 0; i < num_literals; i++) {*/
-  /*  uint32_t literal_size = read_big_endian(stream);*/
-  /**/
-  /*}*/
+  uint8_t *curr_pos = uncompressed_data.data();
+  uint32_t num_literals = big_endian_from_bytes<uint32_t>(curr_pos);
+  curr_pos += 4;
+
+  std::vector<ErlTerm> terms;
+  std::cout << "num_literals: " << num_literals << std::endl;
+
+  for (uint32_t i = 0; i < num_literals; i++) {
+    [[maybe_unused]]
+    uint32_t literal_size = big_endian_from_bytes<uint32_t>(curr_pos);
+    curr_pos += 4;
+
+    auto result = ErlTerm::from_binary(curr_pos);
+    std::cout << i << ": " << result.first.display() << std::endl;
+    terms.push_back(result.first);
+
+    curr_pos = result.second;
+  }
+
+  return LiteralChunk(std::move(terms));
 }
 
 struct BeamFile {
@@ -384,11 +412,12 @@ BeamFile read_chunks(const std::string &filename) {
 
     if (module_name == "AtU8")
       atom_chunk = parse_atom_chunk(input);
-  
+
     else if (module_name == "Code") {
       try {
         // use size, not the aligned chunk size here
-        code_chunk = parse_code_chunk(input, chunk_start + static_cast<std::streamoff>(raw_size));
+        code_chunk = parse_code_chunk(
+            input, chunk_start + static_cast<std::streamoff>(raw_size));
       } catch (NotImplementedException *e) {
         std::cout << e->what() << std::endl;
       }
@@ -400,7 +429,8 @@ BeamFile read_chunks(const std::string &filename) {
     else if (module_name == "LitT")
       parse_literal_chunk(input, raw_size);
 
-    const auto chunk_end = chunk_start + static_cast<std::streamoff>(aligned_chunk_len);
+    const auto chunk_end =
+        chunk_start + static_cast<std::streamoff>(aligned_chunk_len);
 
     input.seekg(chunk_end);
   }

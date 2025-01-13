@@ -1,70 +1,48 @@
+#include "external_term.h"
 #include "exceptions.h"
 #include "int_from_bytes.h"
-#include <cstddef>
+#include <cassert>
 #include <cstdint>
+#include <format>
+#include <iostream>
+#include <ostream>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <vector>
-
-enum TagType {
-  HEADER,
-  LIST,
-  BOXED,
-  PID,
-  PORT,
-  SMALL_INT,
-  ATOM,
-  CATCH,
-  NIL,
-};
-
-class ErlTerm {
-  size_t term;
-  ErlTerm(size_t term) : term(std::move(term)) {}
-  ErlTerm(): term(0) {}
-
-  TagType getTagType();
-
-public:
-  std::string display();
-  std::pair<ErlTerm, uint8_t *> from_binary(uint8_t *data);
-  template <typename T> ErlTerm from_integer(T integer);
-  ~ErlTerm() {}
-};
 
 TagType ErlTerm::getTagType() {
   const uint8_t tag = term & 0b11;
 
   switch (tag) {
   case 0b00:
-    return HEADER;
+    return HEADER_T;
   case 0b01:
-    return LIST;
+    return LIST_T;
   case 0b10:
-    return BOXED;
+    return BOXED_T;
   case 0b11: {
     const uint8_t immediate_tag = (tag >> 2) & 0b11;
 
     switch (immediate_tag) {
     case 0b00:
-      return PID;
+      return PID_T;
     case 0b01:
-      return PORT;
+      return PORT_T;
     case 0b11:
-      return SMALL_INT;
+      return SMALL_INT_T;
     case 0b10: {
       const uint8_t immediate2_tag = (tag >> 4) & 0b11;
 
       switch (immediate2_tag) {
       case 0b00:
-        return ATOM;
+        return ATOM_T;
       case 0b01:
-        return CATCH;
+        return CATCH_T;
       case 0b10:
         throw std::domain_error("unknown term");
       case 0b11:
-        return NIL;
+        return NIL_T;
       }
     }
     }
@@ -74,31 +52,56 @@ TagType ErlTerm::getTagType() {
   }
 }
 
+std::string ErlTerm::raw_display() {
+  return std::format("{:b}", term);
+}
+
 std::string ErlTerm::display() {
   switch (getTagType()) {
-  case HEADER:
+  case HEADER_T:
     return "Header";
-  case LIST:
+  case LIST_T:
     return "List";
-  case BOXED:
+  case BOXED_T:
     return "Boxed";
-  case PID:
+  case PID_T:
     return "PID";
-  case PORT:
+  case PORT_T:
     return "Port";
-  case SMALL_INT:
+  case SMALL_INT_T:
     return "Small Integer " + std::to_string(term >> 4);
-  case ATOM:
+  case ATOM_T:
     return "Atom " + std::to_string(term >> 6);
-  case CATCH:
+  case CATCH_T:
     return "Catch";
-  case NIL:
+  case NIL_T:
     return "Nil";
+  default:
+    throw std::logic_error("No such tag type");
   }
 }
 
-ErlTerm from_integer(std::vector<uint8_t> big_integer) {
+ErlTerm from_integer(const std::vector<uint8_t> &big_integer) {
   throw NotImplementedException("Really big integers not supported now");
+}
+
+ErlTerm get_nil_term() { return 0b111011; }
+
+ErlTerm erl_list_from_vec(const std::vector<ErlTerm> &terms, ErlTerm end) {
+  ErlTerm head;
+  ErlTerm *curr = &head;
+
+  for (auto term : terms) {
+    ErlTerm *const temp = new ErlTerm[2]();
+
+    *curr = (reinterpret_cast<size_t>(temp) & 0b00) + 0b01;
+    temp[0] = term;
+
+    curr = temp + 1;
+  }
+
+  *curr = end;
+  return head;
 }
 
 // TODO test this!
@@ -117,7 +120,8 @@ template <typename T> ErlTerm ErlTerm::from_integer(T integer) {
   return ErlTerm(std::move(term));
 }
 
-std::pair<ErlTerm, uint8_t*> ErlTerm::from_binary(uint8_t *data) {
+std::pair<ErlTerm, uint8_t *> ErlTerm::from_binary(uint8_t *data) {
+  assert(*(data++) == 131);
   uint8_t type_byte = data[0];
 
   switch (type_byte) {
@@ -127,24 +131,43 @@ std::pair<ErlTerm, uint8_t*> ErlTerm::from_binary(uint8_t *data) {
     auto integer = big_endian_from_bytes<int32_t>(data + 1);
     return {from_integer(integer), data + 5};
   }
-  case 109: { // list_ext
+  case 106: { // nil_ext
+    return {get_nil_term(), data + 1};
+    
+  }
+  case 107: { // string_ext
+    auto string_len = big_endian_from_bytes<uint16_t>(++data);
+    data += 2;
+
+    std::vector<ErlTerm> terms;
+
+    for (int i = 0; i < string_len; i++) {
+      char character = data[i];
+      ErlTerm char_term = from_integer(character);
+
+      terms.push_back(char_term);
+    }
+
+    ErlTerm list = erl_list_from_vec(terms, get_nil_term());
+    return {list, data + string_len};
+  }
+  case 108: { // list_ext
     auto list_len = big_endian_from_bytes<uint32_t>(data + 1);
 
     data += 5; // place after list length
-    ErlTerm head;
-    ErlTerm *curr = &head;
+    std::vector<ErlTerm> terms;
 
-    for (uint32_t i = 0; i < list_len; i++) {
+    for (uint32_t i = 0; i < list_len; i++) { // +1 for tail of the list
+      auto result = from_binary(data);
+      data = result.second;
 
-      ErlTerm *const temp = new ErlTerm[2]();
-
-      *curr = reinterpret_cast<size_t>(temp) & 0b00 + 0b01;
-      std::tie(temp[0], data) = from_binary(data);
-
-      curr = temp + 1;
+      terms.push_back(result.first);
     }
 
-    *curr = 0b111011;
+    auto end = from_binary(data).first;
+    ErlTerm list = erl_list_from_vec(terms, end);
+
+    return {list, data};
   }
   default: {
     const std::string err_msg =
