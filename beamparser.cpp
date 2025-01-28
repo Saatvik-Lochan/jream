@@ -1,3 +1,6 @@
+#define GLOG_USE_GLOG_EXPORT
+#include <glog/logging.h>
+
 #include "exceptions.h"
 #include "external_term.h"
 #include "int_from_bytes.h"
@@ -14,10 +17,10 @@
 #include <string>
 #include <sys/types.h>
 #include <utility>
-#include <variant>
 #include <vector>
 #include <zlib.h>
 
+// Parsing Utilities
 std::string read_string(std::ifstream &stream, size_t length) {
   std::string buffer(length, '\0');
   stream.read(&buffer[0], length);
@@ -36,27 +39,121 @@ std::uint32_t read_big_endian(std::ifstream &stream) {
   return big_endian_from_bytes<uint32_t>(buffer);
 }
 
-struct Chunk {
-  virtual ~Chunk() = default;
+// data structures
+enum Tag {
+  LITERAL_TAG,
+  INTEGER_TAG,
+  ATOM_TAG,
+  X_REGISTER_TAG,
+  Y_REGISTER_TAG,
+  LABEL_TAG,
+  CHARACTER_TAG,
+  EXT_LIST_TAG,
+  EXT_FPREG_TAG,
+  EXT_ALLOC_LIST_TAG,
+  EXT_LITERAL_TAG,
+  TYPED_REGISTER_TAG
 };
 
-struct AtomChunk : Chunk {
+struct TypedRegister {
+  Tag reg;
+  uint64_t reg_num;
+  uint64_t index;
+};
+
+struct AllocList {
+  uint64_t words;
+  uint64_t floats;
+  uint64_t funs;
+};
+
+struct Argument {
+  Tag tag;
+  union {
+    std::vector<Argument> *arg_vec_p; // when EXT_LIST
+    AllocList *alloc_list;            // when EXT_ALLOC_LIST
+    uint64_t arg_num;                 // otherwise
+  } arg_raw;
+};
+
+struct Instruction {
+  OpCode opCode;
+  std::vector<Argument> arguments;
+};
+
+struct CodeChunk {
+  std::vector<Instruction> instructions;
+
+  CodeChunk(std::vector<Instruction> instructions)
+      : instructions(std::move(instructions)) {}
+};
+
+struct AtomChunk {
   std::vector<std::string> atoms;
 
   AtomChunk(std::vector<std::string> atoms) : atoms(std::move(atoms)) {}
 };
 
+struct LiteralChunk {
+  std::vector<ErlTerm> literals;
+
+  LiteralChunk(std::vector<ErlTerm> literals) : literals(std::move(literals)) {}
+};
+
+struct BeamFile {
+  AtomChunk atom_chunk;
+  CodeChunk code_chunk;
+  LiteralChunk literal_chunk;
+
+  BeamFile(AtomChunk atom_chunk, CodeChunk code_chunk,
+           LiteralChunk literal_chunk)
+      : atom_chunk(std::move(atom_chunk)), code_chunk(std::move(code_chunk)),
+        literal_chunk(literal_chunk) {}
+};
+
+constexpr std::string TagToString(Tag tag) {
+  switch (tag) {
+  case LITERAL_TAG:
+    return "Literal";
+  case INTEGER_TAG:
+    return "Integer";
+  case ATOM_TAG:
+    return "Atom";
+  case X_REGISTER_TAG:
+    return "X Register";
+  case Y_REGISTER_TAG:
+    return "Y Register";
+  case LABEL_TAG:
+    return "Label";
+  case CHARACTER_TAG:
+    return "Character";
+  case EXT_LIST_TAG:
+    return "Extended List";
+  case EXT_FPREG_TAG:
+    return "Extended Floating Point Register";
+  case EXT_ALLOC_LIST_TAG:
+    return "Extended Alloc List";
+  case EXT_LITERAL_TAG:
+    return "Extended Literal";
+  case TYPED_REGISTER_TAG:
+    return "Typed Register";
+  default:
+    LOG(FATAL) << "unknown tag";
+  }
+}
+
+// parsing
 AtomChunk parse_atom_chunk(std::ifstream &stream) {
   uint32_t num_atoms = read_big_endian(stream);
   std::vector<std::string> atoms;
 
-  std::cout << "Atoms:" << std::endl;
+  LOG(INFO) << "Atoms:" << std::endl;
 
   for (uint32_t i = 0; i < num_atoms; i++) {
     uint8_t atom_length = read_byte(stream);
     std::string atom_name = read_string(stream, atom_length);
 
-    std::cout << "\t" << atom_name << std::endl;
+    LOG(INFO) << "\t" << atom_name << std::endl;
 
     atoms.push_back(atom_name);
   }
@@ -64,111 +161,71 @@ AtomChunk parse_atom_chunk(std::ifstream &stream) {
   return AtomChunk(std::move(atoms));
 }
 
-enum Tag {
-  LITERAL,
-  INTEGER,
-  ATOM,
-  X_REGISTER,
-  Y_REGISTER,
-  LABEL,
-  CHARACTER,
-  EXT_LIST,
-  EXT_FPREG,
-  EXT_ALLOC_LIST,
-  EXT_LITERAL
-};
-
-constexpr std::string TagToString(Tag tag) {
-  switch (tag) {
-  case LITERAL:
-    return "Literal";
-  case INTEGER:
-    return "Integer";
-  case ATOM:
-    return "Atom";
-  case X_REGISTER:
-    return "X Register";
-  case Y_REGISTER:
-    return "Y Register";
-  case LABEL:
-    return "Label";
-  case CHARACTER:
-    return "Character";
-  case EXT_LIST:
-    return "Extended List";
-  case EXT_FPREG:
-    return "Extended Floating Point Register";
-  case EXT_ALLOC_LIST:
-    return "Extended Alloc List";
-  case EXT_LITERAL:
-    return "Extended Literal";
-  default:
-    throw std::logic_error("unknown tag");
-  }
-}
-
 enum Tag parse_tag(uint8_t tag_byte) {
   const uint8_t mask = 0b111;
 
   switch (tag_byte & mask) {
   case 0b000:
-    return LITERAL;
+    return LITERAL_TAG;
   case 0b001:
-    return INTEGER;
+    return INTEGER_TAG;
   case 0b010:
-    return ATOM;
+    return ATOM_TAG;
   case 0b011:
-    return X_REGISTER;
+    return X_REGISTER_TAG;
   case 0b100:
-    return Y_REGISTER;
+    return Y_REGISTER_TAG;
   case 0b101:
-    return LABEL;
+    return LABEL_TAG;
   case 0b110:
-    return CHARACTER;
+    return CHARACTER_TAG;
   case 0b111: {
     const uint8_t ext_bits = tag_byte >> 4;
 
     switch (ext_bits) {
     case 0b0001:
-      return EXT_LIST;
+      return EXT_LIST_TAG;
     case 0b0010:
-      return EXT_FPREG;
+      return EXT_FPREG_TAG;
     case 0b0011:
-      return EXT_ALLOC_LIST;
+      return EXT_ALLOC_LIST_TAG;
     case 0b0100:
-      return EXT_LITERAL;
+      return EXT_LITERAL_TAG;
+    case 0b101:
+      return TYPED_REGISTER_TAG;
     default:
-      throw std::logic_error(std::format("No such tag: {:08b}", tag_byte));
+      LOG(FATAL) << std::format("No such tag: {:08b}", tag_byte);
     }
   }
   default:
-    throw std::logic_error("Cannot reach here");
+    LOG(FATAL) << "Cannot reach here";
   }
 }
 
-// TODO refer to beam_disasm.erl for fix
-using ArgNumber = std::variant<uint64_t, std::vector<uint8_t>>;
-ArgNumber parse_argument_number(std::ifstream &stream, uint8_t tag_byte) {
+// TODO maybe support bigger numbers, I can't imagine when you would get
+// something this big though
+uint64_t parse_argument_number(std::ifstream &stream, uint8_t tag_byte) {
 
   if (tag_byte >> 3 == 0b11111) {
-    auto next_byte = read_byte(stream);
-    auto tag = parse_tag(next_byte);
 
-    assert(tag == LITERAL);
+    // auto next_byte = read_byte(stream);
+    // auto tag = parse_tag(next_byte);
 
-    // TODO maybe support bigger numbers, I can't imagine when you would get
-    // something this big though
-    auto embedded_size =
-        std::get<uint64_t>(parse_argument_number(stream, next_byte));
+    // assert(tag == LITERAL);
 
-    std::vector<uint8_t> value(embedded_size);
-    stream.read(reinterpret_cast<char *>(value.data()), embedded_size);
+    // auto embedded_size = parse_argument_number(stream, next_byte);
 
-    return value;
+    // std::vector<uint8_t> value(embedded_size);
+    // stream.read(reinterpret_cast<char *>(value.data()), embedded_size);
+
+    // return value;
+
+    throw NotImplementedException("Have not implemented parsing of integers "
+                                  "greater than those which fit in uint64_t");
   }
 
-  if (tag_byte & 1 << 3) {
-    if (tag_byte & 1 << 4) {
+  if (tag_byte & (1 << 3)) {
+    if (tag_byte & (1 << 4)) {
 
       const uint8_t num_following_bytes = (tag_byte >> 5) + 2;
 
@@ -191,42 +248,156 @@ ArgNumber parse_argument_number(std::ifstream &stream, uint8_t tag_byte) {
     }
   } else {
 
-    const uint64_t value = tag_byte >> 3;
+    const uint64_t value = tag_byte >> 4;
     return value;
   }
 }
 
-ArgNumber parse_extended_literal(std::ifstream &stream) {
+// TODO incomplete?
+uint64_t parse_extended_literal(std::ifstream &stream) {
   auto next_byte = read_byte(stream);
   auto tag = parse_tag(next_byte);
-  assert(tag == LITERAL);
+  LOG(INFO) << TagToString(tag) << std::endl;
+
+  assert(tag == LITERAL_TAG);
 
   auto embedded_size = parse_argument_number(stream, next_byte);
   return embedded_size;
 }
 
-using Argument = std::pair<enum Tag, ArgNumber>;
+Argument parse_argument(std::ifstream &stream);
 
-struct Instruction {
-  uint8_t opCode;
-  std::vector<Argument> arguments;
+std::vector<Argument> *parse_extended_list(std::ifstream &stream) {
+  auto next_byte = read_byte(stream);
+  auto tag = parse_tag(next_byte);
 
-  Instruction(uint8_t opCode, std::vector<Argument> args)
-      : opCode(opCode), arguments(std::move(args)) {}
-};
+  assert(tag == LITERAL_TAG);
 
-struct CodeChunk : Chunk {
-  std::vector<Instruction> instructions;
+  auto list_size = parse_argument_number(stream, tag);
+  // assumed to last the lifetime of the program, so no delete/cleanup
+  auto arg_vec_p = new std::vector<Argument>(list_size);
 
-  CodeChunk(std::vector<Instruction> instructions)
-      : instructions(std::move(instructions)) {}
-};
+  for (uint64_t i = 0; i < list_size; i++) {
+    arg_vec_p->push_back(parse_argument(stream));
+  }
+
+  return arg_vec_p;
+}
+
+AllocList *parse_alloc_list(std::ifstream &stream) {
+  auto length_byte = read_byte(stream);
+  auto tag = parse_tag(length_byte);
+
+  assert(tag == LITERAL_TAG);
+
+  auto list_length = parse_argument_number(stream, length_byte);
+
+  AllocList *out_list = new AllocList{.words = 0, .floats = 0, .funs = 0};
+
+  for (uint64_t i = 0; i < list_length; i++) {
+    auto type_byte = read_byte(stream);
+    tag = parse_tag(length_byte);
+
+    assert(tag == LITERAL_TAG);
+
+    auto type = parse_argument_number(stream, type_byte);
+
+    auto num_byte = read_byte(stream);
+    tag = parse_tag(num_byte);
+
+    assert(tag == LITERAL_TAG);
+
+    auto num = parse_argument_number(stream, num_byte);
+
+    switch (type) {
+    case 0: {
+      out_list->words = num;
+      break;
+    }
+    case 1: {
+      out_list->floats = num;
+      break;
+    }
+    case 2: {
+      out_list->funs = num;
+      break;
+    }
+    default: {
+      LOG(FATAL) << "Unknown type in alloc list " + std::to_string(type);
+    }
+    }
+  }
+
+  return out_list;
+}
+
+TypedRegister parse_typed_register(std::ifstream &stream) {
+  const auto register_byte = read_byte(stream);
+  const auto register_tag = parse_tag(register_byte);
+
+  assert(register_tag == X_REGISTER_TAG || register_tag == Y_REGISTER_TAG);
+
+  auto register_num = parse_argument_number(stream, register_byte);
+
+  const auto index_byte = read_byte(stream);
+  const auto index_tag = parse_tag(index_byte);
+
+  assert(index_tag == LITERAL_TAG);
+  auto index_num = parse_argument_number(stream, index_byte);
+
+  return TypedRegister{register_tag, register_num, index_num};
+}
+
+Argument parse_argument(std::ifstream &stream) {
+  uint8_t tag_byte = read_byte(stream);
+  enum Tag tag = parse_tag(tag_byte);
+
+  LOG(INFO) << "\t" << TagToString(tag);
+
+  switch (tag) {
+  case LITERAL_TAG:
+  case INTEGER_TAG:
+  case ATOM_TAG:
+  case X_REGISTER_TAG:
+  case Y_REGISTER_TAG:
+  case LABEL_TAG:
+  case CHARACTER_TAG: {
+    auto index = parse_argument_number(stream, tag_byte);
+    return Argument{tag, {.arg_num = index}};
+  }
+  case EXT_LITERAL_TAG: {
+    [[maybe_unused]]
+    auto index = parse_extended_literal(stream);
+    throw NotImplementedException("Must fix parse extended literal first");
+  }
+  case TYPED_REGISTER_TAG: {
+    auto typed_register = parse_typed_register(stream);
+    // TODO use the type which is indexed by typed_register.index
+    return Argument{typed_register.reg, {.arg_num = typed_register.reg_num}};
+  }
+  case EXT_LIST_TAG: {
+    auto result = parse_extended_list(stream);
+    return Argument{tag, {.arg_vec_p = result}};
+  }
+  case EXT_ALLOC_LIST_TAG: {
+    auto result = parse_alloc_list(stream);
+    return Argument{tag, {.alloc_list = result}};
+  }
+  case EXT_FPREG_TAG: {
+    std::string error_msg =
+        std::format("Tag '{}' not implemented yet", TagToString(tag));
+    throw NotImplementedException(error_msg.c_str());
+  }
+  default:
+    LOG(FATAL) << "invalid tag";
+  }
+}
 
 CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
 
   // TODO use these for optimising allocations
   const uint32_t sub_size = read_big_endian(stream);
-  std::cout << "sub_size: " << sub_size << std::endl;
+  LOG(INFO) << "sub_size: " << sub_size << std::endl;
 
   auto chunk_start = stream.tellg();
 
@@ -235,7 +406,7 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
   const uint32_t _op_code_max [[maybe_unused]] = read_big_endian(stream);
 
   const uint32_t label_count = read_big_endian(stream);
-  std::cout << std::format("label count: {}", label_count) << std::endl;
+  LOG(INFO) << std::format("label count: {}", label_count) << std::endl;
 
   const uint32_t _function_count [[maybe_unused]] = read_big_endian(stream);
 
@@ -244,72 +415,26 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
 
   // read code
   std::vector<Instruction> instructions;
-  instructions.reserve(label_count);
 
   while (stream.tellg() < chunk_end) {
     uint8_t op_code = read_byte(stream);
     uint8_t arity = op_arities[op_code];
 
-    std::cout << std::format("name: {}, op_code: {}, arity: {} ",
-                             op_names[op_code], op_code, arity)
-              << std::endl;
+    LOG(WARNING) << std::format("name: {}, op_code: {}, arity: {} ",
+                                op_names[op_code], op_code, arity);
 
-    std::vector<Argument> args(3);
+    std::vector<Argument> args(arity);
 
     for (int i = 0; i < arity; i++) {
-      uint8_t tag_byte = read_byte(stream);
-      enum Tag tag = parse_tag(tag_byte);
-
-      std::cout << "\t" << TagToString(tag) << ": ";
-
-      switch (tag) {
-      case LITERAL:
-      case INTEGER:
-      case ATOM:
-      case X_REGISTER:
-      case Y_REGISTER:
-      case LABEL:
-      case CHARACTER: {
-        auto index = parse_argument_number(stream, tag_byte);
-        std::cout << std::get<uint64_t>(index);
-        break;
-      }
-      case EXT_LITERAL: {
-        auto index = parse_extended_literal(stream);
-        std::cout << "index " << std::get<uint64_t>(index);
-        break;
-      }
-      case EXT_LIST:
-      case EXT_FPREG:
-      case EXT_ALLOC_LIST: {
-        std::string error_msg =
-            std::format("Tag '{}' not implemented yet", TagToString(tag));
-        throw NotImplementedException(error_msg.c_str());
-      }
-      default:
-        throw std::logic_error("invalid tag");
-      }
-
-      std::cout << std::endl;
-
-      // NOTE assuming no extended tags here, so we must parse the same bit
-      // TODO support extended tags
-      ArgNumber num = parse_argument_number(stream, tag_byte);
-
-      args[i] = std::make_pair(tag, std::move(num));
+      args[i] = parse_argument(stream);
     }
 
-    instructions.push_back(Instruction(op_code, std::move(args)));
+    instructions.push_back(
+        Instruction(static_cast<OpCode>(op_code), std::move(args)));
   }
 
   return CodeChunk(std::move(instructions));
 }
-
-struct LiteralChunk {
-  std::vector<ErlTerm> literals;
-
-  LiteralChunk(std::vector<ErlTerm> literals) : literals(std::move(literals)) {}
-};
 
 LiteralChunk parse_literal_chunk(std::ifstream &stream,
                                  uint32_t unaligned_chunk_size) {
@@ -359,7 +484,7 @@ LiteralChunk parse_literal_chunk(std::ifstream &stream,
   curr_pos += 4;
 
   std::vector<ErlTerm> terms;
-  std::cout << "num_literals: " << num_literals << std::endl;
+  LOG(INFO) << "num_literals: " << num_literals << std::endl;
 
   for (uint32_t i = 0; i < num_literals; i++) {
     [[maybe_unused]]
@@ -367,7 +492,7 @@ LiteralChunk parse_literal_chunk(std::ifstream &stream,
     curr_pos += 4;
 
     auto result = ErlTerm::from_binary(curr_pos);
-    std::cout << i << ": " << result.first.display() << std::endl;
+    LOG(INFO) << i << ": " << result.first.display() << std::endl;
     terms.push_back(result.first);
 
     curr_pos = result.second;
@@ -375,14 +500,6 @@ LiteralChunk parse_literal_chunk(std::ifstream &stream,
 
   return LiteralChunk(std::move(terms));
 }
-
-struct BeamFile {
-  AtomChunk atom_chunk;
-  CodeChunk code_chunk;
-
-  BeamFile(AtomChunk atom_chunk, CodeChunk code_chunk)
-      : atom_chunk(std::move(atom_chunk)), code_chunk(std::move(code_chunk)) {}
-};
 
 BeamFile read_chunks(const std::string &filename) {
   std::ifstream input(filename, std::ios::binary);
@@ -399,35 +516,37 @@ BeamFile read_chunks(const std::string &filename) {
 
   auto atom_chunk = std::optional<AtomChunk>();
   auto code_chunk = std::optional<CodeChunk>();
+  auto literal_chunk = std::optional<LiteralChunk>();
 
   while (input.peek() != EOF) {
     const std::string module_name = read_string(input, 4);
     const uint32_t raw_size = read_big_endian(input);
 
-    std::cout << std::format("module: {}, size: {}", module_name, raw_size)
+    LOG(INFO) << std::format("module: {}, size: {}", module_name, raw_size)
               << std::endl;
 
     const uint32_t aligned_chunk_len = (4 * ((raw_size + 3) / 4));
     const auto chunk_start = input.tellg();
 
-    if (module_name == "AtU8")
+    if (module_name == "AtU8") {
       atom_chunk = parse_atom_chunk(input);
 
-    else if (module_name == "Code") {
+    } else if (module_name == "Code") {
       try {
         // use size, not the aligned chunk size here
         code_chunk = parse_code_chunk(
             input, chunk_start + static_cast<std::streamoff>(raw_size));
       } catch (NotImplementedException *e) {
-        std::cout << e->what() << std::endl;
+        LOG(WARNING) << e->what() << std::endl;
       }
 
-    } else if (module_name == "Atom")
+    } else if (module_name == "Atom") {
       throw NotImplementedException(
           "Doesn't handle files with latin1 encoding");
 
-    else if (module_name == "LitT")
-      parse_literal_chunk(input, raw_size);
+    } else if (module_name == "LitT") {
+      literal_chunk = parse_literal_chunk(input, raw_size);
+    }
 
     const auto chunk_end =
         chunk_start + static_cast<std::streamoff>(aligned_chunk_len);
@@ -435,16 +554,20 @@ BeamFile read_chunks(const std::string &filename) {
     input.seekg(chunk_end);
   }
 
-  return BeamFile(*atom_chunk, *code_chunk);
+  return BeamFile(*atom_chunk, *code_chunk, *literal_chunk);
 }
 
 int main(int argc, char *argv[]) {
+  // setup logging
+  FLAGS_log_dir = "/tmp/logs";
+  google::FlushLogFiles(google::INFO);
+  google::InitGoogleLogging(argv[0]);
+
+  // parse beam file
   if (argc != 2) {
-    std::cerr << "Needs a filename argument" << std::endl;
-    return 1;
+    LOG(FATAL) << "Needs a filename argument" << std::endl;
   }
 
   const std::string filename = argv[1];
   const auto chunks = read_chunks(filename);
-  const auto code_chunk = chunks.code_chunk;
 }

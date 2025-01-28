@@ -1,11 +1,12 @@
 CXX = g++
 CXXFLAGS = -std=c++20 -Wall -pedantic
 DEBUGFLAGS = -g -O0
+LDFLAGS = -lz -lglog # google logging, zlib
 
 all: beamparser
 
 beamparser: beamparser.o exceptions.o external_term.o
-	$(CXX) -o $@ $^ -lz
+	$(CXX) -o $@ $^ $(LDFLAGS)
 
 beamparser.o: beamparser.cpp exceptions.h op_arity.h
 	$(CXX) $(CXXFLAGS) -c $<
