@@ -1,27 +1,14 @@
-#include <cstdint>
-#include <vector>
-struct Instruction {};
+#include "beam_defs.h"
 
-// What is the layout of instructions in memory
-// What is the API of the execution
-void start_process(Instruction *code) {
+void spawn_process(const CodeChunk& code_chunk, FunctionIdentifier f_id) {
   // initialise memory
-  // - process table
-  // - 
   
-  // on execution of code do stuff
+  // execute code
+  //  call function, compile and cache if necessary
 }
 
-void execute_func() { // takes a range of code
+uint8_t *translate_function(Instruction* func_start) {
+  
 
-  // 
+  return nullptr;
 }
-
-std::vector<uint64_t> translate_function() {
-}
-
-std::vector<uint8_t> translate_instruction(Instruction instr) {
-
-}
-
-

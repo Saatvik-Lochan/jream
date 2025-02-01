@@ -5,10 +5,10 @@ LDFLAGS = -lz -lglog # google logging, zlib
 
 all: beamparser
 
-beamparser: beamparser.o exceptions.o external_term.o
+beamparser: beamparser.o exceptions.o external_term.o execution.o
 	$(CXX) -o $@ $^ $(LDFLAGS)
 
-beamparser.o: beamparser.cpp exceptions.h op_arity.h
+beamparser.o: beamparser.cpp exceptions.h op_arity.h beam_defs.h
 	$(CXX) $(CXXFLAGS) -c $<
 
 exceptions.o: exceptions.cpp exceptions.h
@@ -16,6 +16,8 @@ exceptions.o: exceptions.cpp exceptions.h
 
 external_term.o: external_term.cpp external_term.h
 	$(CXX) $(CXXFLAGS) -c $<
+
+execution.o: execution.cpp beam_defs.h
 
 clean:
 	rm -f *.o beamparser

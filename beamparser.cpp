@@ -5,6 +5,8 @@
 #include "external_term.h"
 #include "int_from_bytes.h"
 #include "op_arity.h"
+#include "beam_defs.h"
+
 #include <cassert>
 #include <cstdint>
 #include <format>
@@ -12,7 +14,6 @@
 #include <ios>
 #include <iosfwd>
 #include <iostream>
-#include <optional>
 #include <stdexcept>
 #include <string>
 #include <sys/types.h>
@@ -39,77 +40,6 @@ std::uint32_t read_big_endian(std::ifstream &stream) {
   return big_endian_from_bytes<uint32_t>(buffer);
 }
 
-// data structures
-enum Tag {
-  LITERAL_TAG,
-  INTEGER_TAG,
-  ATOM_TAG,
-  X_REGISTER_TAG,
-  Y_REGISTER_TAG,
-  LABEL_TAG,
-  CHARACTER_TAG,
-  EXT_LIST_TAG,
-  EXT_FPREG_TAG,
-  EXT_ALLOC_LIST_TAG,
-  EXT_LITERAL_TAG,
-  TYPED_REGISTER_TAG
-};
-
-struct TypedRegister {
-  Tag reg;
-  uint64_t reg_num;
-  uint64_t index;
-};
-
-struct AllocList {
-  uint64_t words;
-  uint64_t floats;
-  uint64_t funs;
-};
-
-struct Argument {
-  Tag tag;
-  union {
-    std::vector<Argument> *arg_vec_p; // when EXT_LIST
-    AllocList *alloc_list;            // when EXT_ALLOC_LIST
-    uint64_t arg_num;                 // otherwise
-  } arg_raw;
-};
-
-struct Instruction {
-  OpCode opCode;
-  std::vector<Argument> arguments;
-};
-
-struct CodeChunk {
-  std::vector<Instruction> instructions;
-
-  CodeChunk(std::vector<Instruction> instructions)
-      : instructions(std::move(instructions)) {}
-};
-
-struct AtomChunk {
-  std::vector<std::string> atoms;
-
-  AtomChunk(std::vector<std::string> atoms) : atoms(std::move(atoms)) {}
-};
-
-struct LiteralChunk {
-  std::vector<ErlTerm> literals;
-
-  LiteralChunk(std::vector<ErlTerm> literals) : literals(std::move(literals)) {}
-};
-
-struct BeamFile {
-  AtomChunk atom_chunk;
-  CodeChunk code_chunk;
-  LiteralChunk literal_chunk;
-
-  BeamFile(AtomChunk atom_chunk, CodeChunk code_chunk,
-           LiteralChunk literal_chunk)
-      : atom_chunk(std::move(atom_chunk)), code_chunk(std::move(code_chunk)),
-        literal_chunk(literal_chunk) {}
-};
 
 constexpr std::string TagToString(Tag tag) {
   switch (tag) {
@@ -408,7 +338,7 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
   const uint32_t label_count = read_big_endian(stream);
   LOG(INFO) << std::format("label count: {}", label_count) << std::endl;
 
-  const uint32_t _function_count [[maybe_unused]] = read_big_endian(stream);
+  const uint32_t function_count = read_big_endian(stream);
 
   // skip till subsize amount forward
   stream.seekg(chunk_start + static_cast<std::streamoff>(sub_size));
@@ -433,7 +363,41 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
         Instruction(static_cast<OpCode>(op_code), std::move(args)));
   }
 
-  return CodeChunk(std::move(instructions));
+  // create function and label table
+  FunctionTable function_table;
+  LabelTable label_table;
+  label_table.reserve(label_count + 1);
+
+  label_table.push_back(nullptr); // dummy value so indexing works correctly
+
+  for (auto instr : instructions) {
+    if (instr.opCode == FUNC_INFO_OP) {
+
+      const auto &args = instr.arguments;
+
+      auto module_atom_index = args[0];
+      assert(module_atom_index.tag == ATOM_TAG);
+
+      auto function_name_atom_index = args[1];
+      assert(function_name_atom_index.tag == ATOM_TAG);
+
+      auto arity = args[2];
+      assert(arity.tag == LITERAL_TAG);
+
+      auto func_id = FunctionIdentifier(
+          module_atom_index.arg_raw.arg_num,
+          function_name_atom_index.arg_raw.arg_num, arity.arg_raw.arg_num);
+
+      function_table[func_id] = label_table[label_table.size() - 1];
+    }
+
+    if (instr.opCode == LABEL_OP) {
+      label_table.push_back(&instr);
+    }
+  }
+
+  return CodeChunk(std::move(instructions), function_count, label_count,
+                   function_table, label_table);
 }
 
 LiteralChunk parse_literal_chunk(std::ifstream &stream,
