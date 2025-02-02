@@ -107,6 +107,7 @@ ErlTerm erl_list_from_vec(const std::vector<ErlTerm> &terms, ErlTerm end) {
 // TODO test this!
 template <typename T> ErlTerm ErlTerm::from_integer(T integer) {
   static_assert(std::is_integral_v<T>, "T must be an integral value");
+  // TODO this static assert fails on characters on the RISC-V VM
   static_assert(std::is_signed_v<T>, "T must be a signed value");
 
   const ssize_t converted = integer;

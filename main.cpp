@@ -1,10 +1,17 @@
 // This code has heavily borrowed from:
 // https://eli.thegreenplace.net/2013/11/05/how-to-jit-an-introduction
+#include <alloca.h>
+#include <cstdint>
+#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <iostream>
+#include <sys/syscall.h>
+
+void flush_instr_cache(void *m, size_t size) {
+  __asm__ volatile("fence.i" ::: "memory");
+}
 
 // memory allocated on the page boundary
 void *alloc_writable_memory(size_t size) {
@@ -14,7 +21,7 @@ void *alloc_writable_memory(size_t size) {
     perror("mmap");
     return NULL;
   }
-  return (unsigned char*) ptr;
+  return (unsigned char *)ptr;
 }
 
 // sets a RX permission on the given memory, which must be page-aligned
@@ -26,54 +33,73 @@ int make_memory_executable(void *m, size_t size) {
   return 0;
 }
 
-void emit_add(unsigned char* m) {
-  unsigned char code[] = {
-    0xb3, 0x00, 
-    0xb5, 0x00, 
-    0x67, 0x80, 
-    0x00, 0x00
-  };
-
-  memcpy(m, code, sizeof(code));
-}
-
-void emit_code_into_memory(unsigned char* m) {
+void emit_print(unsigned char *m) {
 
   // riscv-64 code for the write syscall
   unsigned char code[] = {
-    0x13, 0x86, 0x05, 0x00, // mv a2, a1
-    0x93, 0x05, 0x05, 0x00, // mv a1, a0
-    0x13, 0x05, 0x10, 0x00, // li a0, 1
-    0x93, 0x08, 0x00, 0x04, // li a7, 63
-    0x73, 0x00, 0x00, 0x00, // ecall
-    0x67, 0x80, 0x00, 0x00  // ret
+      0x13, 0x86, 0x05, 0x00, // mv a2, a1
+      0x93, 0x05, 0x05, 0x00, // mv a1, a0
+      0x13, 0x05, 0x10, 0x00, // li a0, 1
+      0x93, 0x08, 0x00, 0x04, // li a7, 63
+      0x73, 0x00, 0x00, 0x00, // ecall
+      0x67, 0x80, 0x00, 0x00  // ret
   };
 
   memcpy(m, code, sizeof(code));
-
 }
 
-const size_t SIZE = 1024;
-typedef long int (*JittedFunc)(long int, long int);
+extern "C" void do_stuff() {
+  for (int i = 0; i < 10; i++) {
+    std::cout << i << "\n";
+  }
+}
+
+void emit_call(uint8_t *m) {
+  uint8_t code[] = {0x13, 0x01, 0x81, 0xff, 0x23, 0x30, 0x11, 0x00,
+                    0xe7, 0x00, 0x05, 0x00, 0x83, 0x30, 0x01, 0x00,
+                    0x13, 0x01, 0x81, 0x00, 0x67, 0x80, 0x00, 0x00};
+
+  memcpy(m, code, sizeof(code));
+}
+
+void emit_test(uint8_t *m) {
+  uint8_t code_64_ld[] = {0x13, 0x01, 0x81, 0xff, 0x23, 0x30, 0x11,
+                          0x00, 0x83, 0x30, 0x01, 0x00, 0x13, 0x01,
+                          0x81, 0x00, 0x67, 0x80, 0x00, 0x00};
+
+  memcpy(m, code_64_ld, sizeof(code_64_ld));
+}
+
+size_t SIZE = 1024;
 
 // Allocates RW memory, emits the code into it and sets it to RX before
 // executing.
-void emit_to_rw_run_from_rx() {
+void alloc_and_run_call() {
 
   void *m = alloc_writable_memory(SIZE);
 
-  std::cout << "i was here before emit add" << std::endl;
-
-  emit_add((unsigned char*) m);
+  emit_call((uint8_t *)m);
   make_memory_executable(m, SIZE);
 
-  std::cout << "i was here before" << std::endl;
+  std::cout << "code written to memory" << std::endl;
 
-  JittedFunc func = (JittedFunc) m;
-  long int b = func(1, 2);
-  std::cout << b;
+  using FuncPtr = void (*)(void (*)());
+  FuncPtr jitted_func = reinterpret_cast<FuncPtr>(m);
+  jitted_func(&do_stuff);
 }
 
-int main() {
-  emit_to_rw_run_from_rx();
+void alloc_and_run_print() {
+  void *m = alloc_writable_memory(SIZE);
+
+  emit_print((uint8_t *)m);
+  make_memory_executable(m, SIZE);
+
+  using FuncPtr = void (*)(char *, size_t);
+  FuncPtr jitted_func = reinterpret_cast<FuncPtr>(m);
+
+  char sentence[] = "hello world\n";
+
+  jitted_func(sentence, sizeof(sentence));
 }
+
+int main() { alloc_and_run_call(); }

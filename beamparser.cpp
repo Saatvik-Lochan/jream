@@ -350,7 +350,7 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
     uint8_t op_code = read_byte(stream);
     uint8_t arity = op_arities[op_code];
 
-    LOG(WARNING) << std::format("name: {}, op_code: {}, arity: {} ",
+    LOG(WARNING) << std::format("{}, op_code: {}, arity: {} ",
                                 op_names[op_code], op_code, arity);
 
     std::vector<Argument> args(arity);

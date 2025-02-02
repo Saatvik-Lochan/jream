@@ -33,4 +33,10 @@
 
 # directories
 logs
+
+# binaries
 beamparser
+main
+main_debug
+
+
