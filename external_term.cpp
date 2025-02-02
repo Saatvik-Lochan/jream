@@ -1,11 +1,12 @@
-#include "external_term.h"
+#define GLOG_USE_GLOG_EXPORT
+#include <glog/logging.h>
+
 #include "exceptions.h"
+#include "external_term.h"
 #include "int_from_bytes.h"
 #include <cassert>
 #include <cstdint>
 #include <format>
-#include <iostream>
-#include <ostream>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -52,9 +53,7 @@ TagType ErlTerm::getTagType() {
   }
 }
 
-std::string ErlTerm::raw_display() {
-  return std::format("{:b}", term);
-}
+std::string ErlTerm::raw_display() { return std::format("{:b}", term); }
 
 std::string ErlTerm::display() {
   switch (getTagType()) {
@@ -121,8 +120,12 @@ template <typename T> ErlTerm ErlTerm::from_integer(T integer) {
   return ErlTerm(std::move(term));
 }
 
-std::pair<ErlTerm, uint8_t *> ErlTerm::from_binary(uint8_t *data) {
-  assert(*(data++) == 131);
+std::pair<ErlTerm, uint8_t *> ErlTerm::from_binary(uint8_t *data,
+                                                   bool is_initial) {
+  if (is_initial) {
+    assert(*data == 131);
+    data++;
+  }
   uint8_t type_byte = data[0];
 
   switch (type_byte) {
@@ -132,9 +135,26 @@ std::pair<ErlTerm, uint8_t *> ErlTerm::from_binary(uint8_t *data) {
     auto integer = big_endian_from_bytes<int32_t>(data + 1);
     return {from_integer(integer), data + 5};
   }
+  case 104: { // small_tuple_ext
+    uint8_t arity = data[1];
+
+    ErlTerm *tuple_p = new ErlTerm[arity + 1];
+    tuple_p[0] = arity << (4 + 2);
+
+    data += 2;
+
+    for (int i = 0; i < arity; i++) {
+      auto result = from_binary(data, false);
+
+      tuple_p[i + 1] = result.first;
+      data = result.second;
+    }
+
+    ErlTerm out((reinterpret_cast<size_t>(tuple_p) & 0b00) + 0b01);
+    return {out, data};
+  }
   case 106: { // nil_ext
     return {get_nil_term(), data + 1};
-    
   }
   case 107: { // string_ext
     auto string_len = big_endian_from_bytes<uint16_t>(++data);
@@ -159,13 +179,13 @@ std::pair<ErlTerm, uint8_t *> ErlTerm::from_binary(uint8_t *data) {
     std::vector<ErlTerm> terms;
 
     for (uint32_t i = 0; i < list_len; i++) { // +1 for tail of the list
-      auto result = from_binary(data);
+      auto result = from_binary(data, false);
       data = result.second;
 
       terms.push_back(result.first);
     }
 
-    auto end = from_binary(data).first;
+    auto end = from_binary(data, false).first;
     ErlTerm list = erl_list_from_vec(terms, end);
 
     return {list, data};

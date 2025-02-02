@@ -1,11 +1,11 @@
 #define GLOG_USE_GLOG_EXPORT
 #include <glog/logging.h>
 
+#include "beam_defs.h"
 #include "exceptions.h"
 #include "external_term.h"
 #include "int_from_bytes.h"
 #include "op_arity.h"
-#include "beam_defs.h"
 
 #include <cassert>
 #include <cstdint>
@@ -39,7 +39,6 @@ std::uint32_t read_big_endian(std::ifstream &stream) {
   stream.read(reinterpret_cast<char *>(buffer), 4);
   return big_endian_from_bytes<uint32_t>(buffer);
 }
-
 
 constexpr std::string TagToString(Tag tag) {
   switch (tag) {
@@ -191,8 +190,8 @@ uint64_t parse_extended_literal(std::ifstream &stream) {
 
   assert(tag == LITERAL_TAG);
 
-  auto embedded_size = parse_argument_number(stream, next_byte);
-  return embedded_size;
+  auto index = parse_argument_number(stream, next_byte);
+  return index;
 }
 
 Argument parse_argument(std::ifstream &stream);
@@ -296,9 +295,8 @@ Argument parse_argument(std::ifstream &stream) {
     return Argument{tag, {.arg_num = index}};
   }
   case EXT_LITERAL_TAG: {
-    [[maybe_unused]]
     auto index = parse_extended_literal(stream);
-    throw NotImplementedException("Must fix parse extended literal first");
+    return Argument{tag, {.arg_num = index}};
   }
   case TYPED_REGISTER_TAG: {
     auto typed_register = parse_typed_register(stream);
@@ -346,8 +344,10 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
   // read code
   std::vector<Instruction> instructions;
 
-  while (stream.tellg() < chunk_end) {
-    uint8_t op_code = read_byte(stream);
+  uint8_t op_code = 0;
+
+  while (stream.tellg() < chunk_end && op_code != INT_CODE_END_OP) {
+    op_code = read_byte(stream);
     uint8_t arity = op_arities[op_code];
 
     LOG(WARNING) << std::format("{}, op_code: {}, arity: {} ",
@@ -371,8 +371,9 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
   label_table.push_back(nullptr); // dummy value so indexing works correctly
 
   for (auto instr : instructions) {
-    if (instr.opCode == FUNC_INFO_OP) {
+    LOG(WARNING) << op_names[instr.opCode];
 
+    if (instr.opCode == FUNC_INFO_OP) {
       const auto &args = instr.arguments;
 
       auto module_atom_index = args[0];

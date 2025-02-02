@@ -20,21 +20,22 @@ enum TagType {
 
 class ErlTerm {
   size_t term;
-  ErlTerm(): term(0) {}
+  ErlTerm() : term(0) {}
   ErlTerm(size_t term) : term(term) {}
   TagType getTagType();
 
 public:
-
-  static std::pair<ErlTerm, uint8_t *> from_binary(uint8_t *data);
+  static std::pair<ErlTerm, uint8_t *> from_binary(uint8_t *data,
+                                                   bool is_initial = true);
   template <typename T> static ErlTerm from_integer(T integer);
 
   std::string display();
   std::string raw_display();
-  ~ErlTerm() {} // TODO make a destructor 
+  ~ErlTerm() {} // TODO make a destructor
 
-friend ErlTerm erl_list_from_vec(const std::vector<ErlTerm> &terms, ErlTerm end);
-friend ErlTerm get_nil_term();
+  friend ErlTerm erl_list_from_vec(const std::vector<ErlTerm> &terms,
+                                   ErlTerm end);
+  friend ErlTerm get_nil_term();
 };
 
 #endif
