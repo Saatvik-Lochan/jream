@@ -33,10 +33,14 @@
 
 # directories
 logs
+**/__pycache__
 
 # binaries
 beamparser
 main
 main_debug
 
+# misc
+*.dump
+*.beam
 
