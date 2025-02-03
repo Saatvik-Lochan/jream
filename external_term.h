@@ -20,11 +20,11 @@ enum TagType {
 
 class ErlTerm {
   size_t term;
-  ErlTerm() : term(0) {}
-  ErlTerm(size_t term) : term(term) {}
   TagType getTagType();
 
 public:
+  ErlTerm(size_t term) : term(term) {}
+  ErlTerm() : term(0) {}
   static std::pair<ErlTerm, uint8_t *> from_binary(uint8_t *data,
                                                    bool is_initial = true);
   template <typename T> static ErlTerm from_integer(T integer);

@@ -2,6 +2,7 @@
 #include "op_arity.h"
 
 #include <cstdint>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -48,6 +49,7 @@ struct Argument {
 struct Instruction {
   OpCode opCode;
   std::vector<Argument> arguments;
+  uint64_t *compacted_args = nullptr;
 };
 
 struct FunctionIdentifier {

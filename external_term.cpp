@@ -150,7 +150,7 @@ std::pair<ErlTerm, uint8_t *> ErlTerm::from_binary(uint8_t *data,
       data = result.second;
     }
 
-    ErlTerm out((reinterpret_cast<size_t>(tuple_p) & 0b00) + 0b01);
+    ErlTerm out((reinterpret_cast<size_t>(tuple_p) & 0b00) + 0b10);
     return {out, data};
   }
   case 106: { // nil_ext
