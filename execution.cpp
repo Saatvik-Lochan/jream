@@ -1,11 +1,11 @@
 #include "exceptions.h"
-#include <bitset>
 #include <cstdint>
 #define GLOG_USE_GLOG_EXPORT
 #include <glog/logging.h>
 
 #include <cassert>
 
+#include "assembly/instr_code.h"
 #include "beam_defs.h"
 #include "op_arity.h"
 #include "pcb.h"
@@ -17,6 +17,7 @@ uint8_t *translate_function(Instruction *func_start,
   std::unordered_map<uint64_t, size_t> label_pointers;
 
   for (auto instr_p = func_start; instr_p++;) {
+
     switch (instr_p->opCode) {
     case LABEL_OP: {
       auto label_arg = instr_p->arguments[0];
@@ -24,46 +25,62 @@ uint8_t *translate_function(Instruction *func_start,
       label_pointers[label_arg.arg_raw.arg_num] = compiled.size();
       break;
     }
-    case LINE_OP: {
-      // ignore, debug info
+
+    case LINE_OP: { // ignore, debug info
       break;
     }
-    case FUNC_INFO_OP: {
-      // could check function identifier instead
+
+    case FUNC_INFO_OP: { // could check function identifier instead
       if (instr_p > func_start + 1) {
-        // exit loop here
-        throw NotImplementedException(
-            "don't know what to do when I reach the end!");
-      } // else ignore
+        goto end;
+      }
+
       break;
     }
     default: {
-      // do the average cases here (most non-'meta' cases)
+      // create and add load here
+      auto result = get_riscv(instr_p->opCode);
     }
     }
   }
+// TODO should probably remove this somehow
+end:
+
+  // add starting move of a0, a1 to s1, s2 and saving of s1, s2 on stack
+  // add compiled code
+  // add return of s1, s2
 
   throw NotImplementedException("once code is compiled doesn't return it yet");
   return nullptr;
-}
-
-std::vector<uint8_t> compile_instruction(const Instruction &instr) {
-  switch (instr.opCode) {
-  default: {
-    LOG(FATAL) << "opCode " << instr.opCode << " is not implemented yet.";
-  }
-  }
 }
 
 struct RISCV_Instruction {
   uint8_t raw[4];
 };
 
-RISCV_Instruction create_load_doubleword(uint8_t rd, uint8_t rs, uint16_t imm) {
+RISCV_Instruction create_load_doubleword(uint8_t rd, uint8_t rs, int16_t imm) {
   // since that's the size of immediate we can directly inject
-  assert(imm < 2048);
+  assert(-2047 < imm && imm < 2048);
+  assert(0 <= rd && rd < 32);
+  assert(0 <= rs && rs < 32);
 
-  throw NotImplementedException("must do");
+  uint32_t instr = 0;
+  constexpr auto load_instr_bits = 0b0000011; //ld
+  constexpr auto funct3_bits = 0b011; // ld
+  constexpr auto load_and_funct = load_instr_bits & (funct3_bits << 12);
+
+  const auto dest_reg_bits = rd & 0b11111;
+  const auto source_reg_bits = rs & 0b11111;
+
+  instr |= load_and_funct;
+  instr |= dest_reg_bits << 7;
+  instr |= source_reg_bits << 15;
+  instr |= imm << 20;
+
+  RISCV_Instruction out;
+  memcpy(out.raw, &instr, 4);
+
+  return out;
 }
 
 uint64_t *get_compact_and_cache_instr_args(Instruction &instr) {
