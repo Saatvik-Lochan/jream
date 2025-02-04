@@ -3,7 +3,7 @@
 #ifndef PCB_H
 #define PCB_H
 
-#include "assembly/shared_variables.h"
+#include "generated/shared_variables.h"
 
 struct ProcessControlBlock {
   volatile uint64_t shared[SHARED_FIELDS];

@@ -1,1 +1,0 @@
-/usr/bin/c++  -Wall -pedantic -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/beamparser.dir/link.d CMakeFiles/beamparser.dir/beamparser.cpp.o CMakeFiles/beamparser.dir/exceptions.cpp.o CMakeFiles/beamparser.dir/external_term.cpp.o CMakeFiles/beamparser.dir/execution.cpp.o CMakeFiles/beamparser.dir/assembly/instr_code.cpp.o -o beamparser  -lz -lglog

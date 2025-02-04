@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include <vector>
-#include "../op_arity.h"
+#include "op_arity.h"
 
 std::vector<uint8_t> get_riscv(OpCode op);
 

@@ -1,4 +1,3 @@
-#define GLOG_USE_GLOG_EXPORT
 #include <glog/logging.h>
 
 #include "beam_defs.h"
@@ -524,7 +523,7 @@ BeamFile read_chunks(const std::string &filename) {
 
 int main(int argc, char *argv[]) {
   // setup logging
-  FLAGS_log_dir = "/tmp/logs";
+  FLAGS_log_dir = "/tmp";
   google::FlushLogFiles(google::INFO);
   google::InitGoogleLogging(argv[0]);
 

@@ -9,10 +9,6 @@
 #include <sys/mman.h>
 #include <sys/syscall.h>
 
-void flush_instr_cache(void *m, size_t size) {
-  __asm__ volatile("fence.i" ::: "memory");
-}
-
 // memory allocated on the page boundary
 void *alloc_writable_memory(size_t size) {
   void *ptr =

@@ -1,14 +1,13 @@
-#include "exceptions.h"
 #include <cstdint>
-#define GLOG_USE_GLOG_EXPORT
 #include <glog/logging.h>
 
 #include <cassert>
 
-#include "assembly/instr_code.h"
+#include "instr_code.h"
 #include "beam_defs.h"
 #include "op_arity.h"
 #include "pcb.h"
+#include "exceptions.h"
 
 // garbage collection is tricky
 uint8_t *translate_function(Instruction *func_start,
@@ -93,7 +92,7 @@ uint64_t *get_compact_and_cache_instr_args(Instruction &instr) {
   instr.compacted_args = new uint64_t[num_args];
 
   // do compaction
-  for (int i = 0; i < num_args; i++) {
+  for (size_t i = 0; i < num_args; i++) {
     const auto &argument = instr.arguments[i];
 
     // not implemented yet
@@ -109,9 +108,9 @@ void spawn_process(const CodeChunk &code_chunk, FunctionIdentifier f_id) {
   // initialise memory
   //  i.e. stack + heap (and old heap)
   const size_t ARENA_SIZE = 1024;
-  ErlTerm *arena = new ErlTerm[ARENA_SIZE];
-  ErlTerm *stop = arena + (ARENA_SIZE - 1);
-  ErlTerm *htop = arena;
+  [[maybe_unused]] ErlTerm *arena = new ErlTerm[ARENA_SIZE];
+  [[maybe_unused]] ErlTerm *stop = arena + (ARENA_SIZE - 1);
+  [[maybe_unused]] ErlTerm *htop = arena;
 
   Instruction *start_instruction_p = code_chunk.function_table.at(f_id);
 
