@@ -1,0 +1,1 @@
+/usr/bin/c++  -Wall -pedantic -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/tests.dir/link.d CMakeFiles/tests.dir/tests/test.cpp.o CMakeFiles/tests.dir/beamparser.cpp.o CMakeFiles/tests.dir/exceptions.cpp.o CMakeFiles/tests.dir/external_term.cpp.o CMakeFiles/tests.dir/execution.cpp.o CMakeFiles/tests.dir/assembly/instr_code.cpp.o -o tests  lib/libgtest_main.a lib/libgtest.a

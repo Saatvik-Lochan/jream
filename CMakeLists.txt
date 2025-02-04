@@ -15,6 +15,7 @@ set(SOURCES
     exceptions.cpp
     external_term.cpp
     execution.cpp
+    assembly/instr_code.cpp
 )
 
 set(HEADERS
@@ -22,14 +23,31 @@ set(HEADERS
     op_arity.h
     beam_defs.h
     external_term.h
+    assembly/instr_code.h
 )
 
-# Define the executable
-add_executable(beamparser ${SOURCES} ${HEADERS})
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  GIT_REPOSITORY https://github.com/google/googletest  
+  GIT_TAG v1.15.2  
+)
+FetchContent_MakeAvailable(googletest)
 
-# Link libraries
+set(MAIN_LIBRARIES
+   
+)
+
+add_executable(beamparser ${SOURCES} ${HEADERS})
 target_link_libraries(beamparser PRIVATE z glog) # zlib and Google Logging
 
-# Debug build target
-set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build" FORCE)
-set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
+# testing
+set(TEST_SOURCES
+  tests/test.cpp
+)
+add_executable(tests ${TEST_SOURCES} ${SOURCES} ${HEADERS})
+target_link_libraries(tests PRIVATE gtest_main glog)
+
+# add tests
+include(GoogleTest)
+gtest_discover_tests(tests)

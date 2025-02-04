@@ -1,5 +1,7 @@
 file(REMOVE_RECURSE
   "CMakeFiles/beamparser.dir/link.d"
+  "CMakeFiles/beamparser.dir/assembly/instr_code.cpp.o"
+  "CMakeFiles/beamparser.dir/assembly/instr_code.cpp.o.d"
   "CMakeFiles/beamparser.dir/beamparser.cpp.o"
   "CMakeFiles/beamparser.dir/beamparser.cpp.o.d"
   "CMakeFiles/beamparser.dir/exceptions.cpp.o"
