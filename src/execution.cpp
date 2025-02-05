@@ -1,6 +1,6 @@
-#include <cstdint>
 #include <glog/logging.h>
 
+#include <cstdint>
 #include <cassert>
 
 #include "instr_code.h"

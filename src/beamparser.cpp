@@ -521,17 +521,9 @@ BeamFile read_chunks(const std::string &filename) {
   return BeamFile(*atom_chunk, *code_chunk, *literal_chunk);
 }
 
-int main(int argc, char *argv[]) {
-  // setup logging
+void setup_logging(char *filename) {
   FLAGS_log_dir = "/tmp";
   google::FlushLogFiles(google::INFO);
-  google::InitGoogleLogging(argv[0]);
-
-  // parse beam file
-  if (argc != 2) {
-    LOG(FATAL) << "Needs a filename argument" << std::endl;
-  }
-
-  const std::string filename = argv[1];
-  const auto chunks = read_chunks(filename);
+  google::InitGoogleLogging(filename);
 }
+
