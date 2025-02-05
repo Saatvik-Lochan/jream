@@ -1,25 +1,27 @@
 #include <glog/logging.h>
 
-#include <cstdint>
 #include <cassert>
+#include <cstdint>
 
-#include "instr_code.h"
 #include "beam_defs.h"
+#include "execution.h"
+#include "instr_code.h"
 #include "op_arity.h"
 #include "pcb.h"
-#include "exceptions.h"
 
 // garbage collection is tricky
-uint8_t *translate_function(Instruction *func_start,
-                            ProcessControlBlock *pcb_p) {
+std::vector<uint8_t> translate_function(const Instruction *code_start,
+                                        size_t func_start_instr_index,
+                                        ProcessControlBlock *pcb_p) {
   std::vector<uint8_t> compiled;
   std::unordered_map<uint64_t, size_t> label_pointers;
 
-  for (auto instr_p = func_start; instr_p++;) {
+  for (size_t instr_index = func_start_instr_index; instr_index++;) {
+    const auto &instr = code_start[instr_index];
 
-    switch (instr_p->opCode) {
+    switch (instr.opCode) {
     case LABEL_OP: {
-      auto label_arg = instr_p->arguments[0];
+      auto label_arg = instr.arguments[0];
       assert(label_arg.tag == LITERAL_TAG);
       label_pointers[label_arg.arg_raw.arg_num] = compiled.size();
       break;
@@ -30,32 +32,49 @@ uint8_t *translate_function(Instruction *func_start,
     }
 
     case FUNC_INFO_OP: { // could check function identifier instead
-      if (instr_p > func_start + 1) {
+      if (instr_index > func_start_instr_index + 1) {
         goto end;
       }
 
       break;
     }
     default: {
-      // create and add load here
-      auto result = get_riscv(instr_p->opCode);
+      // load the pointer at index'th value in the argument array (pointer to
+      // this in s2=x18) to the s3=x19 register
+      auto load_instr = create_load_doubleword(19, 18, instr_index * 8);
+      compiled.insert(compiled.end(), load_instr.raw, load_instr.raw + 4);
+
+      // get translated code
+      auto result = get_riscv(instr.opCode);
+      compiled.insert(compiled.end(), result.begin(), result.end());
     }
     }
   }
-// TODO should probably remove this somehow
+// TODO remove this
 end:
 
-  // add starting move of a0, a1 to s1, s2 and saving of s1, s2 on stack
-  // add compiled code
-  // add return of s1, s2
+  auto setup_code = {
+      0x13, 0x01, 0x81, 0xfe, // addi sp, sp, -24
+      0x23, 0x30, 0x91, 0x00, // sd s1, 0(sp)
+      0x23, 0x34, 0x21, 0x01, // sd s2, 8(sp)
+      0x23, 0x38, 0x11, 0x00, // sd ra, 16(sp)
+      0x93, 0x04, 0x05, 0x00, // mv s1, a0
+      0x13, 0x89, 0x05, 0x00, // mv s2, a1
+  };
 
-  throw NotImplementedException("once code is compiled doesn't return it yet");
-  return nullptr;
+  auto teardown_code = {
+      0x83, 0x34, 0x01, 0x00, // ld s1, 0(sp)
+      0x03, 0x39, 0x81, 0x00, // ld s2, 8(sp)
+      0x83, 0x30, 0x01, 0x01, // ld ra, 16(sp)
+      0x13, 0x01, 0x81, 0x01, // addi sp, sp, 24
+      0x67, 0x80, 0x00, 0x00, // ret
+  };
+
+  compiled.insert(compiled.begin(), setup_code.begin(), setup_code.end());
+  compiled.insert(compiled.end(), teardown_code.begin(), teardown_code.end());
+
+  return compiled;
 }
-
-struct RISCV_Instruction {
-  uint8_t raw[4];
-};
 
 RISCV_Instruction create_load_doubleword(uint8_t rd, uint8_t rs, int16_t imm) {
   // since that's the size of immediate we can directly inject
@@ -64,9 +83,9 @@ RISCV_Instruction create_load_doubleword(uint8_t rd, uint8_t rs, int16_t imm) {
   assert(0 <= rs && rs < 32);
 
   uint32_t instr = 0;
-  constexpr auto load_instr_bits = 0b0000011; //ld
-  constexpr auto funct3_bits = 0b011; // ld
-  constexpr auto load_and_funct = load_instr_bits & (funct3_bits << 12);
+  constexpr auto load_instr_bits = 0b0000011; // ld
+  constexpr auto funct3_bits = 0b011;         // ld
+  constexpr auto load_and_funct = load_instr_bits | (funct3_bits << 12);
 
   const auto dest_reg_bits = rd & 0b11111;
   const auto source_reg_bits = rs & 0b11111;
@@ -82,26 +101,31 @@ RISCV_Instruction create_load_doubleword(uint8_t rd, uint8_t rs, int16_t imm) {
   return out;
 }
 
-uint64_t *get_compact_and_cache_instr_args(Instruction &instr) {
-  if (instr.compacted_args != nullptr) {
-    return instr.compacted_args;
+uint64_t *get_compact_and_cache_instr_args(const CodeChunk &code_chunk,
+                                           size_t index) {
+
+  auto &c_args_ptr = code_chunk.compacted_arg_p_array[index];
+  const auto &args = code_chunk.instructions[index].arguments;
+
+  if (c_args_ptr != nullptr) {
+    return c_args_ptr;
   }
 
-  auto num_args = instr.arguments.size();
+  auto num_args = args.size();
 
-  instr.compacted_args = new uint64_t[num_args];
+  c_args_ptr = new uint64_t[num_args];
 
   // do compaction
   for (size_t i = 0; i < num_args; i++) {
-    const auto &argument = instr.arguments[i];
+    const auto &argument = args[i];
 
     // not implemented yet
     assert(argument.tag != EXT_LIST_TAG && argument.tag != EXT_ALLOC_LIST_TAG);
 
-    instr.compacted_args[i] = argument.arg_raw.arg_num;
+    c_args_ptr[i] = argument.arg_raw.arg_num;
   }
 
-  return instr.compacted_args;
+  return c_args_ptr;
 }
 
 void spawn_process(const CodeChunk &code_chunk, FunctionIdentifier f_id) {
@@ -112,13 +136,14 @@ void spawn_process(const CodeChunk &code_chunk, FunctionIdentifier f_id) {
   [[maybe_unused]] ErlTerm *stop = arena + (ARENA_SIZE - 1);
   [[maybe_unused]] ErlTerm *htop = arena;
 
-  Instruction *start_instruction_p = code_chunk.function_table.at(f_id);
+  auto start_instruction_index = code_chunk.function_table.at(f_id);
 
   // TODO fix the constructor for this
   ProcessControlBlock pcb;
 
   [[maybe_unused]]
-  uint8_t *code = translate_function(start_instruction_p, &pcb);
+  auto code = translate_function(code_chunk.instructions.data(),
+                                 start_instruction_index, &pcb);
   // cache code?
   // load code
   // execute code

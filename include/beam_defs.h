@@ -2,7 +2,7 @@
 #include "op_arity.h"
 
 #include <cstdint>
-#include <optional>
+#include <cstring>
 #include <unordered_map>
 #include <vector>
 
@@ -49,7 +49,6 @@ struct Argument {
 struct Instruction {
   OpCode opCode;
   std::vector<Argument> arguments;
-  uint64_t *compacted_args = nullptr;
 };
 
 struct FunctionIdentifier {
@@ -70,8 +69,8 @@ template <> struct std::hash<FunctionIdentifier> {
   }
 };
 
-using FunctionTable = std::unordered_map<FunctionIdentifier, Instruction *>;
-using LabelTable = std::vector<Instruction *>;
+using FunctionTable = std::unordered_map<FunctionIdentifier, size_t>;
+using LabelTable = std::vector<size_t>;
 
 struct CodeChunk {
   std::vector<Instruction> instructions;
@@ -81,12 +80,19 @@ struct CodeChunk {
   FunctionTable function_table;
   LabelTable label_table;
 
+  uint64_t **compacted_arg_p_array;
+
   CodeChunk(std::vector<Instruction> instructions, uint32_t function_count,
             uint32_t label_count, FunctionTable function_table,
             LabelTable label_table)
       : instructions(std::move(instructions)), function_count(function_count),
         label_count(label_count), function_table(std::move(function_table)),
-        label_table(std::move(label_table)) {}
+        label_table(std::move(label_table)) {
+
+    const auto len = instructions.size();
+    compacted_arg_p_array = new uint64_t *[len];
+    std::fill(compacted_arg_p_array, compacted_arg_p_array + len, nullptr);
+  }
 };
 
 struct AtomChunk {

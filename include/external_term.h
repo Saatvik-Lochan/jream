@@ -1,6 +1,5 @@
 #ifndef EXTERNAL_TERM
 #define EXTERNAL_TERM
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <string>

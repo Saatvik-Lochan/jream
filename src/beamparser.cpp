@@ -66,7 +66,7 @@ constexpr std::string TagToString(Tag tag) {
   case TYPED_REGISTER_TAG:
     return "Typed Register";
   default:
-    LOG(FATAL) << "unknown tag";
+    throw std::logic_error("unknown tag");
   }
 }
 
@@ -122,11 +122,12 @@ enum Tag parse_tag(uint8_t tag_byte) {
     case 0b101:
       return TYPED_REGISTER_TAG;
     default:
-      LOG(FATAL) << std::format("No such tag: {:08b}", tag_byte);
+      std::string err_msg = std::format("No such tag: {:08b}", tag_byte);
+      throw std::logic_error(err_msg);
     }
   }
   default:
-    LOG(FATAL) << "Cannot reach here";
+    throw std::logic_error("Cannot reach here");
   }
 }
 
@@ -367,9 +368,11 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
   LabelTable label_table;
   label_table.reserve(label_count + 1);
 
-  label_table.push_back(nullptr); // dummy value so indexing works correctly
+  label_table.push_back(0); // dummy value so indexing works correctly
 
-  for (auto instr : instructions) {
+  for (size_t i = 0; i < instructions.size(); i++) {
+    auto &instr = instructions[i];
+
     LOG(WARNING) << op_names[instr.opCode];
 
     if (instr.opCode == FUNC_INFO_OP) {
@@ -392,7 +395,7 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
     }
 
     if (instr.opCode == LABEL_OP) {
-      label_table.push_back(&instr);
+      label_table.push_back(i);
     }
   }
 
@@ -498,8 +501,8 @@ BeamFile read_chunks(const std::string &filename) {
     } else if (module_name == "Code") {
       try {
         // use size, not the aligned chunk size here
-        code_chunk = parse_code_chunk(
-            input, chunk_start + static_cast<std::streamoff>(raw_size));
+        code_chunk = std::optional(parse_code_chunk(
+            input, chunk_start + static_cast<std::streamoff>(raw_size)));
       } catch (NotImplementedException *e) {
         LOG(WARNING) << e->what() << std::endl;
       }
@@ -526,4 +529,3 @@ void setup_logging(char *filename) {
   google::FlushLogFiles(google::INFO);
   google::InitGoogleLogging(filename);
 }
-
