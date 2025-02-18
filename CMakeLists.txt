@@ -43,8 +43,10 @@ set(SCRIPTS
   ${SCRIPTS_DIR}/instr_code_gen.py
 )
 set(ASM_OPS_DIR ${PROJECT_SOURCE_DIR}/assembly/ops)
+
 set(META_ASM_FILES
   ${ASM_OPS_DIR}/call_m.S
+  ${ASM_OPS_DIR}/allocate_m.S
 )
 
 # code generation
@@ -88,8 +90,8 @@ endfunction()
 configure_shared_variable_gen()
 
 # main executable
-add_executable(jream src/main.cpp)
-target_link_libraries(jream PRIVATE
+add_executable(trial src/trial_jit.cpp)
+target_link_libraries(trial PRIVATE
   jreamlib
 )
 

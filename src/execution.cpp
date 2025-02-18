@@ -2,6 +2,8 @@
 
 #include <cassert>
 #include <cstdint>
+#include <stdexcept>
+#include <sys/mman.h>
 
 #include "beam_defs.h"
 #include "execution.h"
@@ -11,11 +13,12 @@
 
 // garbage collection is tricky
 std::vector<uint8_t> translate_function(const Instruction *code_start,
-                                        size_t func_start_instr_index,
-                                        ProcessControlBlock *pcb_p) {
+                                        size_t func_start_instr_index) {
   std::vector<uint8_t> compiled;
   std::unordered_map<uint64_t, size_t> label_pointers;
 
+  // TODO handle last function. Fix the bounds of this loop
+  // Maybe a start and end index
   for (size_t instr_index = func_start_instr_index; instr_index++;) {
     const auto &instr = code_start[instr_index];
 
@@ -143,11 +146,40 @@ void spawn_process(const CodeChunk &code_chunk, FunctionIdentifier f_id) {
 
   [[maybe_unused]]
   auto code = translate_function(code_chunk.instructions.data(),
-                                 start_instruction_index, &pcb);
+                                 start_instruction_index);
   // cache code?
   // load code
   // execute code
 
   // have to deal with reducing reductions on a call as well, then
   // do more scheduling shit
+}
+
+typedef void (*func_p)();
+
+func_p move_code_to_memory(const std::vector<uint8_t> &code) {
+  // allocate page aligned memory
+  void *const allocated_mem = mmap(0, code.size(), PROT_READ | PROT_WRITE,
+                                   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+  if (allocated_mem == MAP_FAILED) {
+    std::string msg =
+        std::format("Could not allocate memory with mmap. Errno: {}", errno);
+    throw std::runtime_error(msg);
+  }
+
+  std::copy(code.begin(), code.end(),
+            reinterpret_cast<uint8_t *>(allocated_mem));
+
+  // make memory executable
+  const auto result =
+      mprotect(allocated_mem, code.size(), PROT_READ | PROT_EXEC);
+
+  if (result == -1) {
+    std::string msg =
+        std::format("Could not make memory executable. Errno: {}", errno);
+    throw std::runtime_error(msg);
+  }
+
+  return reinterpret_cast<func_p>(allocated_mem);
 }

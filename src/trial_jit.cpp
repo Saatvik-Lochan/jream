@@ -11,8 +11,8 @@
 
 // memory allocated on the page boundary
 void *alloc_writable_memory(size_t size) {
-  void *ptr =
-      mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  void *ptr = 
+    mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (ptr == (void *)-1) {
     perror("mmap");
     return NULL;

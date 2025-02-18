@@ -2,12 +2,12 @@
 addi sp, sp, -8
 sd ra, 0(sp)
 
+ld t0, 0(sp)
+
 # call
 load_arg t0, 1
 load_shared t0, ARENA
 call_cxx_fun PRINT_INT
-
-# comment change
 
 # restore ra
 ld ra, 0(sp)
