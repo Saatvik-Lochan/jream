@@ -9,6 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic")
 
 # packages
+include(${CMAKE_BINARY_DIR}/conan_toolchain.cmake)
 find_package(glog REQUIRED)
 find_package(ZLIB REQUIRED)
 
