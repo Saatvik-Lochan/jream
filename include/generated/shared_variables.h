@@ -4,10 +4,10 @@
 const int SHARED_FIELDS = 6;
 
 enum PCBSharedFields {
-  ARENA_SIZE = 0,
-  STOP = 1,
-  ARENA = 2,
-  HTOP = 3,
-  NEW_ARENA = 4,
-  STUFFF = 5,
+  NEW_ARENA = 0,
+  HTOP = 1,
+  STOP = 2,
+  STUFFF = 3,
+  ARENA_SIZE = 4,
+  ARENA = 5,
 };

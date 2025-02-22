@@ -5,22 +5,54 @@
 #include <stdexcept>
 #include <sys/mman.h>
 
+#include "asm_callable.h"
 #include "beam_defs.h"
 #include "execution.h"
 #include "instr_code.h"
 #include "op_arity.h"
 #include "pcb.h"
 
+uint64_t *get_compact_and_cache_instr_args(const CodeChunk &code_chunk,
+                                           size_t index) {
+
+  auto &c_args_ptr = code_chunk.compacted_arg_p_array[index];
+  const auto &args = code_chunk.instructions[index].arguments;
+
+  if (c_args_ptr != nullptr) {
+    return c_args_ptr;
+  }
+
+  auto num_args = args.size();
+
+  c_args_ptr = new uint64_t[num_args];
+
+  // do compaction
+  for (size_t i = 0; i < num_args; i++) {
+    const auto &argument = args[i];
+
+    // not implemented yet
+    assert(argument.tag != EXT_LIST_TAG && argument.tag != EXT_ALLOC_LIST_TAG);
+
+    c_args_ptr[i] = argument.arg_raw.arg_num;
+  }
+
+  return c_args_ptr;
+}
+
 // garbage collection is tricky
-std::vector<uint8_t> translate_function(const Instruction *code_start,
-                                        size_t func_start_instr_index) {
+std::vector<uint8_t> translate_function(const CodeChunk &code_chunk,
+                                        CodeSection code_sec) {
   std::vector<uint8_t> compiled;
   std::unordered_map<uint64_t, size_t> label_pointers;
 
   // TODO handle last function. Fix the bounds of this loop
   // Maybe a start and end index
-  for (size_t instr_index = func_start_instr_index; instr_index++;) {
-    const auto &instr = code_start[instr_index];
+  for (size_t instr_index = code_sec.start; instr_index < code_sec.end;
+       instr_index++) {
+
+    get_compact_and_cache_instr_args(code_chunk, instr_index);
+
+    const auto &instr = code_chunk.instructions[instr_index];
 
     switch (instr.opCode) {
     case LABEL_OP: {
@@ -34,11 +66,7 @@ std::vector<uint8_t> translate_function(const Instruction *code_start,
       break;
     }
 
-    case FUNC_INFO_OP: { // could check function identifier instead
-      if (instr_index > func_start_instr_index + 1) {
-        goto end;
-      }
-
+    case FUNC_INFO_OP: { // could assert on function identifier
       break;
     }
     default: {
@@ -53,9 +81,8 @@ std::vector<uint8_t> translate_function(const Instruction *code_start,
     }
     }
   }
-// TODO remove this
-end:
 
+  // TODO fix the setup and teardown (we need to save s3 as well)!
   auto setup_code = {
       0x13, 0x01, 0x81, 0xfe, // addi sp, sp, -24
       0x23, 0x30, 0x91, 0x00, // sd s1, 0(sp)
@@ -104,49 +131,9 @@ RISCV_Instruction create_load_doubleword(uint8_t rd, uint8_t rs, int16_t imm) {
   return out;
 }
 
-uint64_t *get_compact_and_cache_instr_args(const CodeChunk &code_chunk,
-                                           size_t index) {
-
-  auto &c_args_ptr = code_chunk.compacted_arg_p_array[index];
-  const auto &args = code_chunk.instructions[index].arguments;
-
-  if (c_args_ptr != nullptr) {
-    return c_args_ptr;
-  }
-
-  auto num_args = args.size();
-
-  c_args_ptr = new uint64_t[num_args];
-
-  // do compaction
-  for (size_t i = 0; i < num_args; i++) {
-    const auto &argument = args[i];
-
-    // not implemented yet
-    assert(argument.tag != EXT_LIST_TAG && argument.tag != EXT_ALLOC_LIST_TAG);
-
-    c_args_ptr[i] = argument.arg_raw.arg_num;
-  }
-
-  return c_args_ptr;
-}
-
 void spawn_process(const CodeChunk &code_chunk, FunctionIdentifier f_id) {
   // initialise memory
   //  i.e. stack + heap (and old heap)
-  const size_t ARENA_SIZE = 1024;
-  [[maybe_unused]] ErlTerm *arena = new ErlTerm[ARENA_SIZE];
-  [[maybe_unused]] ErlTerm *stop = arena + (ARENA_SIZE - 1);
-  [[maybe_unused]] ErlTerm *htop = arena;
-
-  auto start_instruction_index = code_chunk.function_table.at(f_id);
-
-  // TODO fix the constructor for this
-  ProcessControlBlock pcb;
-
-  [[maybe_unused]]
-  auto code = translate_function(code_chunk.instructions.data(),
-                                 start_instruction_index);
   // cache code?
   // load code
   // execute code
@@ -155,9 +142,7 @@ void spawn_process(const CodeChunk &code_chunk, FunctionIdentifier f_id) {
   // do more scheduling shit
 }
 
-typedef void (*func_p)();
-
-func_p move_code_to_memory(const std::vector<uint8_t> &code) {
+compiled_func_p move_code_to_memory(const std::vector<uint8_t> &code) {
   // allocate page aligned memory
   void *const allocated_mem = mmap(0, code.size(), PROT_READ | PROT_WRITE,
                                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -181,5 +166,19 @@ func_p move_code_to_memory(const std::vector<uint8_t> &code) {
     throw std::runtime_error(msg);
   }
 
-  return reinterpret_cast<func_p>(allocated_mem);
+  return reinterpret_cast<compiled_func_p>(allocated_mem);
+}
+
+void run_code_section(CodeChunk &code_chunk, const CodeSection code_sec,
+                      ProcessControlBlock *pcb) {
+  auto &cached = code_chunk.cached_code_sections;
+
+  if (!cached.contains(code_sec)) {
+    auto code = translate_function(code_chunk, code_sec);
+    auto func = move_code_to_memory(code);
+    cached[code_sec] = func;
+  }
+
+  compiled_func_p func = cached[code_sec];
+  func(pcb, all_funs, code_chunk.compacted_arg_p_array);
 }

@@ -5,10 +5,6 @@
 
 #include "generated/shared_variables.h"
 
-struct ProcessControlBlock {
-  volatile uint64_t shared[SHARED_FIELDS];
-};
-
 template <PCBSharedFields> struct getFieldType {
   using type = void;
 };
@@ -25,10 +21,18 @@ template <> struct getFieldType<ARENA_SIZE> {
   using type = uint64_t;
 };
 
-template <PCBSharedFields Field>
-inline typename getFieldType<Field>::type
-get_shared(const ProcessControlBlock &pcb) {
-  return reinterpret_cast<getFieldType<Field>::type>(pcb.shared[Field]);
-}
+struct ProcessControlBlock {
+  volatile uint64_t shared[SHARED_FIELDS];
+
+  template <PCBSharedFields Field>
+  inline typename getFieldType<Field>::type get_shared() {
+    return reinterpret_cast<getFieldType<Field>::type>(this->shared[Field]);
+  }
+
+  template <PCBSharedFields Field>
+  inline void set_shared(typename getFieldType<Field>::type new_val) {
+    this->shared[Field] = reinterpret_cast<uint64_t>(new_val);
+  }
+};
 
 #endif

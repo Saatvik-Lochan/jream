@@ -1,5 +1,6 @@
 #include "external_term.h"
 #include "op_arity.h"
+#include "pcb.h"
 
 #include <cstdint>
 #include <cstring>
@@ -69,11 +70,28 @@ template <> struct std::hash<FunctionIdentifier> {
   }
 };
 
+struct CodeSection {
+  uint64_t start;
+  uint64_t end;
+
+  bool operator==(const CodeSection &other) const = default;
+};
+
+template <> struct std::hash<CodeSection> {
+  size_t operator()(const CodeSection &cs) const {
+    return std::hash<size_t>{}(cs.start) ^ std::hash<size_t>{}(cs.end);
+  }
+};
+
+typedef void (*compiled_func_p)(ProcessControlBlock *pcb,
+                                std::uintptr_t func_array[],
+                                uint64_t **arg_array);
+
 using FunctionTable = std::unordered_map<FunctionIdentifier, size_t>;
 using LabelTable = std::vector<size_t>;
 
 struct CodeChunk {
-  std::vector<Instruction> instructions;
+  const std::vector<Instruction> instructions;
   uint32_t function_count;
   uint32_t label_count;
 
@@ -81,6 +99,7 @@ struct CodeChunk {
   LabelTable label_table;
 
   uint64_t **compacted_arg_p_array;
+  std::unordered_map<CodeSection, compiled_func_p> cached_code_sections;
 
   CodeChunk(std::vector<Instruction> instructions, uint32_t function_count,
             uint32_t label_count, FunctionTable function_table,
