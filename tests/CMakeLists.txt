@@ -15,6 +15,6 @@ add_executable(jream_tests
 )
 target_link_libraries(jream_tests PRIVATE
   jreamlib
-  gtest_main
-  ${STATIC_GLOG_PATH}
+  gtest
+  glog
 )

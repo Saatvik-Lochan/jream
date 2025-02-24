@@ -4,4 +4,16 @@
 # ASSUME s2 holds a pointer to the argument array for this instr
 
 # this is allocate
-ld t0, 8(s3) # generated from 'load_arg t0, 1'
+ld t0, 0(s3) # generated from 'load_arg t0, 0'
+ld t1, 8(s1) # generated from 'load_shared t1, STOP'
+
+# mul 8
+
+li a0, 5
+jalr ra, s4, 0 # generated from 'call_cxx_fun print_int'
+
+sll t0, t0, 3
+ld t2, 0(t1)
+add t2, t2, t0
+
+sd t2, 0(t1)

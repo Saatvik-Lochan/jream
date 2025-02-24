@@ -1,5 +1,6 @@
 #include "../include/beam_defs.h"
 #include "../include/execution.h"
+#include "../include/setup_logging.h"
 #include <gtest/gtest.h>
 
 TEST(Assembly, CreateLoadDoubleWord) {
@@ -43,4 +44,10 @@ TEST(RISC, Allocate) {
   // then
   auto val = pcb.get_shared<STOP>();
   ASSERT_EQ(val, e + 3);
+}
+
+int main(int argc, char **argv) {
+  setup_logging(argv[0]);
+  testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
 }

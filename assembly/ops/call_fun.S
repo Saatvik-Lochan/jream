@@ -11,7 +11,7 @@ ld t0, 0(sp)
 
 # call
 ld t0, 8(s3) # generated from 'load_arg t0, 1'
-ld t0, 32(s1) # generated from 'load_shared t0, ARENA'
+ld t0, 0(s1) # generated from 'load_shared t0, ARENA'
 jalr ra, s4, 0 # generated from 'call_cxx_fun PRINT_INT'
 
 # restore ra

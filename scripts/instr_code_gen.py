@@ -38,7 +38,10 @@ def case_from_file(file: Path):
     result = subprocess.run([script_path, file, callable_fun_file],
                             text=True, capture_output=True)
 
-    result.check_returncode()
+    if result.returncode != 0:
+        print(result.stderr)
+        exit()
+
     byte_array_str = result.stdout.strip()
 
     # get enum name from file

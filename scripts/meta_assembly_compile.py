@@ -48,7 +48,7 @@ def transform_if_necessary(line: str):
         assert (len(tokens) == 2)
         assert (tokens[0] == "call_cxx_fun")
 
-        fun_name = tokens[1]
+        fun_name = tokens[1].upper()
         fun_index = get_fun_index(fun_name)
 
         # check that we aren't giving a too large immediate
@@ -78,7 +78,7 @@ with open(callable_fun_file) as f:
         match = re.search("// m_asm: (.*)", line)
 
         if match:
-            fun_name = match.group(1).strip()
+            fun_name = match.group(1).strip().upper()
             get_fun_index.mapping[fun_name] = get_fun_index.count
             get_fun_index.count += 1
 
@@ -95,4 +95,5 @@ with open(filename) as meta_asm_file:
         raw_asm_file.writelines(disclaimer_lines)
 
         for line in meta_asm_file:
-            raw_asm_file.write(transform_if_necessary(line))
+            cleaned_line = line.strip(" ")
+            raw_asm_file.write(transform_if_necessary(cleaned_line))

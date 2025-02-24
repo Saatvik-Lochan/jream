@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <stdexcept>
 #include <sys/mman.h>
-#include <utility>
 
 #include "asm_callable.h"
 #include "beam_defs.h"
@@ -173,11 +172,11 @@ compiled_func_p move_code_to_memory(const std::vector<uint8_t> &code) {
 
 void run_code_section(CodeChunk &code_chunk, const CodeSection code_sec,
                       ProcessControlBlock *pcb) {
-  LOG(INFO) << "I was here";
   auto &cached = code_chunk.cached_code_sections;
 
   if (!cached.contains(code_sec)) {
     auto code = translate_function(code_chunk, code_sec);
+
     auto func = move_code_to_memory(code);
     cached[code_sec] = func;
   }
