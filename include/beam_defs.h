@@ -91,7 +91,7 @@ using FunctionTable = std::unordered_map<FunctionIdentifier, size_t>;
 using LabelTable = std::vector<size_t>;
 
 struct CodeChunk {
-  const std::vector<Instruction> instructions;
+  std::vector<Instruction> instructions;
   uint32_t function_count;
   uint32_t label_count;
 

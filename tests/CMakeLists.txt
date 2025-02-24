@@ -1,5 +1,4 @@
 # add gtest
-include(FetchContent)
 FetchContent_Declare(
   googletest
   GIT_REPOSITORY https://github.com/google/googletest  
@@ -17,5 +16,5 @@ add_executable(jream_tests
 target_link_libraries(jream_tests PRIVATE
   jreamlib
   gtest_main
-  glog::glog
+  ${STATIC_GLOG_PATH}
 )

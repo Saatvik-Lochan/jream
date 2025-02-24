@@ -9,8 +9,19 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic")
 
 # packages
-find_package(glog REQUIRED)
+# Want to support cross compilation, so must prefer static libs
+# and building from source with FetchContent
+set(ZLIB_USE_STATIC_LIBS ON)
 find_package(ZLIB REQUIRED)
+
+include(FetchContent)
+FetchContent_Declare(
+  glog
+  GIT_REPOSITORY https://github.com/google/glog.git
+  GIT_TAG v0.7.1
+)
+
+FetchContent_MakeAvailable(glog)
 
 # main library
 add_library(jreamlib 
@@ -18,9 +29,11 @@ add_library(jreamlib
   src/exceptions.cpp
   src/execution.cpp
   src/external_term.cpp
+  src/asm_callable.cpp
   src/generated/instr_code.cpp
 )
 
+target_compile_definitions (jreamlib PUBLIC GLOG_USE_GLOG_EXPORT)
 target_link_libraries(jreamlib PRIVATE
   glog::glog
   ZLIB::ZLIB

@@ -524,8 +524,3 @@ BeamFile read_chunks(const std::string &filename) {
   return BeamFile(*atom_chunk, *code_chunk, *literal_chunk);
 }
 
-void setup_logging(char *filename) {
-  FLAGS_log_dir = "/tmp";
-  google::FlushLogFiles(google::INFO);
-  google::InitGoogleLogging(filename);
-}

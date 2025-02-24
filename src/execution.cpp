@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <stdexcept>
 #include <sys/mman.h>
+#include <utility>
 
 #include "asm_callable.h"
 #include "beam_defs.h"
@@ -29,6 +30,7 @@ uint64_t *get_compact_and_cache_instr_args(const CodeChunk &code_chunk,
   // do compaction
   for (size_t i = 0; i < num_args; i++) {
     const auto &argument = args[i];
+
 
     // not implemented yet
     assert(argument.tag != EXT_LIST_TAG && argument.tag != EXT_ALLOC_LIST_TAG);
@@ -171,6 +173,7 @@ compiled_func_p move_code_to_memory(const std::vector<uint8_t> &code) {
 
 void run_code_section(CodeChunk &code_chunk, const CodeSection code_sec,
                       ProcessControlBlock *pcb) {
+  LOG(INFO) << "I was here";
   auto &cached = code_chunk.cached_code_sections;
 
   if (!cached.contains(code_sec)) {
