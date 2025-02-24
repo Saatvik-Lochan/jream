@@ -35,6 +35,7 @@
 .cache
 build
 qemu_build
+debug_build
 **/__pycache__
 
 # binaries

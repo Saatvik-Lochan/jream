@@ -6,6 +6,7 @@
 #include <sys/mman.h>
 
 #include "asm_callable.h"
+#include "asm_utility.h"
 #include "beam_defs.h"
 #include "execution.h"
 #include "instr_code.h"
@@ -29,7 +30,6 @@ uint64_t *get_compact_and_cache_instr_args(const CodeChunk &code_chunk,
   // do compaction
   for (size_t i = 0; i < num_args; i++) {
     const auto &argument = args[i];
-
 
     // not implemented yet
     assert(argument.tag != EXT_LIST_TAG && argument.tag != EXT_ALLOC_LIST_TAG);
@@ -176,6 +176,7 @@ void run_code_section(CodeChunk &code_chunk, const CodeSection code_sec,
 
   if (!cached.contains(code_sec)) {
     auto code = translate_function(code_chunk, code_sec);
+    LOG(INFO) << code;
 
     auto func = move_code_to_memory(code);
     cached[code_sec] = func;

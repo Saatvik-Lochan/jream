@@ -1,0 +1,212 @@
+[
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_USE_GLOG_EXPORT -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/include -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src  -Wall -pedantic -std=c++20 -o CMakeFiles/jreamlib.dir/src/beamparser.cpp.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/src/beamparser.cpp",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/src/beamparser.cpp",
+  "output": "CMakeFiles/jreamlib.dir/src/beamparser.cpp.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_USE_GLOG_EXPORT -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/include -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src  -Wall -pedantic -std=c++20 -o CMakeFiles/jreamlib.dir/src/exceptions.cpp.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/src/exceptions.cpp",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/src/exceptions.cpp",
+  "output": "CMakeFiles/jreamlib.dir/src/exceptions.cpp.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_USE_GLOG_EXPORT -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/include -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src  -Wall -pedantic -std=c++20 -o CMakeFiles/jreamlib.dir/src/execution.cpp.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/src/execution.cpp",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/src/execution.cpp",
+  "output": "CMakeFiles/jreamlib.dir/src/execution.cpp.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_USE_GLOG_EXPORT -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/include -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src  -Wall -pedantic -std=c++20 -o CMakeFiles/jreamlib.dir/src/external_term.cpp.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/src/external_term.cpp",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/src/external_term.cpp",
+  "output": "CMakeFiles/jreamlib.dir/src/external_term.cpp.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_USE_GLOG_EXPORT -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/include -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src  -Wall -pedantic -std=c++20 -o CMakeFiles/jreamlib.dir/src/asm_callable.cpp.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/src/asm_callable.cpp",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/src/asm_callable.cpp",
+  "output": "CMakeFiles/jreamlib.dir/src/asm_callable.cpp.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_USE_GLOG_EXPORT -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/include -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src  -Wall -pedantic -std=c++20 -o CMakeFiles/jreamlib.dir/src/generated/instr_code.cpp.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/src/generated/instr_code.cpp",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/src/generated/instr_code.cpp",
+  "output": "CMakeFiles/jreamlib.dir/src/generated/instr_code.cpp.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu    -Wall -pedantic -std=c++20 -o CMakeFiles/trial.dir/src/trial_jit.cpp.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/src/trial_jit.cpp",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/src/trial_jit.cpp",
+  "output": "CMakeFiles/trial.dir/src/trial_jit.cpp.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_USE_GLOG_EXPORT -DGOOGLE_GLOG_IS_A_DLL -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/glog_internal.dir/src/demangle.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/demangle.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/demangle.cc",
+  "output": "_deps/glog-build/CMakeFiles/glog_internal.dir/src/demangle.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_USE_GLOG_EXPORT -DGOOGLE_GLOG_IS_A_DLL -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/glog_internal.dir/src/flags.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/flags.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/flags.cc",
+  "output": "_deps/glog-build/CMakeFiles/glog_internal.dir/src/flags.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_USE_GLOG_EXPORT -DGOOGLE_GLOG_IS_A_DLL -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/glog_internal.dir/src/logging.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/logging.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/logging.cc",
+  "output": "_deps/glog-build/CMakeFiles/glog_internal.dir/src/logging.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_USE_GLOG_EXPORT -DGOOGLE_GLOG_IS_A_DLL -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/glog_internal.dir/src/raw_logging.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/raw_logging.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/raw_logging.cc",
+  "output": "_deps/glog-build/CMakeFiles/glog_internal.dir/src/raw_logging.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_USE_GLOG_EXPORT -DGOOGLE_GLOG_IS_A_DLL -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/glog_internal.dir/src/signalhandler.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/signalhandler.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/signalhandler.cc",
+  "output": "_deps/glog-build/CMakeFiles/glog_internal.dir/src/signalhandler.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_USE_GLOG_EXPORT -DGOOGLE_GLOG_IS_A_DLL -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/glog_internal.dir/src/stacktrace.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/stacktrace.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/stacktrace.cc",
+  "output": "_deps/glog-build/CMakeFiles/glog_internal.dir/src/stacktrace.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_USE_GLOG_EXPORT -DGOOGLE_GLOG_IS_A_DLL -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/glog_internal.dir/src/symbolize.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/symbolize.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/symbolize.cc",
+  "output": "_deps/glog-build/CMakeFiles/glog_internal.dir/src/symbolize.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_USE_GLOG_EXPORT -DGOOGLE_GLOG_IS_A_DLL -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/glog_internal.dir/src/utilities.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/utilities.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/utilities.cc",
+  "output": "_deps/glog-build/CMakeFiles/glog_internal.dir/src/utilities.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_USE_GLOG_EXPORT -DGOOGLE_GLOG_IS_A_DLL -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/glog_internal.dir/src/vlog_is_on.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/vlog_is_on.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/vlog_is_on.cc",
+  "output": "_deps/glog-build/CMakeFiles/glog_internal.dir/src/vlog_is_on.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_USE_GLOG_EXPORT -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/glog.dir/CMakeFiles/glog.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build/CMakeFiles/glog.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build/CMakeFiles/glog.cc",
+  "output": "_deps/glog-build/CMakeFiles/glog.dir/CMakeFiles/glog.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_STATIC_DEFINE -DGLOG_USE_GLOG_EXPORT -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIE -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/logging_unittest.dir/src/logging_unittest.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/logging_unittest.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/logging_unittest.cc",
+  "output": "_deps/glog-build/CMakeFiles/logging_unittest.dir/src/logging_unittest.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_STATIC_DEFINE -DGLOG_USE_GLOG_EXPORT -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIE -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/stl_logging_unittest.dir/src/stl_logging_unittest.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/stl_logging_unittest.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/stl_logging_unittest.cc",
+  "output": "_deps/glog-build/CMakeFiles/stl_logging_unittest.dir/src/stl_logging_unittest.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_STATIC_DEFINE -DGLOG_USE_GLOG_EXPORT -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIE -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/symbolize_unittest.dir/src/symbolize_unittest.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/symbolize_unittest.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/symbolize_unittest.cc",
+  "output": "_deps/glog-build/CMakeFiles/symbolize_unittest.dir/src/symbolize_unittest.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_STATIC_DEFINE -DGLOG_USE_GLOG_EXPORT -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIE -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/demangle_unittest.dir/src/demangle_unittest.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/demangle_unittest.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/demangle_unittest.cc",
+  "output": "_deps/glog-build/CMakeFiles/demangle_unittest.dir/src/demangle_unittest.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_STATIC_DEFINE -DGLOG_USE_GLOG_EXPORT -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIE -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/stacktrace_unittest.dir/src/stacktrace_unittest.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/stacktrace_unittest.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/stacktrace_unittest.cc",
+  "output": "_deps/glog-build/CMakeFiles/stacktrace_unittest.dir/src/stacktrace_unittest.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_STATIC_DEFINE -DGLOG_USE_GLOG_EXPORT -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIE -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/utilities_unittest.dir/src/utilities_unittest.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/utilities_unittest.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/utilities_unittest.cc",
+  "output": "_deps/glog-build/CMakeFiles/utilities_unittest.dir/src/utilities_unittest.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_STATIC_DEFINE -DGLOG_USE_GLOG_EXPORT -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIE -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/signalhandler_unittest.dir/src/signalhandler_unittest.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/signalhandler_unittest.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/signalhandler_unittest.cc",
+  "output": "_deps/glog-build/CMakeFiles/signalhandler_unittest.dir/src/signalhandler_unittest.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_STATIC_DEFINE -DGLOG_USE_GLOG_EXPORT -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIE -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/cleanup_immediately_unittest.dir/src/cleanup_immediately_unittest.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/cleanup_immediately_unittest.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/cleanup_immediately_unittest.cc",
+  "output": "_deps/glog-build/CMakeFiles/cleanup_immediately_unittest.dir/src/cleanup_immediately_unittest.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_STATIC_DEFINE -DGLOG_USE_GLOG_EXPORT -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIE -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/cleanup_with_absolute_prefix_unittest.dir/src/cleanup_with_absolute_prefix_unittest.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/cleanup_with_absolute_prefix_unittest.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/cleanup_with_absolute_prefix_unittest.cc",
+  "output": "_deps/glog-build/CMakeFiles/cleanup_with_absolute_prefix_unittest.dir/src/cleanup_with_absolute_prefix_unittest.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_STATIC_DEFINE -DGLOG_USE_GLOG_EXPORT -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIE -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/cleanup_with_relative_prefix_unittest.dir/src/cleanup_with_relative_prefix_unittest.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/cleanup_with_relative_prefix_unittest.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/cleanup_with_relative_prefix_unittest.cc",
+  "output": "_deps/glog-build/CMakeFiles/cleanup_with_relative_prefix_unittest.dir/src/cleanup_with_relative_prefix_unittest.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_STATIC_DEFINE -DGLOG_USE_GLOG_EXPORT -DGOOGLE_STRIP_LOG=0 -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIE -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/striplog0_unittest.dir/src/striplog_unittest.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/striplog_unittest.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/striplog_unittest.cc",
+  "output": "_deps/glog-build/CMakeFiles/striplog0_unittest.dir/src/striplog_unittest.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_STATIC_DEFINE -DGLOG_USE_GLOG_EXPORT -DGOOGLE_STRIP_LOG=2 -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIE -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/striplog2_unittest.dir/src/striplog_unittest.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/striplog_unittest.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/striplog_unittest.cc",
+  "output": "_deps/glog-build/CMakeFiles/striplog2_unittest.dir/src/striplog_unittest.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_NO_SYMBOLIZE_DETECTION -DGLOG_STATIC_DEFINE -DGLOG_USE_GLOG_EXPORT -DGOOGLE_STRIP_LOG=10 -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build  -Wall -pedantic -std=c++20 -fPIE -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/striplog10_unittest.dir/src/striplog_unittest.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/striplog_unittest.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src/striplog_unittest.cc",
+  "output": "_deps/glog-build/CMakeFiles/striplog10_unittest.dir/src/striplog_unittest.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/tests",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu -DGLOG_USE_GLOG_EXPORT -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-build -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/glog-src/src -isystem /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googletest/include -isystem /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googletest  -Wall -pedantic -std=c++20 -o CMakeFiles/jream_tests.dir/test_main.cpp.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/tests/test_main.cpp",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/tests/test_main.cpp",
+  "output": "tests/CMakeFiles/jream_tests.dir/test_main.cpp.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-build/googlemock",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu  -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googlemock/include -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googlemock -isystem /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googletest/include -isystem /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googletest  -Wall -pedantic -std=c++20 -Wall -Wshadow -Wundef -Wno-error=dangling-else -DGTEST_HAS_PTHREAD=1 -fexceptions -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -o CMakeFiles/gmock.dir/src/gmock-all.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googlemock/src/gmock-all.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googlemock/src/gmock-all.cc",
+  "output": "_deps/googletest-build/googlemock/CMakeFiles/gmock.dir/src/gmock-all.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-build/googlemock",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu  -isystem /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googlemock/include -isystem /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googlemock -isystem /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googletest/include -isystem /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googletest  -Wall -pedantic -std=c++20 -Wall -Wshadow -Wundef -Wno-error=dangling-else -DGTEST_HAS_PTHREAD=1 -fexceptions -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -o CMakeFiles/gmock_main.dir/src/gmock_main.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googlemock/src/gmock_main.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googlemock/src/gmock_main.cc",
+  "output": "_deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/src/gmock_main.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-build/googletest",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu  -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googletest/include -I/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googletest  -Wall -pedantic -std=c++20 -Wall -Wshadow -Wundef -Wno-error=dangling-else -DGTEST_HAS_PTHREAD=1 -fexceptions -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -o CMakeFiles/gtest.dir/src/gtest-all.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googletest/src/gtest-all.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googletest/src/gtest-all.cc",
+  "output": "_deps/googletest-build/googletest/CMakeFiles/gtest.dir/src/gtest-all.cc.o"
+},
+{
+  "directory": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-build/googletest",
+  "command": "/usr/bin/riscv64-linux-gnu-g++ --sysroot=/usr/riscv64-linux-gnu  -isystem /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googletest/include -isystem /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googletest  -Wall -pedantic -std=c++20 -Wall -Wshadow -Wundef -Wno-error=dangling-else -DGTEST_HAS_PTHREAD=1 -fexceptions -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -o CMakeFiles/gtest_main.dir/src/gtest_main.cc.o -c /home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googletest/src/gtest_main.cc",
+  "file": "/home/saatvikl/Documents/studies/part-ii/project/main/shared/jream/qemu_build/_deps/googletest-src/googletest/src/gtest_main.cc",
+  "output": "_deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/src/gtest_main.cc.o"
+}
+]
