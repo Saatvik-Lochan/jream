@@ -5,7 +5,7 @@
 
 # this is allocate
 ld t0, 0(s3) # generated from 'load_arg t0, 0'
-ld t1, 0(s1) # generated from 'load_shared t1, STOP'
+ld t1, 8(s1) # generated from 'load_shared t1, STOP'
 
 # mul 8
 

@@ -8,8 +8,10 @@
 
 inline std::ostream &operator<<(std::ostream &os,
                                 const std::vector<uint8_t> &v) {
+
+  os << "printing vector:\n";
   for (auto e : v) {
-    os << std::format("{:02x}, ", e);
+    os << std::format("{:02x}, ", static_cast<unsigned int>(e));
   }
 
   return os;

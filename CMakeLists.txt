@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 project(jream LANGUAGES CXX)
 
-set(CMAKE_TOOLCHAIN_FILE riscv-TC.cmake)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -41,7 +40,7 @@ add_library(jreamlib
 
 # target_compile_definitions (jreamlib PUBLIC GLOG_USE_GLOG_EXPORT)
 target_link_libraries(jreamlib PRIVATE
-  glog::glog
+  glog
   zlib
 )
 target_include_directories(jreamlib PRIVATE
@@ -112,6 +111,7 @@ configure_shared_variable_gen()
 add_executable(trial src/trial_jit.cpp)
 target_link_libraries(trial PRIVATE
   jreamlib
+  glog
 )
 
 enable_testing()
