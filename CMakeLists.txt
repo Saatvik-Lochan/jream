@@ -38,7 +38,6 @@ add_library(jreamlib
   src/generated/instr_code.cpp
 )
 
-# target_compile_definitions (jreamlib PUBLIC GLOG_USE_GLOG_EXPORT)
 target_link_libraries(jreamlib PRIVATE
   glog
   zlib
