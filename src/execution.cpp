@@ -176,5 +176,5 @@ void run_code_section(CodeChunk &code_chunk, const CodeSection code_sec,
   }
 
   compiled_func_p func = cached[code_sec];
-  func(pcb, all_funs, code_chunk.compacted_arg_p_array);
+  func(pcb, code_chunk.compacted_arg_p_array, all_funs);
 }

@@ -56,9 +56,12 @@ def transform_if_necessary(line: str):
         assert (fun_index * 8 < 2048)
 
         # s4 is where we save the pointer to the function pointer array
+        # we can use t0 since it is call-clobbered anyway
         instructions = (
-            f"jalr ra, s4, {fun_index * 8} "
+            f"ld t0, {fun_index * 8}(s4) "
             f"# generated from '{line.strip()}'\n"
+            f"jalr t0 "
+            f"# cont..."
         )
 
         return instructions

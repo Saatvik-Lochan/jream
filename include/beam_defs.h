@@ -84,8 +84,8 @@ template <> struct std::hash<CodeSection> {
 };
 
 typedef void (*compiled_func_p)(ProcessControlBlock *pcb,
-                                std::uintptr_t func_array[],
-                                uint64_t **arg_array);
+                                uint64_t **arg_array,
+                                std::uintptr_t func_array[]);
 
 using FunctionTable = std::unordered_map<FunctionIdentifier, size_t>;
 using LabelTable = std::vector<size_t>;

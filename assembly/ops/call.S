@@ -11,9 +11,9 @@ sd ra, 0(sp)
 
 # call
 ld t0, 8(s3) # generated from 'load_arg t0, 1'
-ld t0, 8(s1) # generated from 'load_shared t0, ARENA_SIZE'
-jalr ra, s4, 0 # generated from 'call_cxx_fun PRINT_INT'
-
+ld t0, 40(s1) # generated from 'load_shared t0, ARENA_SIZE'
+ld t0, 0(s4) # generated from 'call_cxx_fun PRINT_INT'
+jalr t0 # cont...
 # restore ra
 ld ra, 0(sp)
 addi sp, sp, 8
