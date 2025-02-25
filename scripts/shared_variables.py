@@ -1,11 +1,11 @@
-shared_var_names = {
+shared_var_names = [
     "HTOP",
     "STOP",
     "ARENA",
     "ARENA_SIZE",
     "NEW_ARENA",
     "STUFFF",
-}
+]
 
 shared_variables = {
     name: index for index, name in enumerate(shared_var_names)

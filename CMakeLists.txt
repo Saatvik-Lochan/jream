@@ -98,7 +98,7 @@ function(configure_shared_variable_gen)
   add_custom_command(
     OUTPUT ${generated_file}
     COMMAND python ${generator_script} ${generated_file}
-    DEPENDS ${SCRIPTS}
+    DEPENDS ${generator_script} ${SCRIPTS_DIR}/shared_variables.py
     COMMENT "Generating ${generated_file}"
   )
   add_custom_target(shared_variables_gen

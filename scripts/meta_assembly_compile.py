@@ -29,6 +29,20 @@ def transform_if_necessary(line: str):
         return f"ld {register}, {index * 8}(s1) " + \
             f"# generated from '{line.strip()}'\n"
 
+    if line.startswith("store_shared"):
+        tokens = get_tokens(line)
+
+        assert (len(tokens) == 3)
+        assert (tokens[0] == "store_shared")
+        register = tokens[1]
+        index = shared_variables[tokens[2]]
+
+        # s1 is where we save the pointer to the shared variables
+        # we initially pass it in as an argument then save it
+        return f"sd {register}, {index * 8}(s1) " + \
+            f"# generated from '{line.strip()}'\n"
+
+
     if line.startswith("load_arg"):
         tokens = get_tokens(line)
 
@@ -90,7 +104,7 @@ disclaimer_lines = [
     f" APPLIED ON {filename}\n",
     "# ASSUME s1 holds a pointer to the pcb\n",
     "# ASSUME s2 holds a pointer to argument pointer array for all instr\n",
-    "# ASSUME s3 holds a pointer to the argument array for this instr\n\n",
+    "# ASSUME s3 holds a pointer to the argument array for this instr\n",
     "# ASSUME s4 holds a pointer to the array of all callable cxx funs\n\n",
 ]
 

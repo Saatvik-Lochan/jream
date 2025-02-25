@@ -43,7 +43,7 @@ TEST(RISC, Allocate) {
 
   // then
   auto val = pcb.get_shared<STOP>();
-  ASSERT_EQ(val, e + 3);
+  ASSERT_EQ(val, e + 3) << "'e' was " << e;
 }
 
 int main(int argc, char **argv) {

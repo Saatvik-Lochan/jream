@@ -2,16 +2,14 @@
 # ASSUME s1 holds a pointer to the pcb
 # ASSUME s2 holds a pointer to argument pointer array for all instr
 # ASSUME s3 holds a pointer to the argument array for this instr
-
 # ASSUME s4 holds a pointer to the array of all callable cxx funs
 
-# this is allocate
+# Allocate
 ld t0, 0(s3) # generated from 'load_arg t0, 0'
 ld t1, 8(s1) # generated from 'load_shared t1, STOP'
 
-# mul 8
-sll t0, t0, 3
-ld t2, 0(t1)
-add t2, t2, t0
+# mul 8 (width of an ErlTerm) (width of an ErlTerm)
+slli t0, t0, 3
+add t1, t1, t0
 
-sd t2, 0(t1)
+sd t1, 8(s1) # generated from 'store_shared t1, STOP'
