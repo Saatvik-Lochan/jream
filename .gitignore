@@ -50,4 +50,3 @@ main_debug
 *.dump
 *.beam
 compile_commands.json
-

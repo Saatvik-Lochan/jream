@@ -46,6 +46,24 @@ TEST(RISC, Allocate) {
   ASSERT_EQ(val, e + 3) << "'e' was " << e;
 }
 
+TEST(RISC, Deallocate) {
+  // given
+  auto instructions = {Instruction{DEALLOCATE_OP, {get_lit(3)}}};
+  auto code_chunk = create_code_chunk(std::move(instructions));
+
+  ErlTerm e[5];
+
+  ProcessControlBlock pcb;
+  pcb.set_shared<STOP>(e);
+
+  // when
+  run_code_section(code_chunk, CodeSection{0, 1}, &pcb);
+
+  // then
+  auto val = pcb.get_shared<STOP>();
+  ASSERT_EQ(val, e - 3) << "'e' was " << e;
+}
+
 int main(int argc, char **argv) {
   setup_logging(argv[0]);
   testing::InitGoogleTest(&argc, argv);
