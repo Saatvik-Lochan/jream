@@ -4,12 +4,13 @@
 #include <cstdint>
 #include <stdexcept>
 #include <sys/mman.h>
+#include <unordered_map>
 
 #include "asm_callable.h"
 #include "asm_utility.h"
 #include "beam_defs.h"
 #include "execution.h"
-#include "instr_code.h"
+#include "generated/instr_code.h"
 #include "op_arity.h"
 #include "pcb.h"
 
@@ -38,6 +39,25 @@ uint64_t *get_compact_and_cache_instr_args(const CodeChunk &code_chunk,
   }
 
   return c_args_ptr;
+}
+
+inline std::vector<uint8_t> get_riscv_from_snippet(OpCode op) {
+  AsmSnippet snip;
+
+  switch (op) {
+    case ALLOCATE_OP:
+      snip = ALLOCATE_SNIP;
+      break;
+
+    case DEALLOCATE_OP:
+      snip = DEALLOCATE_SNIP;
+      break;
+
+    default:
+      LOG(FATAL) << "No Snippet for Op " << op_names[op];
+  }
+
+  return get_riscv(snip);
 }
 
 // garbage collection is tricky
@@ -70,6 +90,7 @@ std::vector<uint8_t> translate_function(const CodeChunk &code_chunk,
     case FUNC_INFO_OP: { // could assert on function identifier
       break;
     }
+
     default: {
       // load the pointer at index'th value in the argument array (pointer to
       // this in s2=x18) to the s3=x19 register
@@ -77,22 +98,14 @@ std::vector<uint8_t> translate_function(const CodeChunk &code_chunk,
       compiled.insert(compiled.end(), load_instr.raw, load_instr.raw + 4);
 
       // get translated code
-      auto result = get_riscv(instr.opCode);
+      auto result = get_riscv_from_snippet(instr.opCode);
       compiled.insert(compiled.end(), result.begin(), result.end());
     }
     }
   }
 
-  // TODO comment with assembly
-  auto setup_code = {0x13, 0x01, 0x81, 0xfd, 0x23, 0x30, 0x91, 0x00, 0x23,
-                     0x34, 0x21, 0x01, 0x23, 0x38, 0x31, 0x01, 0x23, 0x3c,
-                     0x41, 0x01, 0x23, 0x30, 0x11, 0x02, 0x93, 0x04, 0x05,
-                     0x00, 0x13, 0x89, 0x05, 0x00, 0x13, 0x0a, 0x06, 0x00};
-
-  auto teardown_code = {0x83, 0x34, 0x01, 0x00, 0x03, 0x39, 0x81,
-                        0x00, 0x83, 0x39, 0x01, 0x01, 0x03, 0x3a,
-                        0x81, 0x01, 0x83, 0x30, 0x01, 0x02, 0x13,
-                        0x01, 0x81, 0x02, 0x67, 0x80, 0x00, 0x00};
+  auto setup_code = get_riscv(SETUP_SNIP);
+  auto teardown_code = get_riscv(TEARDOWN_SNIP);
 
   compiled.insert(compiled.begin(), setup_code.begin(), setup_code.end());
   compiled.insert(compiled.end(), teardown_code.begin(), teardown_code.end());

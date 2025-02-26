@@ -6,17 +6,3 @@ ld ra, 32(sp)
 addi sp, sp, 40
 
 ret
-
-
-
-
-
-
-
-
-
-
-
-
-
-

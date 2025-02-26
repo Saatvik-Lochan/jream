@@ -13,6 +13,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic")
 # Want to support cross compilation, so must prefer static libs
 # and building from source with FetchContent
 include(FetchContent)
+
+set(WITH_GFLAGS OFF)
+set(WITH_GTEST OFF)
+set(WITH_UNWIND OFF)
 FetchContent_Declare(
   glog
   GIT_REPOSITORY https://github.com/google/glog.git
@@ -59,30 +63,35 @@ set(SCRIPTS
   ${SCRIPTS_DIR}/meta_assembly_compile.py
   ${SCRIPTS_DIR}/instr_code_gen.py
 )
-set(ASM_OPS_DIR ${PROJECT_SOURCE_DIR}/assembly/ops)
 
-set(META_ASM_FILES
-  ${ASM_OPS_DIR}/call_m.S
-  ${ASM_OPS_DIR}/allocate_m.S
-  ${ASM_OPS_DIR}/deallocate_m.S
-)
+set(ASM_OPS_DIR ${PROJECT_SOURCE_DIR}/assembly)
+file(GLOB META_ASM_FILES CONFIGURE_DEPENDS "assembly/*_m.S")
 
 # code generation
 function(configure_instr_code_gen)
-  set(generated_file ${SOURCE_CODE_DIR}/generated/instr_code.cpp)
+  set(generated_src_file ${SOURCE_CODE_DIR}/generated/instr_code.cpp)
+  set(generated_header_file ${INCLUDE_DIR}/generated/instr_code.h)
+
+  set(generated_files 
+    ${generated_src_file} 
+    ${generated_header_file}
+  )
+
   set(generator_script ${SCRIPTS_DIR}/instr_code_gen.py)
   set(callable_fun_file ${INCLUDE_DIR}/asm_callable.h)
 
   add_custom_command(
-    OUTPUT ${generated_file}
+    OUTPUT ${generated_files}
     COMMAND python ${generator_script}
-      ${ASM_OPS_DIR}
-      ${generated_file}
+      ${PROJECT_SOURCE_DIR}
       ${callable_fun_file} 
+      ${ASM_OPS_DIR}
+      ${generated_src_file}
+      ${generated_header_file}
     DEPENDS
       ${SCRIPTS}
       ${META_ASM_FILES}
-    COMMENT "Generating ${generated_file}"
+    COMMENT "Generating ${generated_files}"
   )
   add_custom_target(instr_code_gen
     DEPENDS ${generated_file}
