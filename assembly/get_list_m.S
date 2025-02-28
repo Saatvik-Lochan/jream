@@ -5,5 +5,9 @@
 ##       Head and Tail.
 ##
 
-  load_arg t0, 0
-  ld t2, 0(t1)
+# assume that the pointer in Source is in t0
+
+  # untag the pointer
+  untag t0
+  ld t1, 0(t0)
+  ld t2, 8(t0)

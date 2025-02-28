@@ -1,3 +1,4 @@
+#include <array>
 #include <glog/logging.h>
 
 #include <cassert>
@@ -45,19 +46,137 @@ inline std::vector<uint8_t> get_riscv_from_snippet(OpCode op) {
   AsmSnippet snip;
 
   switch (op) {
-    case ALLOCATE_OP:
-      snip = ALLOCATE_SNIP;
-      break;
+  case ALLOCATE_OP:
+    snip = ALLOCATE_SNIP;
+    break;
 
-    case DEALLOCATE_OP:
-      snip = DEALLOCATE_SNIP;
-      break;
+  case DEALLOCATE_OP:
+    snip = DEALLOCATE_SNIP;
+    break;
 
-    default:
-      LOG(FATAL) << "No Snippet for Op " << op_names[op];
+  default:
+    LOG(FATAL) << "No Snippet for Op " << op_names[op];
   }
 
   return get_riscv(snip);
+}
+
+RISCV_Instruction create_R_type_instruction(uint8_t opCode, uint8_t rd,
+                                            uint8_t funct3_bits, uint8_t rs1,
+                                            int16_t imm) {
+  assert(-2047 < imm && imm < 2048);
+  assert(0 <= rd && rd < 32);
+  assert(0 <= rs1 && rs1 < 32);
+
+  uint32_t instr = 0;
+  auto load_and_funct = opCode | (funct3_bits << 12);
+
+  const auto dest_reg_bits = rd & 0b11111;
+  const auto source_reg_bits = rs1 & 0b11111;
+
+  instr |= load_and_funct;
+  instr |= dest_reg_bits << 7;
+  instr |= source_reg_bits << 15;
+  instr |= imm << 20;
+
+  RISCV_Instruction out(instr);
+  return out;
+}
+
+inline RISCV_Instruction create_load_doubleword(uint8_t rd, uint8_t rs,
+                                                int16_t imm) {
+  constexpr auto load_instr_bits = 0b0000011; // load
+  constexpr auto funct3_bits = 0b011;         // width
+
+  return create_R_type_instruction(load_instr_bits, rd, funct3_bits, rs, imm);
+}
+
+inline RISCV_Instruction create_store_doubleword(uint8_t rd, uint8_t rs,
+                                                 int16_t imm) {
+  constexpr auto load_instr_bits = 0b0100011; // store
+  constexpr auto funct3_bits = 0b011;         // width
+
+  return create_R_type_instruction(load_instr_bits, rd, funct3_bits, rs, imm);
+}
+
+inline RISCV_Instruction create_load_x_reg(uint8_t riscv_dest_reg,
+                                           int16_t x_reg_num,
+                                           uint8_t x_array_register) {
+
+  // ld riscv_dest_reg, x_reg_num(s5)
+  return create_load_doubleword(riscv_dest_reg, x_array_register, x_reg_num);
+}
+
+inline std::vector<RISCV_Instruction>
+create_load_y_reg(uint8_t riscv_dest_reg, uint16_t y_reg_num,
+                  uint8_t pcb_p_register) {
+
+  return std::vector<RISCV_Instruction>{
+      // ld riscv_dest_reg, STOP_index(pcb_p_register)
+      create_load_doubleword(riscv_dest_reg, pcb_p_register, STOP * 8),
+
+      // ld riscv_dest_reg, y_reg_num(riscv_dest_reg)
+      create_store_doubleword(riscv_dest_reg, riscv_dest_reg, y_reg_num)};
+}
+
+inline RISCV_Instruction create_store_x_reg(uint8_t riscv_dest_reg,
+                                            uint16_t x_reg_num,
+                                            uint8_t x_array_register) {
+  // sd riscv_dest_reg, x_reg_num(s5)
+  return create_store_doubleword(riscv_dest_reg, x_array_register, x_reg_num);
+}
+
+inline std::vector<RISCV_Instruction>
+create_store_y_reg(uint8_t riscv_dest_reg, uint16_t y_reg_num,
+                   uint8_t pcb_p_register) {
+
+  return std::vector<RISCV_Instruction>{
+      // ld riscv_dest_reg, STOP_index(pcb_p_register)
+      create_load_doubleword(riscv_dest_reg, pcb_p_register, STOP * 8),
+
+      // sd riscv_dest_reg, y_reg_num(riscv_dest_reg)
+      create_store_doubleword(riscv_dest_reg, riscv_dest_reg, y_reg_num)};
+}
+
+inline std::vector<RISCV_Instruction>
+create_load_appropriate(Argument arg, uint8_t dest_reg) {
+  switch (arg.tag) {
+  case X_REGISTER_TAG: {
+    // assume s5 is the x array register
+    return std::vector<RISCV_Instruction>{
+        create_load_x_reg(dest_reg, arg.arg_raw.arg_num, 21)};
+  }
+  case Y_REGISTER_TAG: {
+    // assumes s1 points to the pcb
+    return create_load_y_reg(dest_reg, arg.arg_raw.arg_num, 9);
+  }
+  case LITERAL_TAG: {
+    // TODO I am unsure if the 'LITERAL' tag is what I think it is
+    // return an empty vector as we don't need to make any changes
+    return std::vector<RISCV_Instruction>();
+  }
+  default:
+    throw std::logic_error(
+        std::format("Cannot load the tag {}", TagToString(arg.tag)));
+  }
+}
+
+inline std::vector<RISCV_Instruction>
+create_store_appropriate(Argument arg, uint8_t dest_reg) {
+  switch (arg.tag) {
+  case X_REGISTER_TAG: {
+    // assume s5 is the x array register
+    return std::vector<RISCV_Instruction>{
+        create_store_x_reg(dest_reg, arg.arg_raw.arg_num, 21)};
+  }
+  case Y_REGISTER_TAG: {
+    // assumes s1 points to the pcb
+    return create_store_y_reg(dest_reg, arg.arg_raw.arg_num, 9);
+  }
+  default:
+    throw std::logic_error(
+        std::format("Cannot store at this tag", TagToString(arg.tag)));
+  }
 }
 
 // garbage collection is tricky
@@ -91,6 +210,17 @@ std::vector<uint8_t> translate_function(const CodeChunk &code_chunk,
       break;
     }
 
+    case GET_LIST_OP: {
+      auto load_args = get_riscv(LOAD_3_ARGS_SNIP);
+
+      // load the register pointed at in t1
+      create_load_appropriate(instr.arguments[0], 5);
+
+      // store from t1 and t2
+      create_store_appropriate(instr.arguments[1], 6);
+      create_store_appropriate(instr.arguments[2], 7);
+    }
+
     default: {
       // load the pointer at index'th value in the argument array (pointer to
       // this in s2=x18) to the s3=x19 register
@@ -111,31 +241,6 @@ std::vector<uint8_t> translate_function(const CodeChunk &code_chunk,
   compiled.insert(compiled.end(), teardown_code.begin(), teardown_code.end());
 
   return compiled;
-}
-
-RISCV_Instruction create_load_doubleword(uint8_t rd, uint8_t rs, int16_t imm) {
-  // since that's the size of immediate we can directly inject
-  assert(-2047 < imm && imm < 2048);
-  assert(0 <= rd && rd < 32);
-  assert(0 <= rs && rs < 32);
-
-  uint32_t instr = 0;
-  constexpr auto load_instr_bits = 0b0000011; // ld
-  constexpr auto funct3_bits = 0b011;         // ld
-  constexpr auto load_and_funct = load_instr_bits | (funct3_bits << 12);
-
-  const auto dest_reg_bits = rd & 0b11111;
-  const auto source_reg_bits = rs & 0b11111;
-
-  instr |= load_and_funct;
-  instr |= dest_reg_bits << 7;
-  instr |= source_reg_bits << 15;
-  instr |= imm << 20;
-
-  RISCV_Instruction out;
-  memcpy(out.raw, &instr, 4);
-
-  return out;
 }
 
 void spawn_process(const CodeChunk &code_chunk, FunctionIdentifier f_id) {

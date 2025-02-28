@@ -42,7 +42,6 @@ def transform_if_necessary(line: str):
         return f"sd {register}, {index * 8}(s1) " + \
             f"# generated from '{line.strip()}'\n"
 
-
     if line.startswith("load_arg"):
         tokens = get_tokens(line)
 
@@ -80,6 +79,18 @@ def transform_if_necessary(line: str):
 
         return instructions
 
+    if line.startswith("untag"):
+        tokens = get_tokens(line)
+
+        assert (len(tokens) == 2)
+        assert (tokens[0] == "untag")
+
+        register = tokens[1]
+        instructions = (
+            f"addi {register}, {register}, 0xfffffffffffffffc"
+            f"# generated from '{line.strip()}'\n"
+        )
+
     else:
         return line
 
@@ -106,6 +117,7 @@ disclaimer_lines = [
     "# ASSUME s2 holds a pointer to argument pointer array for all instr\n",
     "# ASSUME s3 holds a pointer to the argument array for this instr\n",
     "# ASSUME s4 holds a pointer to the array of all callable cxx funs\n\n",
+    "# ASSUME s5 holds a pointer to the X register array \n\n",
 ]
 
 with open(filename) as meta_asm_file:

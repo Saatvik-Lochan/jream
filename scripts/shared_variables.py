@@ -1,10 +1,7 @@
 shared_var_names = [
     "HTOP",
     "STOP",
-    "ARENA",
-    "ARENA_SIZE",
-    "NEW_ARENA",
-    "STUFFF",
+    "XREG_ARRAY"
 ]
 
 shared_variables = {

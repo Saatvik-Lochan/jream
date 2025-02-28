@@ -21,6 +21,9 @@ int main(int argc, char *argv[]) {
   ProcessControlBlock pcb;
   pcb.set_shared<STOP>(e);
 
+  uint64_t x[1001];
+  pcb.set_shared<XREG_ARRAY>(x);
+
   // when
   run_code_section(code_chunk, CodeSection{0, 1}, &pcb);
 

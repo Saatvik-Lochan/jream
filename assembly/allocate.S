@@ -4,6 +4,8 @@
 # ASSUME s3 holds a pointer to the argument array for this instr
 # ASSUME s4 holds a pointer to the array of all callable cxx funs
 
+# ASSUME s5 holds a pointer to the X register array 
+
 # Allocate
 ld t0, 0(s3) # generated from 'load_arg t0, 0'
 ld t1, 8(s1) # generated from 'load_shared t1, STOP'

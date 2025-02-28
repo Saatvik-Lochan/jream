@@ -26,6 +26,8 @@ enum Tag {
   TYPED_REGISTER_TAG
 };
 
+constexpr std::string TagToString(Tag tag);
+
 struct TypedRegister {
   Tag reg;
   uint64_t reg_num;

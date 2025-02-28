@@ -14,11 +14,8 @@ template <> struct getFieldType<HTOP> {
 template <> struct getFieldType<STOP> {
   using type = ErlTerm *;
 };
-template <> struct getFieldType<ARENA> {
-  using type = ErlTerm *;
-};
-template <> struct getFieldType<ARENA_SIZE> {
-  using type = uint64_t;
+template <> struct getFieldType<XREG_ARRAY> {
+  using type = uint64_t*;
 };
 
 struct ProcessControlBlock {

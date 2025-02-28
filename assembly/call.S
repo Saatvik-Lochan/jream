@@ -4,13 +4,14 @@
 # ASSUME s3 holds a pointer to the argument array for this instr
 # ASSUME s4 holds a pointer to the array of all callable cxx funs
 
+# ASSUME s5 holds a pointer to the X register array 
+
 # save ra
 addi sp, sp, -8
 sd ra, 0(sp)
 
 # call
 ld t0, 8(s3) # generated from 'load_arg t0, 1'
-ld t0, 24(s1) # generated from 'load_shared t0, ARENA_SIZE'
 ld t0, 0(s4) # generated from 'call_cxx_fun PRINT_INT'
 jalr t0 # cont...
 # restore ra

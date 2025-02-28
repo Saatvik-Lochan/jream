@@ -5,6 +5,8 @@
 #include <vector>
 
 enum AsmSnippet {
+  GET_LIST_SNIP, // assembly/get_list_m.S
+  LOAD_3_ARGS_SNIP, // assembly/load_3_args_m.S
   CALL_SNIP, // assembly/call_m.S
   CALL_FUN_SNIP, // assembly/call_fun_m.S
   DEALLOCATE_SNIP, // assembly/deallocate_m.S

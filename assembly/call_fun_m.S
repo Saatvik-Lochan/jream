@@ -6,7 +6,6 @@ ld t0, 0(sp)
 
 # call
 load_arg t0, 1
-load_shared t0, ARENA
 call_cxx_fun PRINT_INT
 
 # restore ra
