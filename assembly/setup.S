@@ -3,7 +3,6 @@
 # ASSUME s2 holds a pointer to argument pointer array for all instr
 # ASSUME s3 holds a pointer to the argument array for this instr
 # ASSUME s4 holds a pointer to the array of all callable cxx funs
-
 # ASSUME s5 holds a pointer to the X register array 
 
 addi sp, sp, -48
@@ -14,7 +13,8 @@ sd s3, 16(sp)
 sd s2, 8(sp)
 sd s1, 0(sp)
 
-mv s1, a0  
+# These should ideally all stay at the same place
+mv s1, a0  # pcb pointer
 mv s2, a1
 mv s4, a2
-mv s5, a3  # x reg array - this should stay at s5
+ld s5, 16(s1) # generated from 'load_shared s5, XREG_ARRAY'

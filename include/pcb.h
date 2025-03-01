@@ -15,7 +15,7 @@ template <> struct getFieldType<STOP> {
   using type = ErlTerm *;
 };
 template <> struct getFieldType<XREG_ARRAY> {
-  using type = uint64_t*;
+  using type = ErlTerm *;
 };
 
 struct ProcessControlBlock {

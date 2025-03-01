@@ -8,5 +8,7 @@ code_bytes = bytes(
 md = Cs(CS_ARCH_RISCV, CS_MODE_RISCV64)
 base_addr = 0x80000000
 
+print("Printing assembly")
+
 for i in md.disasm(code_bytes, base_addr):
     print("0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))

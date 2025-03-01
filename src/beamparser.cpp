@@ -39,7 +39,7 @@ std::uint32_t read_big_endian(std::ifstream &stream) {
   return big_endian_from_bytes<uint32_t>(buffer);
 }
 
-constexpr std::string TagToString(Tag tag) {
+std::string TagToString(Tag tag) {
   switch (tag) {
   case LITERAL_TAG:
     return "Literal";
@@ -373,9 +373,9 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
   for (size_t i = 0; i < instructions.size(); i++) {
     auto &instr = instructions[i];
 
-    LOG(WARNING) << op_names[instr.opCode];
+    LOG(WARNING) << op_names[instr.op_code];
 
-    if (instr.opCode == FUNC_INFO_OP) {
+    if (instr.op_code == FUNC_INFO_OP) {
       const auto &args = instr.arguments;
 
       auto module_atom_index = args[0];
@@ -394,7 +394,7 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
       function_table[func_id] = label_table[label_table.size() - 1];
     }
 
-    if (instr.opCode == LABEL_OP) {
+    if (instr.op_code == LABEL_OP) {
       label_table.push_back(i);
     }
   }

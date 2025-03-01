@@ -3,7 +3,6 @@
 # ASSUME s2 holds a pointer to argument pointer array for all instr
 # ASSUME s3 holds a pointer to the argument array for this instr
 # ASSUME s4 holds a pointer to the array of all callable cxx funs
-
 # ASSUME s5 holds a pointer to the X register array 
 
 # From genop.tab
@@ -13,4 +12,9 @@
 ##       Head and Tail.
 ##
 
+# assume that the pointer in Source is in t0
 
+# untag the pointer
+andi t0, t0, 0xfffffffffffffffc# generated from 'untag t0'
+ld t1, 0(t0)
+ld t2, 8(t0)

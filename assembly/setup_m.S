@@ -10,4 +10,4 @@ sd s1, 0(sp)
 mv s1, a0  # pcb pointer
 mv s2, a1
 mv s4, a2
-mv s5, a3  # x reg array 
+load_shared s5, XREG_ARRAY

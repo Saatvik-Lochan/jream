@@ -87,9 +87,10 @@ def transform_if_necessary(line: str):
 
         register = tokens[1]
         instructions = (
-            f"addi {register}, {register}, 0xfffffffffffffffc"
+            f"andi {register}, {register}, 0xfffffffffffffffc"
             f"# generated from '{line.strip()}'\n"
         )
+        return instructions
 
     else:
         return line
@@ -116,7 +117,7 @@ disclaimer_lines = [
     "# ASSUME s1 holds a pointer to the pcb\n",
     "# ASSUME s2 holds a pointer to argument pointer array for all instr\n",
     "# ASSUME s3 holds a pointer to the argument array for this instr\n",
-    "# ASSUME s4 holds a pointer to the array of all callable cxx funs\n\n",
+    "# ASSUME s4 holds a pointer to the array of all callable cxx funs\n",
     "# ASSUME s5 holds a pointer to the X register array \n\n",
 ]
 

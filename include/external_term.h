@@ -1,9 +1,10 @@
 #ifndef EXTERNAL_TERM
 #define EXTERNAL_TERM
-#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
+
+constexpr uint64_t TAGGING_MASK = 0xfffffffffffffffc;
 
 enum TagType {
   HEADER_T,
@@ -17,13 +18,15 @@ enum TagType {
   NIL_T,
 };
 
-class ErlTerm {
-  size_t term;
+struct ErlTerm {
+  uint64_t term;
   TagType getTagType();
 
-public:
-  ErlTerm(size_t term) : term(term) {}
+  ErlTerm(uint64_t term) : term(term) {}
   ErlTerm() : term(0) {}
+
+  operator uint64_t() const { return term; }
+
   static std::pair<ErlTerm, uint8_t *> from_binary(uint8_t *data,
                                                    bool is_initial = true);
   template <typename T> static ErlTerm from_integer(T integer);
@@ -31,10 +34,9 @@ public:
   std::string display();
   std::string raw_display();
   ~ErlTerm() {} // TODO make a destructor
-
-  friend ErlTerm erl_list_from_vec(const std::vector<ErlTerm> &terms,
-                                   ErlTerm end);
-  friend ErlTerm get_nil_term();
 };
+
+ErlTerm erl_list_from_vec(const std::vector<ErlTerm> &terms, ErlTerm end);
+ErlTerm get_nil_term();
 
 #endif

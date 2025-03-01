@@ -11,6 +11,7 @@
 #include <type_traits>
 #include <vector>
 
+
 TagType ErlTerm::getTagType() {
   const uint8_t tag = term & 0b11;
 
@@ -90,15 +91,15 @@ ErlTerm erl_list_from_vec(const std::vector<ErlTerm> &terms, ErlTerm end) {
   ErlTerm *curr = &head;
 
   for (auto term : terms) {
-    ErlTerm *const temp = new ErlTerm[2]();
+    ErlTerm *const new_node = new ErlTerm[2]();
 
-    *curr = (reinterpret_cast<size_t>(temp) & 0b00) + 0b01;
-    temp[0] = term;
+    curr->term = (reinterpret_cast<uint64_t>(new_node) & TAGGING_MASK) | 0b01;
+    new_node[0] = term;
 
-    curr = temp + 1;
+    curr = new_node + 1;
   }
 
-  *curr = end;
+  curr->term = end;
   return head;
 }
 
