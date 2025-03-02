@@ -363,44 +363,7 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
         Instruction(static_cast<OpCode>(op_code), std::move(args)));
   }
 
-  // create function and label table
-  FunctionTable function_table;
-  LabelTable label_table;
-  label_table.reserve(label_count + 1);
-
-  label_table.push_back(0); // dummy value so indexing works correctly
-
-  for (size_t i = 0; i < instructions.size(); i++) {
-    auto &instr = instructions[i];
-
-    LOG(WARNING) << op_names[instr.op_code];
-
-    if (instr.op_code == FUNC_INFO_OP) {
-      const auto &args = instr.arguments;
-
-      auto module_atom_index = args[0];
-      assert(module_atom_index.tag == ATOM_TAG);
-
-      auto function_name_atom_index = args[1];
-      assert(function_name_atom_index.tag == ATOM_TAG);
-
-      auto arity = args[2];
-      assert(arity.tag == LITERAL_TAG);
-
-      auto func_id = FunctionIdentifier(
-          module_atom_index.arg_raw.arg_num,
-          function_name_atom_index.arg_raw.arg_num, arity.arg_raw.arg_num);
-
-      function_table[func_id] = label_table[label_table.size() - 1];
-    }
-
-    if (instr.op_code == LABEL_OP) {
-      label_table.push_back(i);
-    }
-  }
-
-  return CodeChunk(std::move(instructions), function_count, label_count,
-                   function_table, label_table);
+  return CodeChunk(std::move(instructions), function_count, label_count);
 }
 
 LiteralChunk parse_literal_chunk(std::ifstream &stream,

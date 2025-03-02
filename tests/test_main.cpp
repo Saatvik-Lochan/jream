@@ -30,7 +30,7 @@ TEST(Assembly, CreateLoadDoubleWord) {
 }
 
 CodeChunk create_code_chunk(const std::vector<Instruction> &instructions) {
-  return CodeChunk(instructions, 0, 0, {}, {});
+  return CodeChunk(instructions, 0, 0);
 }
 
 Argument get_lit(uint64_t arg) {

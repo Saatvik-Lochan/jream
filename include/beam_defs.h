@@ -89,33 +89,24 @@ template <> struct std::hash<CodeSection> {
 typedef void (*compiled_func_p)(ProcessControlBlock *pcb, uint64_t **arg_array,
                                 std::uintptr_t func_array[]);
 
-using FunctionTable = std::unordered_map<FunctionIdentifier, size_t>;
-using LabelTable = std::vector<size_t>;
+/*TODO using FunctionTable = std::unordered_map<FunctionIdentifier,
+ * CodeSection>;*/
+using FunctionLabelTable = uint64_t *;
+using LabelTable = std::vector<uint64_t>;
 
 struct CodeChunk {
   std::vector<Instruction> instructions;
   uint32_t function_count;
   uint32_t label_count;
 
-  FunctionTable function_table;
+  FunctionLabelTable func_label_table;
   LabelTable label_table;
 
   uint64_t **compacted_arg_p_array;
   std::unordered_map<CodeSection, compiled_func_p> cached_code_sections;
 
   CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
-            uint32_t label_count, FunctionTable function_table,
-            LabelTable label_table)
-      : instructions(std::move(instrs)), function_count(function_count),
-        label_count(label_count), function_table(std::move(function_table)),
-        label_table(std::move(label_table)) {
-
-    const auto len = instructions.size();
-    assert(len != 0);
-
-    compacted_arg_p_array = new uint64_t *[len];
-    std::fill(compacted_arg_p_array, compacted_arg_p_array + len, nullptr);
-  }
+            uint32_t label_count);
 };
 
 struct AtomChunk {

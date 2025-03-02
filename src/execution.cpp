@@ -111,7 +111,8 @@ inline RISCV_Instruction create_store_doubleword(uint8_t rs1, uint8_t rs2,
   constexpr auto store_instr_bits = 0b0100011; // store
   constexpr auto funct3_bits = 0b011;          // width
 
-  return create_S_type_instruction(store_instr_bits, funct3_bits, rs1, rs2, imm);
+  return create_S_type_instruction(store_instr_bits, funct3_bits, rs1, rs2,
+                                   imm);
 }
 
 inline RISCV_Instruction create_load_x_reg(uint8_t riscv_dest_reg,
@@ -119,7 +120,8 @@ inline RISCV_Instruction create_load_x_reg(uint8_t riscv_dest_reg,
                                            uint8_t x_array_register) {
 
   // ld riscv_dest_reg, x_reg_num(s5)
-  return create_load_doubleword(riscv_dest_reg, x_array_register, x_reg_num * 8);
+  return create_load_doubleword(riscv_dest_reg, x_array_register,
+                                x_reg_num * 8);
 }
 
 inline std::vector<RISCV_Instruction>
@@ -138,7 +140,8 @@ inline RISCV_Instruction create_store_x_reg(uint8_t riscv_dest_reg,
                                             uint16_t x_reg_num,
                                             uint8_t x_array_register) {
   // sd riscv_dest_reg, x_reg_num(s5)
-  return create_store_doubleword(x_array_register, riscv_dest_reg, x_reg_num * 8);
+  return create_store_doubleword(x_array_register, riscv_dest_reg,
+                                 x_reg_num * 8);
 }
 
 inline std::vector<RISCV_Instruction>
@@ -195,8 +198,8 @@ create_store_appropriate(Argument arg, uint8_t dest_reg) {
 }
 
 // garbage collection is tricky
-std::vector<uint8_t> translate_function(const CodeChunk &code_chunk,
-                                        CodeSection code_sec) {
+inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
+                                                   CodeSection code_sec) {
   std::vector<uint8_t> compiled;
   std::unordered_map<uint64_t, size_t> label_pointers;
 
@@ -259,6 +262,38 @@ std::vector<uint8_t> translate_function(const CodeChunk &code_chunk,
       break;
     }
 
+    case CALL_OP: {
+      // check reductions
+      //    maybe yield
+      // load appropriate function pointer into argument
+      // save code pointer to next instruction
+      // jump to said function pointer
+      break;
+
+      // yield?
+      //  load teardown pointer (which can be in a shared var)
+      //  set one of the registers to a value
+      //  jump there...
+
+      // error?
+      // set one of the registers to a value
+      // load teardown pointer
+
+      // exit normally?
+      // since the function itself doesn't know that it is
+      // exiting normally. We can keep the answer in one of the
+      // saved registers. So that it stays the same and will only
+      // be changed if there is an error
+
+      // we have a guarantee that saved registers won't change
+      // in any code that that will be written for the JIT
+    }
+
+    case RETURN_OP: {
+      // load shared code pointer into memory
+      // jump there...
+    }
+
     default: {
       add_setup_code();
 
@@ -269,16 +304,32 @@ std::vector<uint8_t> translate_function(const CodeChunk &code_chunk,
     }
   }
 
-  auto setup_code = get_riscv(SETUP_SNIP);
-  auto teardown_code = get_riscv(TEARDOWN_SNIP);
-
-  compiled.insert(compiled.begin(), setup_code.begin(), setup_code.end());
-  compiled.insert(compiled.end(), teardown_code.begin(), teardown_code.end());
-
   return compiled;
 }
 
-void spawn_process(const CodeChunk &code_chunk, FunctionIdentifier f_id) {
+std::vector<uint8_t> translate_function(const CodeChunk &code_chunk,
+                                        uint64_t func_index) {
+  assert(func_index < code_chunk.function_count);
+
+  auto end_instr_index = code_chunk.instructions.size();
+  if (func_index + 1 < code_chunk.function_count) {
+    end_instr_index =
+        code_chunk.label_table[code_chunk.func_label_table[func_index + 1]];
+  }
+
+  auto section = CodeSection {
+    code_chunk.label_table[code_chunk.func_label_table[func_index]],
+    end_instr_index
+  };
+
+  return translate_code_section(code_chunk, section);
+}
+
+void execute_compiled(const CodeChunk &code_chunk, uint64_t func_index) {
+  auto setup_code = get_riscv(SETUP_SNIP);
+}
+
+void spawn_process(const CodeChunk &code_chunk, uint64_t func_index) {
   // initialise memory
   //  i.e. stack + heap (and old heap)
   // cache code?
@@ -321,7 +372,7 @@ void run_code_section(CodeChunk &code_chunk, const CodeSection code_sec,
   auto &cached = code_chunk.cached_code_sections;
 
   if (!cached.contains(code_sec)) {
-    auto code = translate_function(code_chunk, code_sec);
+    auto code = translate_code_section(code_chunk, code_sec);
     LOG(INFO) << "Code being loaded into memory: " << code;
 
     auto func = move_code_to_memory(code);

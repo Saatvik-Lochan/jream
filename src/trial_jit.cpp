@@ -7,7 +7,7 @@ Argument get_lit(uint64_t arg) {
 }
 
 CodeChunk create_code_chunk(const std::vector<Instruction> instructions) {
-  return CodeChunk(std::move(instructions), 0, 0, {}, {});
+  return CodeChunk(std::move(instructions), 0, 0);
 }
 
 int main(int argc, char *argv[]) {
