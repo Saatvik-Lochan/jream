@@ -1,8 +1,8 @@
 #include <glog/logging.h>
 
-#include "exceptions.h"
-#include "external_term.h"
-#include "int_from_bytes.h"
+#include "exceptions.hpp"
+#include "external_term.hpp"
+#include "int_from_bytes.hpp"
 #include <cassert>
 #include <cstdint>
 #include <format>

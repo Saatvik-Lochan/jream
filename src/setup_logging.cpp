@@ -1,4 +1,4 @@
-#include "setup_logging.h"
+#include "setup_logging.hpp"
 
 void setup_logging(char *filename) {
   FLAGS_log_dir = "/tmp";

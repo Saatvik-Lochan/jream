@@ -5,8 +5,10 @@
 # ASSUME s4 holds a pointer to the array of all callable cxx funs
 # ASSUME s5 holds a pointer to the X register array 
 
-addi sp, sp, -56
-sd ra, 48(sp)
+addi sp, sp, -72
+sd ra, 64(sp)
+sd s8, 56(sp)
+sd s7, 48(sp)
 sd s6, 40(sp)
 sd s5, 32(sp)
 sd s4, 24(sp)
@@ -21,3 +23,15 @@ mv s2, a1  # compacted arg array
 mv s4, a2  # all function array
 ld s5, 16(s1) # generated from 'load_shared s5, XREG_ARRAY'
 mv s6, a3  # compiled function pointers
+mv s7, a5 # pointer to teardown function
+mv s8, zero # the exit code value
+
+# go to teardown if trying to return back here
+sd s7, 40(s1) # generated from 'store_shared s7, CODE_POINTER'
+
+# a4 has function index
+slli t0, a4, 3 
+add a2, s6, t0
+ld t0, 0(a2)
+
+jr t0

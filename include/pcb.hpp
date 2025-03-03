@@ -1,9 +1,10 @@
-#include "external_term.h"
+#include "external_term.hpp"
 #include <cstdint>
 #ifndef PCB_H
 #define PCB_H
 
-#include "generated/shared_variables.h"
+#include "generated/shared_variables.hpp"
+#include "beam_defs.hpp"
 
 template <PCBSharedFields> struct getFieldType {
   using type = void;
@@ -16,6 +17,9 @@ template <> struct getFieldType<STOP> {
 };
 template <> struct getFieldType<XREG_ARRAY> {
   using type = ErlTerm *;
+};
+template <> struct getFieldType<CODE_CHUNK_P> {
+  using type = CodeChunk *;  // trust me bro const
 };
 
 struct ProcessControlBlock {

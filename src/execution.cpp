@@ -7,13 +7,14 @@
 #include <sys/mman.h>
 #include <unordered_map>
 
-#include "asm_callable.h"
-#include "asm_utility.h"
-#include "beam_defs.h"
-#include "execution.h"
-#include "generated/instr_code.h"
-#include "op_arity.h"
-#include "pcb.h"
+#include "asm_callable.hpp"
+#include "asm_utility.hpp"
+#include "beam_defs.hpp"
+#include "execution.hpp"
+#include "generated/instr_code.hpp"
+#include "op_arity.hpp"
+#include "pcb.hpp"
+#include "precompiled.hpp"
 
 uint64_t *get_compact_and_cache_instr_args(const CodeChunk &code_chunk,
                                            size_t index) {
@@ -96,6 +97,14 @@ RISCV_Instruction create_S_type_instruction(uint8_t opcode, uint8_t funct3,
   out.set_bits(25, 32, (imm >> 5) & 0b1111111);
 
   return out;
+}
+
+inline RISCV_Instruction create_add_immediate(uint8_t rd, uint8_t rs,
+                                              uint16_t imm) {
+  constexpr auto op_code_bits = 0b0010011; // load
+  constexpr auto funct3_bits = 0x0;
+  //
+  return create_I_type_instruction(op_code_bits, rd, funct3_bits, rs, imm);
 }
 
 inline RISCV_Instruction create_load_doubleword(uint8_t rd, uint8_t rs,
@@ -221,7 +230,7 @@ inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
   for (size_t instr_index = code_sec.start; instr_index < code_sec.end;
        instr_index++) {
 
-    auto add_setup_code = [&add_riscv_instr, &instr_index]() {
+    auto add_setup_args_code = [&add_riscv_instr, &instr_index]() {
       // load the pointer at index'th value in the argument array (pointer to
       // this in s2=x18) to the s3=x19 register
       add_riscv_instr(create_load_doubleword(19, 18, instr_index * 8));
@@ -247,8 +256,34 @@ inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
       break;
     }
 
+    case CALL_OP: {
+      add_setup_args_code();
+
+      [[maybe_unused]]
+      auto arity = instr.arguments[0];
+      assert(arity.tag == LITERAL_TAG);
+
+      auto label = instr.arguments[1];
+      assert(label.tag == LABEL_TAG);
+
+      auto label_val = label.arg_raw.arg_num;
+      auto func_index = code_chunk.label_func_table.at(label_val);
+
+      // check reductions and maybe yield
+      add_code(get_riscv(CALL_SETUP_SNIP));
+      // set a4 to func_index
+      add_riscv_instr(create_add_immediate(14, 0, func_index)); 
+      // store 
+      add_code(get_riscv(CALL_FINISH_SNIP));
+    }
+
+    case RETURN_OP: {
+      // load code pointer and jump
+      add_code(get_riscv(RETURN_SNIP));
+    }
+
     case GET_LIST_OP: {
-      add_setup_code();
+      add_setup_args_code();
       add_code(get_riscv(LOAD_1_ARG_SNIP));
 
       // load the register pointed at in t1
@@ -262,40 +297,8 @@ inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
       break;
     }
 
-    case CALL_OP: {
-      // check reductions
-      //    maybe yield
-      // load appropriate function pointer into argument
-      // save code pointer to next instruction
-      // jump to said function pointer
-      break;
-
-      // yield?
-      //  load teardown pointer (which can be in a shared var)
-      //  set one of the registers to a value
-      //  jump there...
-
-      // error?
-      // set one of the registers to a value
-      // load teardown pointer
-
-      // exit normally?
-      // since the function itself doesn't know that it is
-      // exiting normally. We can keep the answer in one of the
-      // saved registers. So that it stays the same and will only
-      // be changed if there is an error
-
-      // we have a guarantee that saved registers won't change
-      // in any code that that will be written for the JIT
-    }
-
-    case RETURN_OP: {
-      // load shared code pointer into memory
-      // jump there...
-    }
-
     default: {
-      add_setup_code();
+      add_setup_args_code();
 
       // get translated code
       auto result = get_riscv_from_snippet(instr.op_code);
@@ -317,30 +320,14 @@ std::vector<uint8_t> translate_function(const CodeChunk &code_chunk,
         code_chunk.label_table[code_chunk.func_label_table[func_index + 1]];
   }
 
-  auto section = CodeSection {
-    code_chunk.label_table[code_chunk.func_label_table[func_index]],
-    end_instr_index
-  };
+  auto section = CodeSection{
+      code_chunk.label_table[code_chunk.func_label_table[func_index]],
+      end_instr_index};
 
   return translate_code_section(code_chunk, section);
 }
 
-void execute_compiled(const CodeChunk &code_chunk, uint64_t func_index) {
-  auto setup_code = get_riscv(SETUP_SNIP);
-}
-
-void spawn_process(const CodeChunk &code_chunk, uint64_t func_index) {
-  // initialise memory
-  //  i.e. stack + heap (and old heap)
-  // cache code?
-  // load code
-  // execute code
-
-  // have to deal with reducing reductions on a call as well, then
-  // do more scheduling shit
-}
-
-compiled_func_p move_code_to_memory(const std::vector<uint8_t> &code) {
+uint8_t *move_code_to_memory(const std::vector<uint8_t> &code) {
   // allocate page aligned memory
   void *const allocated_mem = mmap(0, code.size(), PROT_READ | PROT_WRITE,
                                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -364,21 +351,28 @@ compiled_func_p move_code_to_memory(const std::vector<uint8_t> &code) {
     throw std::runtime_error(msg);
   }
 
-  return reinterpret_cast<compiled_func_p>(allocated_mem);
+  return reinterpret_cast<uint8_t *>(allocated_mem);
 }
 
-void run_code_section(CodeChunk &code_chunk, const CodeSection code_sec,
-                      ProcessControlBlock *pcb) {
-  auto &cached = code_chunk.cached_code_sections;
+uint8_t *compile_erlang_func(const CodeChunk &code_chunk, uint64_t func_index) {
+  auto code = translate_function(code_chunk, func_index);
+  auto code_ptr = move_code_to_memory(code);
+  return code_ptr;
+}
 
-  if (!cached.contains(code_sec)) {
-    auto code = translate_code_section(code_chunk, code_sec);
-    LOG(INFO) << "Code being loaded into memory: " << code;
+void execute_erlang_func(ProcessControlBlock *pcb, const CodeChunk &code_chunk,
+                         uint64_t func_index) {
 
-    auto func = move_code_to_memory(code);
-    cached[code_sec] = func;
-  }
+  PreCompiled::setup_and_enter_asm(pcb, code_chunk.compacted_arg_p_array,
+                                   all_funs, code_chunk.compiled_code_lookup,
+                                   func_index, PreCompiled::teardown_code);
+}
 
-  compiled_func_p func = cached[code_sec];
-  func(pcb, code_chunk.compacted_arg_p_array, all_funs);
+ProcessControlBlock *create_process(CodeChunk &code_chunk) {
+  ProcessControlBlock *pcb = new ProcessControlBlock;
+
+  // TODO initialise all shared code
+  pcb->set_shared<CODE_CHUNK_P>(&code_chunk);
+
+  return pcb;
 }

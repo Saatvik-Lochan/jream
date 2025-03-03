@@ -1,11 +1,19 @@
+#include "beam_defs.hpp"
+#include "precompiled.hpp"
+#include <algorithm>
 #include <glog/logging.h>
-#include "beam_defs.h"
 
 CodeChunk::CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
                      uint32_t label_count)
     : instructions(std::move(instrs)), function_count(function_count),
       label_count(label_count) {
 
+  // allocate function table
+  compiled_code_lookup = new const uint8_t *[function_count];
+  std::fill(compiled_code_lookup, compiled_code_lookup + function_count,
+            PreCompiled::compile_stub);
+
+  // compact args for easy asm usage
   const auto len = instructions.size();
   assert(len != 0);
 
@@ -45,7 +53,10 @@ CodeChunk::CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
 
       assert(current_funcs < function_count);
       func_label_table[current_funcs] = label_num;
+      label_func_table[label_num] = current_funcs;
+
       current_funcs++;
+
     }
 
     if (instr.op_code == LABEL_OP) {

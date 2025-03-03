@@ -92,6 +92,30 @@ def transform_if_necessary(line: str):
         )
         return instructions
 
+    if line.startswith("exit_because"):
+        tokens = get_tokens(line)
+
+        assert (len(tokens) == 2)
+        assert (tokens[0] == "exit_because")
+
+        reason = tokens[1]
+
+        reason_code = {
+            "FINISH": 0,
+            "YIELD": 1,
+            "ERROR": 2
+        }
+
+        # s8 is the return value register because it doesnt' change
+        instructions = (
+            f"li s8, {reason_code[reason]}"  # set exit code
+            f"# generated from '{line.strip()}'\n"
+            f"jr s7"  # jump to teardown
+            f"# cont...\n"
+        )
+
+        return instructions
+
     else:
         return line
 

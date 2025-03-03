@@ -1,10 +1,10 @@
 #include <glog/logging.h>
 
-#include "beam_defs.h"
-#include "exceptions.h"
-#include "external_term.h"
-#include "int_from_bytes.h"
-#include "op_arity.h"
+#include "beam_defs.hpp"
+#include "exceptions.hpp"
+#include "external_term.hpp"
+#include "int_from_bytes.hpp"
+#include "op_arity.hpp"
 
 #include <cassert>
 #include <cstdint>

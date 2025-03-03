@@ -40,6 +40,7 @@ add_library(jreamlib
   src/asm_callable.cpp
   src/setup_logging.cpp
   src/beam_defs.cpp
+  src/precompiled.cpp
   src/generated/instr_code.cpp
 )
 
@@ -71,7 +72,7 @@ file(GLOB META_ASM_FILES CONFIGURE_DEPENDS "assembly/*_m.S")
 # code generation
 function(configure_instr_code_gen)
   set(generated_src_file ${SOURCE_CODE_DIR}/generated/instr_code.cpp)
-  set(generated_header_file ${INCLUDE_DIR}/generated/instr_code.h)
+  set(generated_header_file ${INCLUDE_DIR}/generated/instr_code.hpp)
 
   set(generated_files 
     ${generated_src_file} 
@@ -79,7 +80,7 @@ function(configure_instr_code_gen)
   )
 
   set(generator_script ${SCRIPTS_DIR}/instr_code_gen.py)
-  set(callable_fun_file ${INCLUDE_DIR}/asm_callable.h)
+  set(callable_fun_file ${INCLUDE_DIR}/asm_callable.hpp)
 
   add_custom_command(
     OUTPUT ${generated_files}
@@ -102,7 +103,7 @@ endfunction()
 configure_instr_code_gen()
 
 function(configure_shared_variable_gen)
-  set(generated_file ${INCLUDE_DIR}/generated/shared_variables.h)
+  set(generated_file ${INCLUDE_DIR}/generated/shared_variables.hpp)
   set(generator_script ${SCRIPTS_DIR}/shared_variables_gen.py)
 
   add_custom_command(

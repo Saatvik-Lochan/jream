@@ -1,6 +1,6 @@
-#include "../include/beam_defs.h"
-#include "../include/execution.h"
-#include "../include/setup_logging.h"
+#include "../include/beam_defs.hpp"
+#include "../include/execution.hpp"
+#include "../include/setup_logging.hpp"
 
 Argument get_lit(uint64_t arg) {
   return Argument{LITERAL_TAG, {.arg_num = arg}};
@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
   pcb.set_shared<XREG_ARRAY>(x);
 
   // when
-  run_code_section(code_chunk, CodeSection{0, 1}, &pcb);
+  /*run_code_section(code_chunk, CodeSection{0, 1}, &pcb);*/
 
   // then
   [[maybe_unused]] auto val = pcb.get_shared<STOP>();

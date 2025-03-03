@@ -1,12 +1,12 @@
-#include "external_term.h"
-#include "op_arity.h"
-#include "pcb.h"
+#include "external_term.hpp"
+#include "op_arity.hpp"
 
 #include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <unordered_map>
 #include <vector>
+
 
 #ifndef BEAM_DEFS
 #define BEAM_DEFS
@@ -86,13 +86,9 @@ template <> struct std::hash<CodeSection> {
   }
 };
 
-typedef void (*compiled_func_p)(ProcessControlBlock *pcb, uint64_t **arg_array,
-                                std::uintptr_t func_array[]);
-
-/*TODO using FunctionTable = std::unordered_map<FunctionIdentifier,
- * CodeSection>;*/
 using FunctionLabelTable = uint64_t *;
 using LabelTable = std::vector<uint64_t>;
+using LabelFunctionTable = std::unordered_map<uint64_t, uint64_t>;
 
 struct CodeChunk {
   std::vector<Instruction> instructions;
@@ -100,10 +96,11 @@ struct CodeChunk {
   uint32_t label_count;
 
   FunctionLabelTable func_label_table;
+  LabelFunctionTable label_func_table;
   LabelTable label_table;
 
   uint64_t **compacted_arg_p_array;
-  std::unordered_map<CodeSection, compiled_func_p> cached_code_sections;
+  const uint8_t **compiled_code_lookup;
 
   CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
             uint32_t label_count);

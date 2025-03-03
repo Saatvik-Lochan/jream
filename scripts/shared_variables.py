@@ -1,7 +1,10 @@
 shared_var_names = [
     "HTOP",
     "STOP",
-    "XREG_ARRAY"
+    "XREG_ARRAY",
+    "CODE_CHUNK_P",
+    "REDUCTIONS",
+    "CODE_POINTER"
 ]
 
 shared_variables = {
