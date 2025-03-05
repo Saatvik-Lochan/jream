@@ -29,12 +29,28 @@ TEST(Assembly, CreateLoadDoubleWord) {
   }
 }
 
-CodeChunk create_code_chunk(const std::vector<Instruction> &instructions) {
+CodeChunk create_code_chunk(std::vector<Instruction> instructions) {
   return CodeChunk(instructions, 0, 0);
 }
 
 Argument get_lit(uint64_t arg) {
   return Argument{LITERAL_TAG, {.arg_num = arg}};
+}
+
+Argument get_tag(Tag tag, uint64_t num) {
+  return Argument{tag, {.arg_num = num}};
+}
+
+void wrap_in_function(std::vector<Instruction> &instructions) {
+  auto start = {
+      Instruction{FUNC_INFO_OP, // I don't actually parse the arguments
+                  {get_tag(ATOM_TAG, 0), get_tag(ATOM_TAG, 0), get_lit(0)}},
+      Instruction{LABEL_OP, {get_lit(1)}}};
+
+  auto end = Instruction{RETURN_OP, {}};
+
+  instructions.insert(instructions.begin(), start.begin(), start.end());
+  instructions.push_back(end);
 }
 
 TEST(Assembly, StoreDoubleWord) {
@@ -55,49 +71,46 @@ TEST(Assembly, StoreDoubleWord) {
 
 TEST(RISC, Allocate) {
   // given
-  auto instructions = {Instruction{ALLOCATE_OP, {get_lit(3)}}};
-  auto code_chunk = create_code_chunk(std::move(instructions));
+  std::vector<Instruction> instructions = {
+      Instruction{ALLOCATE_OP, {get_lit(3)}}};
+  wrap_in_function(instructions);
+  auto code_chunk = CodeChunk(std::move(instructions), 1, 0);
 
   ErlTerm e[5];
 
-  ProcessControlBlock pcb;
-  pcb.set_shared<STOP>(e);
+  auto pcb = create_process(code_chunk);
+  pcb->set_shared<STOP>(e);
 
   // when
-  /*run_code_section(code_chunk, CodeSection{0, 1}, &pcb);*/
+  execute_erlang_func(pcb, code_chunk, 0);
 
   // then
-  auto val = pcb.get_shared<STOP>();
+  auto val = pcb->get_shared<STOP>();
   ASSERT_EQ(val, e + 3) << "'e' was " << e;
 }
 
 TEST(RISC, Deallocate) {
   // given
-  auto instructions = {Instruction{DEALLOCATE_OP, {get_lit(3)}}};
-  auto code_chunk = create_code_chunk(std::move(instructions));
+  std::vector<Instruction> instructions = {
+      Instruction{DEALLOCATE_OP, {get_lit(3)}}};
+
+  wrap_in_function(instructions);
+  auto code_chunk = CodeChunk(std::move(instructions), 1, 0);
 
   ErlTerm e[5];
 
-  ProcessControlBlock pcb;
-  pcb.set_shared<STOP>(e);
+  auto pcb = create_process(code_chunk);
+  pcb->set_shared<STOP>(e);
 
   // when
-  /*run_code_section(code_chunk, CodeSection{0, 1}, &pcb);*/
+  execute_erlang_func(pcb, code_chunk, 0);
 
   // then
-  auto val = pcb.get_shared<STOP>();
+  auto val = pcb->get_shared<STOP>();
   ASSERT_EQ(val, e - 3) << "'e' was " << e;
 }
 
 TEST(RISCV, GetList) {
-  ProcessControlBlock pcb;
-
-  ErlTerm xreg[1001];
-  pcb.set_shared<XREG_ARRAY>(xreg);
-
-  auto list = erl_list_from_vec({20, 30}, get_nil_term());
-  xreg[0] = list;
-
   std::vector<Instruction> instructions = {
       Instruction{GET_LIST_OP,
                   {
@@ -106,10 +119,19 @@ TEST(RISCV, GetList) {
                       Argument{X_REGISTER_TAG, {.arg_num = 2}},
                   }}};
 
-  auto code_chunk = create_code_chunk(instructions);
+  wrap_in_function(instructions);
+  auto code_chunk = CodeChunk(std::move(instructions), 1, 0);
+
+  auto pcb = create_process(code_chunk);
+
+  ErlTerm xreg[1001];
+  pcb->set_shared<XREG_ARRAY>(xreg);
+
+  auto list = erl_list_from_vec({20, 30}, get_nil_term());
+  xreg[0] = list;
 
   // when
-  /*run_code_section(code_chunk, CodeSection{0, 1}, &pcb);*/
+  execute_erlang_func(pcb, code_chunk, 0);
 
   // then
   ASSERT_EQ(xreg[1], 20);

@@ -39,4 +39,7 @@ void run_code_section(CodeChunk &code_chunk, const CodeSection code_sec,
                       ProcessControlBlock *pcb);
 
 uint8_t *compile_erlang_func(const CodeChunk &code_chunk, uint64_t func_index);
+void execute_erlang_func(ProcessControlBlock *pcb, const CodeChunk &code_chunk,
+                         uint64_t func_index);
+ProcessControlBlock *create_process(CodeChunk &code_chunk);
 #endif

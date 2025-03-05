@@ -275,11 +275,13 @@ inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
       add_riscv_instr(create_add_immediate(14, 0, func_index)); 
       // store 
       add_code(get_riscv(CALL_FINISH_SNIP));
+      break;
     }
 
     case RETURN_OP: {
       // load code pointer and jump
       add_code(get_riscv(RETURN_SNIP));
+      break;
     }
 
     case GET_LIST_OP: {

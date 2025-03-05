@@ -30,17 +30,18 @@ CodeChunk::CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
   for (size_t i = 0; i < instructions.size(); i++) {
     auto &instr = instructions[i];
 
-    LOG(WARNING) << op_names[instr.op_code];
-
     if (instr.op_code == FUNC_INFO_OP) {
       const auto &args = instr.arguments;
 
+      [[maybe_unused]]
       auto module_atom_index = args[0];
       assert(module_atom_index.tag == ATOM_TAG);
 
+      [[maybe_unused]]
       auto function_name_atom_index = args[1];
       assert(function_name_atom_index.tag == ATOM_TAG);
 
+      [[maybe_unused]]
       auto arity = args[2];
       assert(arity.tag == LITERAL_TAG);
 
