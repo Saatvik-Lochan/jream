@@ -5,7 +5,7 @@
 
 typedef void (*enter_asm_func_p)(ProcessControlBlock *pcb, uint64_t **arg_array,
                                  std::uintptr_t func_array[],
-                                 const uint8_t **func_pointers,
+                                 const uint8_t *volatile *func_pointers,
                                  uint64_t func_index,
                                  const uint8_t *teardown_code);
 

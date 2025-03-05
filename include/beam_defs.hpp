@@ -7,7 +7,6 @@
 #include <unordered_map>
 #include <vector>
 
-
 #ifndef BEAM_DEFS
 #define BEAM_DEFS
 
@@ -100,7 +99,7 @@ struct CodeChunk {
   LabelTable label_table;
 
   uint64_t **compacted_arg_p_array;
-  const uint8_t **compiled_code_lookup;
+  const uint8_t *volatile *compiled_code_lookup;
 
   CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
             uint32_t label_count);

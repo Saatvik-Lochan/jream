@@ -69,6 +69,18 @@ TEST(Assembly, StoreDoubleWord) {
   }
 }
 
+TEST(JIT, SetupAndTeardown) {
+  std::vector<Instruction> instructions;
+  wrap_in_function(instructions);
+  auto code_chunk = CodeChunk(std::move(instructions), 1, 0);
+
+  auto pcb = create_process(code_chunk);
+
+  execute_erlang_func(pcb, code_chunk, 0);
+
+  SUCCEED();
+}
+
 TEST(RISC, Allocate) {
   // given
   std::vector<Instruction> instructions = {
