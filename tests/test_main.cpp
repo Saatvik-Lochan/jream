@@ -4,30 +4,7 @@
 #include "../include/generated/instr_code.hpp"
 #include "../include/setup_logging.hpp"
 #include <gtest/gtest.h>
-
-TEST(ErlTerm, ErlListFromVec) {
-  auto list = erl_list_from_vec({20, 30}, get_nil_term());
-
-  auto pointer = reinterpret_cast<uint64_t *>(list.term & TAGGING_MASK);
-  ASSERT_EQ(*pointer, 20);
-}
-
-TEST(Assembly, CreateLoadDoubleWord) {
-  uint8_t rd = 31;
-  uint8_t rs = 10;
-  int16_t imm = 100;
-
-  // when
-  auto result = create_load_doubleword(rd, rs, imm);
-
-  // then
-
-  uint8_t should[4] = {0x83, 0x3f, 0x45, 0x06};
-
-  for (int i = 0; i < 4; i++) {
-    ASSERT_EQ(result.raw[i], should[i]);
-  }
-}
+#include <vector>
 
 CodeChunk create_code_chunk(std::vector<Instruction> instructions) {
   return CodeChunk(instructions, 0, 0);
@@ -53,6 +30,46 @@ void wrap_in_function(std::vector<Instruction> &instructions) {
   instructions.push_back(end);
 }
 
+void try_crashing() {
+  std::vector<int> temp = {1, 2, 3, 4};
+}
+
+
+TEST(JIT, SetupAndTeardown) {
+  std::vector<Instruction> instructions;
+  wrap_in_function(instructions);
+  auto code_chunk = CodeChunk(std::move(instructions), 1, 0);
+
+  auto pcb = create_process(code_chunk);
+
+  execute_erlang_func(pcb, code_chunk, 0);
+}
+
+
+TEST(ErlTerm, ErlListFromVec) {
+  auto list = erl_list_from_vec({20, 30}, get_nil_term());
+
+  auto pointer = reinterpret_cast<uint64_t *>(list.term & TAGGING_MASK);
+  ASSERT_EQ(*pointer, 20);
+}
+
+TEST(Assembly, CreateLoadDoubleWord) {
+  uint8_t rd = 31;
+  uint8_t rs = 10;
+  int16_t imm = 100;
+
+  // when
+  auto result = create_load_doubleword(rd, rs, imm);
+
+  // then
+
+  uint8_t should[4] = {0x83, 0x3f, 0x45, 0x06};
+
+  for (int i = 0; i < 4; i++) {
+    ASSERT_EQ(result.raw[i], should[i]);
+  }
+}
+
 TEST(Assembly, StoreDoubleWord) {
   uint8_t rs1 = 21; // the one which holds the pointer
   uint8_t rs2 = 6;
@@ -67,18 +84,6 @@ TEST(Assembly, StoreDoubleWord) {
   for (int i = 0; i < 4; i++) {
     ASSERT_EQ(result.raw[i], should[i]);
   }
-}
-
-TEST(JIT, SetupAndTeardown) {
-  std::vector<Instruction> instructions;
-  wrap_in_function(instructions);
-  auto code_chunk = CodeChunk(std::move(instructions), 1, 0);
-
-  auto pcb = create_process(code_chunk);
-
-  execute_erlang_func(pcb, code_chunk, 0);
-
-  SUCCEED();
 }
 
 TEST(RISC, Allocate) {

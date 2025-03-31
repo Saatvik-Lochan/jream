@@ -5,7 +5,7 @@
 # ASSUME s4 holds a pointer to the array of all callable cxx funs
 # ASSUME s5 holds a pointer to the X register array 
 
-addi sp, sp, -72
+addi sp, sp, -80 # remember must be 16-byte aligned
 sd ra, 64(sp)
 sd s8, 56(sp)
 sd s7, 48(sp)

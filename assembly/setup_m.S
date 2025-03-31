@@ -1,4 +1,4 @@
-addi sp, sp, -72
+addi sp, sp, -80 # remember must be 16-byte aligned
 sd ra, 64(sp)
 sd s8, 56(sp)
 sd s7, 48(sp)
