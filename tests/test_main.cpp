@@ -30,9 +30,12 @@ void wrap_in_function(std::vector<Instruction> &instructions) {
   instructions.push_back(end);
 }
 
-void try_crashing() { std::vector<int> temp = {1, 2, 3, 4}; }
+inline void try_crash() {
+  std::vector<Argument> argument = {get_lit(0), get_lit(0), get_lit(0)};
+  std::cout << argument.size();
+}
 
-TEST(JIT, DISABLED_SetupAndTeardown) {
+TEST(JIT, SetupAndTeardown) {
   std::vector<Instruction> instructions;
   wrap_in_function(instructions);
 
@@ -46,22 +49,24 @@ TEST(JIT, DISABLED_SetupAndTeardown) {
 }
 
 TEST(JIT, Empty) {
-  std::vector<Instruction> instructions;
-  wrap_in_function(instructions);
+  std::vector<Instruction> instructions = {
+      Instruction{FUNC_INFO_OP, // I don't actually parse the arguments
+                  {get_tag(ATOM_TAG, 0), get_tag(ATOM_TAG, 0), get_lit(0)}},
+      Instruction{LABEL_OP, {get_lit(1)}},
+      /*Instruction{ALLOCATE_OP, {get_lit(3)}},*/
+      Instruction{RETURN_OP, {}}
+  };
 
   auto code_chunk = CodeChunk(std::move(instructions), 1, 0);
-
-  std::cout << code_chunk.function_count << std::endl;
 
   ErlTerm e[5];
 
   auto pcb = create_process(code_chunk);
+  pcb->set_shared<STOP>(e);
 
-  for (int i = 0; i < SHARED_FIELDS; i++) {
-    pcb->shared[i] = i;
-  }
-
-  pcb->set_shared<CODE_CHUNK_P>(&code_chunk);
+  // skip the compilation step
+  /*auto temp = move_code_to_memory(get_riscv(TEMP_SNIP));*/
+  /*code_chunk.compiled_code_lookup[0] = temp;*/
 
   // when
   execute_erlang_func(pcb, code_chunk, 0);
@@ -91,6 +96,7 @@ TEST(JIT, Allocate) {
   auto val = pcb->get_shared<STOP>();
   ASSERT_EQ(val, e + 3) << "'e' was " << e;
 }
+
 TEST(ErlTerm, ErlListFromVec) {
   auto list = erl_list_from_vec({20, 30}, get_nil_term());
 

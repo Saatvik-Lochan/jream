@@ -107,7 +107,7 @@ inline RISCV_Instruction create_add_immediate(uint8_t rd, uint8_t rs,
   return create_I_type_instruction(op_code_bits, rd, funct3_bits, rs, imm);
 }
 
-inline RISCV_Instruction create_load_doubleword(uint8_t rd, uint8_t rs,
+RISCV_Instruction create_load_doubleword(uint8_t rd, uint8_t rs,
                                                 int16_t imm) {
   constexpr auto load_instr_bits = 0b0000011; // load
   constexpr auto funct3_bits = 0b011;         // width
@@ -115,7 +115,7 @@ inline RISCV_Instruction create_load_doubleword(uint8_t rd, uint8_t rs,
   return create_I_type_instruction(load_instr_bits, rd, funct3_bits, rs, imm);
 }
 
-inline RISCV_Instruction create_store_doubleword(uint8_t rs1, uint8_t rs2,
+RISCV_Instruction create_store_doubleword(uint8_t rs1, uint8_t rs2,
                                                  int16_t imm) {
   constexpr auto store_instr_bits = 0b0100011; // store
   constexpr auto funct3_bits = 0b011;          // width
@@ -316,18 +316,17 @@ std::vector<uint8_t> translate_function(const CodeChunk &code_chunk,
                                         uint64_t func_index) {
   assert(func_index < code_chunk.function_count);
 
-  /*auto end_instr_index = code_chunk.instructions.size();*/
-  /*if (func_index + 1 < code_chunk.function_count) {*/
-  /*  end_instr_index =*/
-  /*      code_chunk.label_table[code_chunk.func_label_table[func_index + 1]];*/
-  /*}*/
-  /**/
-  /*auto section = CodeSection{*/
-  /*    code_chunk.label_table[code_chunk.func_label_table[func_index]],*/
-  /*    end_instr_index};*/
-  /**/
-  /*return translate_code_section(code_chunk, section);*/
-  return get_riscv(TEMP_SNIP);
+  auto end_instr_index = code_chunk.instructions.size();
+  if (func_index + 1 < code_chunk.function_count) {
+    end_instr_index =
+        code_chunk.label_table[code_chunk.func_label_table[func_index + 1]];
+  }
+
+  auto section = CodeSection{
+      code_chunk.label_table[code_chunk.func_label_table[func_index]],
+      end_instr_index};
+
+  return translate_code_section(code_chunk, section);
 }
 
 uint8_t *move_code_to_memory(const std::vector<uint8_t> &code) {
@@ -355,6 +354,14 @@ uint8_t *move_code_to_memory(const std::vector<uint8_t> &code) {
   }
 
   return reinterpret_cast<uint8_t *>(allocated_mem);
+}
+
+inline Argument get_lit(uint64_t arg) {
+  return Argument{LITERAL_TAG, {.arg_num = arg}};
+}
+
+inline Argument get_tag(Tag tag, uint64_t num) {
+  return Argument{tag, {.arg_num = num}};
 }
 
 uint8_t *compile_erlang_func(const CodeChunk &code_chunk, uint64_t func_index) {
