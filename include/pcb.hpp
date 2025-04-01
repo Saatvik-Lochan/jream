@@ -6,6 +6,7 @@
 #include "generated/shared_variables.hpp"
 #include "beam_defs.hpp"
 
+// TODO: Should all of these be volatile?
 template <PCBSharedFields> struct getFieldType {
   using type = void;
 };
@@ -19,7 +20,7 @@ template <> struct getFieldType<XREG_ARRAY> {
   using type = ErlTerm *;
 };
 template <> struct getFieldType<CODE_CHUNK_P> {
-  using type = CodeChunk *;  // trust me bro const
+  using type = CodeChunk *;  
 };
 
 struct ProcessControlBlock {

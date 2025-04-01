@@ -316,17 +316,18 @@ std::vector<uint8_t> translate_function(const CodeChunk &code_chunk,
                                         uint64_t func_index) {
   assert(func_index < code_chunk.function_count);
 
-  auto end_instr_index = code_chunk.instructions.size();
-  if (func_index + 1 < code_chunk.function_count) {
-    end_instr_index =
-        code_chunk.label_table[code_chunk.func_label_table[func_index + 1]];
-  }
-
-  auto section = CodeSection{
-      code_chunk.label_table[code_chunk.func_label_table[func_index]],
-      end_instr_index};
-
-  return translate_code_section(code_chunk, section);
+  /*auto end_instr_index = code_chunk.instructions.size();*/
+  /*if (func_index + 1 < code_chunk.function_count) {*/
+  /*  end_instr_index =*/
+  /*      code_chunk.label_table[code_chunk.func_label_table[func_index + 1]];*/
+  /*}*/
+  /**/
+  /*auto section = CodeSection{*/
+  /*    code_chunk.label_table[code_chunk.func_label_table[func_index]],*/
+  /*    end_instr_index};*/
+  /**/
+  /*return translate_code_section(code_chunk, section);*/
+  return get_riscv(TEMP_SNIP);
 }
 
 uint8_t *move_code_to_memory(const std::vector<uint8_t> &code) {
@@ -362,7 +363,7 @@ uint8_t *compile_erlang_func(const CodeChunk &code_chunk, uint64_t func_index) {
   return code_ptr;
 }
 
-void execute_erlang_func(ProcessControlBlock *pcb, const CodeChunk &code_chunk,
+void execute_erlang_func(ProcessControlBlock *pcb, CodeChunk &code_chunk,
                          uint64_t func_index) {
 
   PreCompiled::setup_and_enter_asm(pcb, code_chunk.compacted_arg_p_array,

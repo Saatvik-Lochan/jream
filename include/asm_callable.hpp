@@ -13,7 +13,7 @@ uint8_t *compile_function(CodeChunk* code_chunk, uint64_t func_index);
 // This array can not be longer than 2048 / 8 = 256 elements long
 // so we can access the elemnts in one instruction from riscv.
 //
-// Every function must have a comment with it's meta meta assembly name
+// Every function must have a comment with it's meta assembly name
 // or the indexing will be wrong
 inline std::uintptr_t all_funs[] = {
     reinterpret_cast<std::uintptr_t>(&print_int), // m_asm: PRINT_INT

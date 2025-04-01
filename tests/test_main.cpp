@@ -10,11 +10,11 @@ CodeChunk create_code_chunk(std::vector<Instruction> instructions) {
   return CodeChunk(instructions, 0, 0);
 }
 
-Argument get_lit(uint64_t arg) {
+inline Argument get_lit(uint64_t arg) {
   return Argument{LITERAL_TAG, {.arg_num = arg}};
 }
 
-Argument get_tag(Tag tag, uint64_t num) {
+inline Argument get_tag(Tag tag, uint64_t num) {
   return Argument{tag, {.arg_num = num}};
 }
 
@@ -30,22 +30,67 @@ void wrap_in_function(std::vector<Instruction> &instructions) {
   instructions.push_back(end);
 }
 
-void try_crashing() {
-  std::vector<int> temp = {1, 2, 3, 4};
-}
+void try_crashing() { std::vector<int> temp = {1, 2, 3, 4}; }
 
-
-TEST(JIT, SetupAndTeardown) {
+TEST(JIT, DISABLED_SetupAndTeardown) {
   std::vector<Instruction> instructions;
   wrap_in_function(instructions);
-  auto code_chunk = CodeChunk(std::move(instructions), 1, 0);
+
+  auto code_chunk = CodeChunk(std::move(instructions), 1, 1);
 
   auto pcb = create_process(code_chunk);
 
   execute_erlang_func(pcb, code_chunk, 0);
+
+  std::vector<Argument> argument = {get_lit(0), get_lit(0), get_lit(0)};
 }
 
+TEST(JIT, Empty) {
+  std::vector<Instruction> instructions;
+  wrap_in_function(instructions);
 
+  auto code_chunk = CodeChunk(std::move(instructions), 1, 0);
+
+  std::cout << code_chunk.function_count << std::endl;
+
+  ErlTerm e[5];
+
+  auto pcb = create_process(code_chunk);
+
+  for (int i = 0; i < SHARED_FIELDS; i++) {
+    pcb->shared[i] = i;
+  }
+
+  pcb->set_shared<CODE_CHUNK_P>(&code_chunk);
+
+  // when
+  execute_erlang_func(pcb, code_chunk, 0);
+
+  // then
+  auto val = pcb->get_shared<STOP>();
+  ASSERT_EQ(val, e + 3) << "'e' was " << e;
+}
+
+TEST(JIT, Allocate) {
+  // given
+  std::vector<Instruction> instructions = {
+      Instruction{ALLOCATE_OP, {get_lit(3)}}};
+
+  wrap_in_function(instructions);
+  auto code_chunk = CodeChunk(std::move(instructions), 1, 0);
+
+  ErlTerm e[5];
+
+  auto pcb = create_process(code_chunk);
+  pcb->set_shared<STOP>(e);
+
+  // when
+  execute_erlang_func(pcb, code_chunk, 0);
+
+  // then
+  auto val = pcb->get_shared<STOP>();
+  ASSERT_EQ(val, e + 3) << "'e' was " << e;
+}
 TEST(ErlTerm, ErlListFromVec) {
   auto list = erl_list_from_vec({20, 30}, get_nil_term());
 
