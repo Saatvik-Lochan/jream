@@ -11,6 +11,11 @@ ld t1, 8(s1) # generated from 'load_shared t1, STOP'
 
 # mul 8 (width of an ErlTerm) (width of an ErlTerm)
 slli t0, t0, 3
-add t1, t1, t0
+sub t1, t1, t0  # stack grows down
+
+# save code pointer 
+addi t1, t1, -8 
+ld t2, 40(s1) # generated from 'load_shared t2, CODE_POINTER'
+sd t2, 0(t1)
 
 sd t1, 8(s1) # generated from 'store_shared t1, STOP'

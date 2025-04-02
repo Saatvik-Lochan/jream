@@ -31,6 +31,13 @@ struct RISCV_Instruction {
   }
 };
 
+// must match with meta_assembly_compile
+enum ErlReturnCode {
+  FINISH = 0,
+  YIELD = 1,
+  ERROR = 2
+};
+
 RISCV_Instruction create_load_doubleword(uint8_t rd, uint8_t rs, int16_t imm);
 RISCV_Instruction create_store_doubleword(uint8_t rd, uint8_t rs, int16_t imm);
 
@@ -39,7 +46,7 @@ void run_code_section(CodeChunk &code_chunk, const CodeSection code_sec,
                       ProcessControlBlock *pcb);
 
 uint8_t *compile_erlang_func(const CodeChunk &code_chunk, uint64_t func_index);
-void execute_erlang_func(ProcessControlBlock *pcb, const CodeChunk &code_chunk,
+ErlReturnCode execute_erlang_func(ProcessControlBlock *pcb, const CodeChunk &code_chunk,
                          uint64_t func_index);
 ProcessControlBlock *create_process(CodeChunk &code_chunk);
 #endif

@@ -241,6 +241,15 @@ inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
     const auto &instr = code_chunk.instructions[instr_index];
 
     switch (instr.op_code) {
+    case DEBUG_EXECUTE_ARBITRARY: {
+      [[maybe_unused]]
+      auto flag_pos = instr.arguments[0];
+      assert(flag_pos.tag == LITERAL_TAG);
+
+      add_setup_args_code();
+      add_code(get_riscv(DEBUG_EXECUTE_ARIBITRARY_SNIP));
+      break;
+    }
     case LABEL_OP: {
       auto label_arg = instr.arguments[0];
       assert(label_arg.tag == LITERAL_TAG);
@@ -272,8 +281,8 @@ inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
       // check reductions and maybe yield
       add_code(get_riscv(CALL_SETUP_SNIP));
       // set a4 to func_index
-      add_riscv_instr(create_add_immediate(14, 0, func_index)); 
-      // store 
+      add_riscv_instr(create_add_immediate(14, 0, func_index));
+      // store
       add_code(get_riscv(CALL_FINISH_SNIP));
       break;
     }
@@ -362,12 +371,13 @@ uint8_t *compile_erlang_func(const CodeChunk &code_chunk, uint64_t func_index) {
   return code_ptr;
 }
 
-void execute_erlang_func(ProcessControlBlock *pcb, const CodeChunk &code_chunk,
-                         uint64_t func_index) {
+ErlReturnCode execute_erlang_func(ProcessControlBlock *pcb,
+                                  const CodeChunk &code_chunk,
+                                  uint64_t func_index) {
 
-  PreCompiled::setup_and_enter_asm(pcb, code_chunk.compacted_arg_p_array,
-                                   all_funs, code_chunk.compiled_code_lookup,
-                                   func_index, PreCompiled::teardown_code);
+  return PreCompiled::setup_and_enter_asm(
+      pcb, code_chunk.compacted_arg_p_array, all_funs,
+      code_chunk.compiled_code_lookup, func_index, PreCompiled::teardown_code);
 }
 
 ProcessControlBlock *create_process(CodeChunk &code_chunk) {

@@ -19,7 +19,13 @@ template <> struct getFieldType<XREG_ARRAY> {
   using type = ErlTerm *;
 };
 template <> struct getFieldType<CODE_CHUNK_P> {
-  using type = CodeChunk *;  // trust me bro const
+  using type = CodeChunk *;  
+};
+template <> struct getFieldType<CODE_POINTER> {
+  using type = uint8_t *;  
+};
+template <> struct getFieldType<REDUCTIONS> {
+  using type = uint64_t;  
 };
 
 struct ProcessControlBlock {

@@ -12,6 +12,7 @@ enum AsmSnippet {
   DEALLOCATE_SNIP, // assembly/deallocate_m.S
   CALL_FINISH_SNIP, // assembly/call_finish_m.S
   RETURN_SNIP, // assembly/return_m.S
+  DEBUG_EXECUTE_ARIBITRARY_SNIP, // assembly/debug_execute_aribitrary_m.S
   TEARDOWN_SNIP, // assembly/teardown_m.S
   STORE_DOUBLEWORD_TEST_SNIP, // assembly/store_doubleword_test_m.S
   COMPILE_STUB_SNIP, // assembly/compile_stub_m.S

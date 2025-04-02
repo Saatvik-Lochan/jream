@@ -11,3 +11,5 @@ bnez t0, 1f
 li s8, 1# generated from 'exit_because YIELD'
 jr s7# cont...
 1:
+addi t0, t0, -1
+sd t0, 32(s1) # generated from 'store_shared t0, REDUCTIONS'

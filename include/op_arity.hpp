@@ -3,7 +3,7 @@
 
 #include <string>
 const int op_arities[] = {
-    -1, // dummy for indexing
+    1, // DEBUG_EXECUTE_ARBITRARY
     1, // label
     3, // func_info
     0, // int_code_end
@@ -191,7 +191,7 @@ const int op_arities[] = {
 
 
 const std::string op_names[] = {
-    "dummy for indexing",
+    "DEBUG execute_aribtrary", // not a real beam instr
     "label",
     "func_info",
     "int_code_end",
@@ -378,6 +378,7 @@ const std::string op_names[] = {
 };
 
 enum OpCode {
+    DEBUG_EXECUTE_ARBITRARY = 0, // not a real beam instr
     LABEL_OP = 1,
     FUNC_INFO_OP = 2,
     INT_CODE_END_OP = 3,

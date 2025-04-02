@@ -10,4 +10,4 @@
 1:
 # afterwards:
 # - save code pointer
-# - load function pointer and call
+# load function pointer and call
