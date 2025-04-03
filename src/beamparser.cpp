@@ -202,7 +202,7 @@ std::vector<Argument> *parse_extended_list(std::ifstream &stream) {
 
   assert(tag == LITERAL_TAG);
 
-  auto list_size = parse_argument_number(stream, tag);
+  auto list_size = parse_argument_number(stream, next_byte);
   // assumed to last the lifetime of the program, so no delete/cleanup
   auto arg_vec_p = new std::vector<Argument>(list_size);
 

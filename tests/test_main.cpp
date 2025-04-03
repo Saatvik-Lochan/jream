@@ -45,8 +45,7 @@ TEST(ErlTerm, DeepcopyList) {
   // assert same size
   ASSERT_EQ(it_i, initial_list.end());
   ASSERT_EQ(it_c, copy_list.end());
-  ASSERT_EQ(start, new_list_area + 10)
-      << "difference " << start - new_list_area;
+  ASSERT_EQ(start, new_list_area + 10);
 }
 
 TEST(Assembly, CreateLoadDoubleWord) {
