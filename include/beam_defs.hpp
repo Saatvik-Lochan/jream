@@ -55,9 +55,9 @@ struct Instruction {
 };
 
 struct FunctionIdentifier {
-  uint64_t module; // indexes to the appropriate atom in the atom table
-  uint64_t function_name;
-  uint64_t arity;
+  uint32_t module; // indexes to the appropriate atom in the atom table
+  uint32_t function_name;
+  uint32_t arity;
 
   bool operator==(const FunctionIdentifier &other) const = default;
 };
@@ -120,15 +120,23 @@ struct LiteralChunk {
   LiteralChunk(std::vector<ErlTerm> literals) : literals(std::move(literals)) {}
 };
 
+struct ImportTableChunk {
+  std::vector<FunctionIdentifier> imports;
+
+  ImportTableChunk(std::vector<FunctionIdentifier> imports)
+      : imports(std::move(imports)) {};
+};
+
 struct BeamFile {
   AtomChunk atom_chunk;
   CodeChunk code_chunk;
   LiteralChunk literal_chunk;
+  ImportTableChunk import_table_chunk;
 
   BeamFile(AtomChunk atom_chunk, CodeChunk code_chunk,
-           LiteralChunk literal_chunk)
+           LiteralChunk literal_chunk, ImportTableChunk import_table_chunk)
       : atom_chunk(std::move(atom_chunk)), code_chunk(std::move(code_chunk)),
-        literal_chunk(literal_chunk) {}
+        literal_chunk(std::move(literal_chunk)), import_table_chunk(std::move(import_table_chunk)) {}
 };
 
 #endif

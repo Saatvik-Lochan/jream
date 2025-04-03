@@ -75,6 +75,8 @@ AtomChunk parse_atom_chunk(std::ifstream &stream) {
   uint32_t num_atoms = read_big_endian(stream);
   std::vector<std::string> atoms;
 
+  atoms.push_back("dummy"); // indexing dummy
+
   LOG(INFO) << "Atoms:" << std::endl;
 
   for (uint32_t i = 0; i < num_atoms; i++) {
@@ -431,6 +433,31 @@ LiteralChunk parse_literal_chunk(std::ifstream &stream,
   return LiteralChunk(std::move(terms));
 }
 
+ImportTableChunk parse_import_table_chunk(std::ifstream &stream,
+                                          AtomChunk atom_chunk) {
+
+  uint32_t import_count = read_big_endian(stream);
+  std::vector<FunctionIdentifier> imports;
+
+  LOG(INFO) << "import count: " << import_count;
+
+  for (uint32_t i = 0; i < import_count; i++) {
+    uint32_t module_name = read_big_endian(stream);
+    uint32_t function_name = read_big_endian(stream);
+    uint32_t arity = read_big_endian(stream);
+
+    auto &atoms = atom_chunk.atoms;
+
+    LOG(INFO) << "  " << atoms[module_name] << ":" << atoms[function_name]
+              << "/" << arity;
+
+    imports.push_back(FunctionIdentifier{
+        .module = module_name, .function_name = function_name, .arity = arity});
+  }
+
+  return ImportTableChunk(imports);
+}
+
 BeamFile read_chunks(const std::string &filename) {
   std::ifstream input(filename, std::ios::binary);
   input.exceptions(std::ifstream::failbit | std::ifstream::badbit);
@@ -447,6 +474,7 @@ BeamFile read_chunks(const std::string &filename) {
   auto atom_chunk = std::optional<AtomChunk>();
   auto code_chunk = std::optional<CodeChunk>();
   auto literal_chunk = std::optional<LiteralChunk>();
+  auto import_table_chunk = std::optional<ImportTableChunk>();
 
   while (input.peek() != EOF) {
     const std::string module_name = read_string(input, 4);
@@ -476,6 +504,8 @@ BeamFile read_chunks(const std::string &filename) {
 
     } else if (module_name == "LitT") {
       literal_chunk = parse_literal_chunk(input, raw_size);
+    } else if (module_name == "ImpT") {
+      import_table_chunk = parse_import_table_chunk(input, *atom_chunk);
     }
 
     const auto chunk_end =
@@ -484,5 +514,6 @@ BeamFile read_chunks(const std::string &filename) {
     input.seekg(chunk_end);
   }
 
-  return BeamFile(*atom_chunk, *code_chunk, *literal_chunk);
+  return BeamFile(*atom_chunk, *code_chunk, *literal_chunk,
+                  *import_table_chunk);
 }
