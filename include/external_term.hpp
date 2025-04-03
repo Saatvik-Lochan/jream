@@ -43,7 +43,7 @@ struct ErlTerm {
 
 ErlTerm erl_list_from_vec(std::vector<ErlTerm> terms, ErlTerm end);
 ErlTerm get_nil_term();
-ErlTerm deepcopy(ErlTerm e, ErlTerm *to_loc);
+ErlTerm deepcopy(ErlTerm e, ErlTerm *&to_loc);
 std::vector<ErlTerm> vec_from_erl_list(ErlTerm e, bool include_end = false);
 
 class ErlListIterator {
@@ -59,7 +59,7 @@ public:
   ErlListIterator &operator++() {
     // ++ must not be called after it goes out of bounds
     end = *(curr_node_ptr + 1);
-    bool next_node_is_cons = (end & 0b11) == 0b10;
+    bool next_node_is_cons = (end & 0b11) == 0b01;
     curr_node_ptr = next_node_is_cons ? end.as_ptr() : nullptr;
 
     return *this;

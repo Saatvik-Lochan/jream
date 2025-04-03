@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cstdint>
 #include <format>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -212,7 +213,7 @@ std::vector<ErlTerm> vec_from_erl_list(ErlTerm e, bool include_end) {
 // Assume that all required space has already been allocated contiguously.
 // Copies anything necessary to to_loc and returns the the word representing
 // the whole type
-ErlTerm deepcopy(ErlTerm e, ErlTerm *to_loc) {
+ErlTerm deepcopy(ErlTerm e, ErlTerm *&to_loc) {
   const uint8_t bits = e.term & 0b11;
 
   switch (bits) {
@@ -238,12 +239,12 @@ ErlTerm deepcopy(ErlTerm e, ErlTerm *to_loc) {
     ErlList e_list(e);
     ErlListBuilder builder;
 
-    size_t counter = 0;
-
+    int count = 0;
     auto it = e_list.begin();
     for (; it != e_list.end(); ++it) {
-      builder.add_term(*it, to_loc + counter);
-      counter += 2; // space for two more terms
+      builder.add_term(*it, to_loc);
+      to_loc += 2;
+      std::cout << count++;
     }
 
     builder.set_end(it.get_end());

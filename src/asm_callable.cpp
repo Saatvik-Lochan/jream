@@ -27,9 +27,9 @@ void send_message(ErlTerm message, ErlTerm destination_pid) {
 
   // TODO fix this if garbage collection
   // assume there is space!
-  // TODO must update HTOP as well
-  auto copied_handle = deepcopy(message, process->get_shared<HTOP>());
-  assert(false);
+  auto heap_top = process->get_shared<HTOP>();
+  auto copied_handle = deepcopy(message, heap_top); // updates heap_top
+  process->set_shared<HTOP>(heap_top);
   
   main_scheduler.signal(process);
 }

@@ -7,21 +7,28 @@
 #include <gtest/gtest.h>
 #include <iterator>
 
-TEST(ErlTerm, ErlListFromVec) {
-  auto list = erl_list_from_vec({20, 30}, get_nil_term());
-
-  auto pointer = reinterpret_cast<uint64_t *>(list.term & TAGGING_MASK);
-  ASSERT_EQ(*pointer, 20);
+TEST(ErlTerm, ErlListFromVecAndBack) {
+  std::vector<ErlTerm> initial_vec = {0, 1, 2, 3, 4, 5};
+  auto list = erl_list_from_vec(initial_vec, get_nil_term());
+  auto transformed_vec = vec_from_erl_list(list);
+  
+  ASSERT_NE(&initial_vec, &transformed_vec);
+  ASSERT_EQ(initial_vec, transformed_vec);
 }
 
 TEST(ErlTerm, DeepcopyList) {
+  // given
   std::vector<ErlTerm> vec = {1, 2, 3, 4, 5};
   auto list = erl_list_from_vec(vec, get_nil_term());
 
   // for 5 nodes
   ErlTerm new_list_area[10];
-  auto copy = deepcopy(list, new_list_area);
+  ErlTerm *start = new_list_area;
 
+  // when
+  auto copy = deepcopy(list, start);
+
+  // then
   ErlList initial_list(list);
   ErlList copy_list(copy);
 
@@ -38,6 +45,8 @@ TEST(ErlTerm, DeepcopyList) {
   // assert same size
   ASSERT_EQ(it_i, initial_list.end());
   ASSERT_EQ(it_c, copy_list.end());
+  ASSERT_EQ(start, new_list_area + 10)
+      << "difference " << start - new_list_area;
 }
 
 TEST(Assembly, CreateLoadDoubleWord) {
@@ -267,7 +276,7 @@ TEST(RISCV, CallNoReductions) {
   ASSERT_EQ(result, YIELD);
 
   auto resume_label = pcb->get_shared<RESUME_LABEL>();
-  ASSERT_EQ(resume_label, 2);  // resume at label 2
+  ASSERT_EQ(resume_label, 2); // resume at label 2
 }
 
 int main(int argc, char **argv) {
