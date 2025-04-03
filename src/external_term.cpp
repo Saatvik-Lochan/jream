@@ -6,7 +6,6 @@
 #include <cassert>
 #include <cstdint>
 #include <format>
-#include <optional>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -181,89 +180,38 @@ std::pair<ErlTerm, uint8_t *> ErlTerm::from_binary(uint8_t *data,
   }
 }
 
-class ErlListIterator {
-private:
-  ErlTerm *curr_node_ptr;
-  ErlTerm end;
-
-public:
-  explicit ErlListIterator(ErlTerm p) : curr_node_ptr(p.as_ptr()) {};
-  explicit ErlListIterator(ErlTerm *ptr) : curr_node_ptr(ptr) {};
-
-  ErlTerm operator*() const { return *(curr_node_ptr); }
-  ErlListIterator &operator++() {
-    // ++ must not be called after it goes out of bounds
-    end = *(curr_node_ptr + 1);
-    bool next_node_is_cons = (end & 0b11) == 0b10;
-    curr_node_ptr = next_node_is_cons ? end.as_ptr() : nullptr;
-
-    return *this;
-  }
-
-  bool operator!=(const ErlListIterator &other) const {
-    return other.curr_node_ptr != curr_node_ptr;
-  }
-
-  ErlTerm get_end() {
-    assert(curr_node_ptr == nullptr);
-    return end;
-  }
-};
-
-class ErlList {
-private:
-  ErlTerm head;
-
-public:
-  explicit ErlList(ErlTerm e) : head(e) {};
-
-  ErlListIterator begin() { return ErlListIterator(head); }
-  ErlListIterator end() { return ErlListIterator(nullptr); }
-};
-
 ErlTerm get_nil_term() { return 0b111011; }
 
 ErlTerm erl_list_from_vec(std::vector<ErlTerm> terms, ErlTerm end) {
-  ErlTerm head;
-  ErlTerm *curr = &head;
+  ErlListBuilder builder;
 
   for (auto term : terms) {
-    ErlTerm *const new_node = new ErlTerm[2]();
-
-    curr->term = (reinterpret_cast<uint64_t>(new_node) & TAGGING_MASK) | 0b01;
-    new_node[0] = term;
-
-    curr = new_node + 1;
+    builder.add_term(term, new ErlTerm[2]);
   }
 
-  curr->term = end;
-  return head;
+  builder.set_end(end);
+  return builder.get_head();
 }
 
-class ErlListBuilder {
-private:
-  ErlTerm head;
-  ErlTerm *tail = &head;
-
-public:
-  // loc should have space for two ErlTerms
-  void add_term(ErlTerm e, ErlTerm *loc) {
-    tail->term = (reinterpret_cast<uint64_t>(loc) & TAGGING_MASK) | 0b01;
-    loc[0] = e;
-
-    tail = loc + 1;
+std::vector<ErlTerm> vec_from_erl_list(ErlTerm e, bool include_end) {
+  ErlList list(e);
+  std::vector<ErlTerm> out;
+    
+  auto it = list.begin();
+  for (; it != list.end(); ++it) {
+    out.push_back(*it);
   }
 
-  void set_end(ErlTerm e) { tail->term = e; }
+  if (include_end) {
+    out.push_back(it.get_end());
+  }
 
-  ErlTerm get_head() { return head; }
-};
+  return out;
+}
 
 // Assume that all required space has already been allocated contiguously.
 // Copies anything necessary to to_loc and returns the the word representing
 // the whole type
-//
-// TODO tests!
 ErlTerm deepcopy(ErlTerm e, ErlTerm *to_loc) {
   const uint8_t bits = e.term & 0b11;
 

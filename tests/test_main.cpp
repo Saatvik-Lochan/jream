@@ -3,6 +3,7 @@
 #include "../include/external_term.hpp"
 #include "../include/generated/instr_code.hpp"
 #include "../include/setup_logging.hpp"
+#include <cassert>
 #include <gtest/gtest.h>
 #include <iterator>
 
@@ -11,6 +12,32 @@ TEST(ErlTerm, ErlListFromVec) {
 
   auto pointer = reinterpret_cast<uint64_t *>(list.term & TAGGING_MASK);
   ASSERT_EQ(*pointer, 20);
+}
+
+TEST(ErlTerm, DeepcopyList) {
+  std::vector<ErlTerm> vec = {1, 2, 3, 4, 5};
+  auto list = erl_list_from_vec(vec, get_nil_term());
+
+  // for 5 nodes
+  ErlTerm new_list_area[10];
+  auto copy = deepcopy(list, new_list_area);
+
+  ErlList initial_list(list);
+  ErlList copy_list(copy);
+
+  auto it_i = initial_list.begin();
+  auto it_c = copy_list.begin();
+  
+  // assert elements equal, but in different locations
+  for (; it_i != initial_list.end() && it_c != copy_list.end();
+       ++it_i, ++it_c) {
+    ASSERT_EQ(*it_i, *it_c);
+    ASSERT_NE(it_i.get_current_node(), it_c.get_current_node());
+  }
+
+  // assert same size
+  ASSERT_EQ(it_i, initial_list.end());
+  ASSERT_EQ(it_c, copy_list.end());
 }
 
 TEST(Assembly, CreateLoadDoubleWord) {
@@ -182,8 +209,7 @@ CodeChunk getCallCodeChunk(bool *flag) {
           {Argument{LITERAL_TAG,
                     {.arg_num = reinterpret_cast<uint64_t>(set_flag)}},
            Argument{LITERAL_TAG,
-                    {.arg_num = reinterpret_cast<uint64_t>(flag)}}
-          },
+                    {.arg_num = reinterpret_cast<uint64_t>(flag)}}},
       },
   };
 
