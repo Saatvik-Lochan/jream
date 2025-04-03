@@ -8,10 +8,14 @@ CodeChunk::CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
     : instructions(std::move(instrs)), function_count(function_count),
       label_count(label_count) {
 
-  // allocate function table
-  compiled_code_lookup = new const uint8_t *[function_count];
-  std::fill(compiled_code_lookup, compiled_code_lookup + function_count,
+  // allocate label jumps (+1 to count since labels start at 1)
+  label_jump_locations = new const uint8_t *[label_count + 1];
+  std::fill(label_jump_locations, label_jump_locations + label_count + 1,
             PreCompiled::compile_stub);
+
+  // set all functions as not compiled
+  compiled_functions = new const uint8_t *[function_count];
+  std::fill(compiled_functions, compiled_functions + function_count, nullptr);
 
   // compact args for easy asm usage
   const auto len = instructions.size();
@@ -22,8 +26,11 @@ CodeChunk::CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
 
   // create function and label table
   func_label_table = new uint64_t[function_count];
+
   label_table.reserve(label_count + 1);
   label_table.push_back(0); // dummy value so indexing works correctly
+  label_func_table.reserve(label_count + 1);
+  label_func_table.push_back(0);
 
   uint64_t current_funcs = 0;
 
@@ -54,13 +61,13 @@ CodeChunk::CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
 
       assert(current_funcs < function_count);
       func_label_table[current_funcs] = label_num;
-      label_func_table[label_num] = current_funcs;
 
       current_funcs++;
-
     }
 
     if (instr.op_code == LABEL_OP) {
+      // the func index is one less than the number of funcs
+      label_func_table.push_back(current_funcs - 1);
       label_table.push_back(i);
     }
   }

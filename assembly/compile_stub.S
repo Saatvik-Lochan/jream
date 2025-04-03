@@ -6,16 +6,16 @@
 # ASSUME s5 holds a pointer to the X register array 
 
 # Assume:
-# - s9 has the pointer to the func_ptr location 
+# - s9 has the pointer to the jump ptr
 # (the above must be computed if you want to even jump here)
-# - a4 has the function index
+# - a4 has the label number
 ld a0, 24(s1) # generated from 'load_shared a0, CODE_CHUNK_P'
 mv a1, a4
 
-ld t0, 8(s4) # generated from 'call_cxx_fun COMPILE_FUNC'
+ld t0, 8(s4) # generated from 'call_cxx_fun COMPILE_LABEL'
 jalr t0 # cont...
-# set value in table to point to compiled funct
+# set value in table to point to label loc
 sd a0, 0(s9)
 
-# then jump to the compiled func
+# then jump 
 jr a0

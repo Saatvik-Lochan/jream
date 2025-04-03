@@ -210,7 +210,7 @@ create_store_appropriate(Argument arg, uint8_t dest_reg) {
 inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
                                                    CodeSection code_sec) {
   std::vector<uint8_t> compiled;
-  std::unordered_map<uint64_t, size_t> label_pointers;
+  std::unordered_map<uint64_t, size_t> label_offsets;
 
   // convenience lambdas
   auto add_code = [&compiled](const std::vector<uint8_t> &code) {
@@ -253,7 +253,7 @@ inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
     case LABEL_OP: {
       auto label_arg = instr.arguments[0];
       assert(label_arg.tag == LITERAL_TAG);
-      label_pointers[label_arg.arg_raw.arg_num] = compiled.size();
+      label_offsets[label_arg.arg_raw.arg_num] = compiled.size();
       break;
     }
 
@@ -272,18 +272,13 @@ inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
       auto arity = instr.arguments[0];
       assert(arity.tag == LITERAL_TAG);
 
+      [[maybe_unused]]
       auto label = instr.arguments[1];
       assert(label.tag == LABEL_TAG);
 
-      auto label_val = label.arg_raw.arg_num;
-      auto func_index = code_chunk.label_func_table.at(label_val);
 
       // check reductions and maybe yield
-      add_code(get_riscv(CALL_SETUP_SNIP));
-      // set a4 to func_index
-      add_riscv_instr(create_add_immediate(14, 0, func_index));
-      // store
-      add_code(get_riscv(CALL_FINISH_SNIP));
+      add_code(get_riscv(CALL_SNIP));
       break;
     }
 
@@ -313,7 +308,7 @@ inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
 
       // get translated code
       auto result = get_riscv_from_snippet(instr.op_code);
-      compiled.insert(compiled.end(), result.begin(), result.end());
+      add_code(result);
     }
     }
   }
@@ -371,20 +366,61 @@ uint8_t *compile_erlang_func(const CodeChunk &code_chunk, uint64_t func_index) {
   return code_ptr;
 }
 
-ErlReturnCode execute_erlang_func(ProcessControlBlock *pcb,
-                                  const CodeChunk &code_chunk,
-                                  uint64_t func_index) {
+ErlReturnCode setup_and_go_label(ProcessControlBlock *pcb, uint64_t label_num) {
 
-  return PreCompiled::setup_and_enter_asm(
-      pcb, code_chunk.compacted_arg_p_array, all_funs,
-      code_chunk.compiled_code_lookup, func_index, PreCompiled::teardown_code);
+  auto code_chunk = pcb->get_shared<CODE_CHUNK_P>();
+
+  return PreCompiled::setup_and_goto_label(
+      pcb, code_chunk->compacted_arg_p_array, all_funs,
+      code_chunk->label_jump_locations, label_num, PreCompiled::teardown_code);
 }
 
-ProcessControlBlock *create_process(CodeChunk &code_chunk) {
+ErlReturnCode resume_process(ProcessControlBlock *pcb) {
+  return setup_and_go_label(pcb, pcb->get_shared<RESUME_LABEL>());
+}
+
+ProcessControlBlock *create_process(CodeChunk &code_chunk,
+                                    uint64_t func_index) {
   ProcessControlBlock *pcb = new ProcessControlBlock;
+  auto label_num = code_chunk.func_label_table[func_index];
 
   // TODO initialise all shared code
   pcb->set_shared<CODE_CHUNK_P>(&code_chunk);
+  pcb->set_shared<RESUME_LABEL>(label_num);
 
   return pcb;
+}
+
+ProcessControlBlock *Scheduler::pick_next() {
+  auto chosen_it = runnable.begin();
+
+  if (chosen_it == runnable.end()) {
+    return nullptr;
+  }
+
+  auto value = runnable.extract(chosen_it);
+  return value.value();
+}
+
+bool Scheduler::signal(ProcessControlBlock *process) {
+  auto it = waiting.find(process);
+
+  if (it == waiting.end()) {
+    return false;
+  }
+
+  auto node = waiting.extract(it);
+  runnable.insert(std::move(node));
+
+  return true;
+}
+
+void emulator_main(CodeChunk &code_chunk, uint64_t func_index) {
+
+  auto process = create_process(code_chunk, func_index);
+  main_scheduler.waiting.insert(process);
+
+  while (auto to_run = main_scheduler.pick_next()) {
+    resume_process(to_run);
+  }
 }

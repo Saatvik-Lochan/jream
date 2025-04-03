@@ -27,7 +27,7 @@ TEST(ErlTerm, DeepcopyList) {
 
   auto it_i = initial_list.begin();
   auto it_c = copy_list.begin();
-  
+
   // assert elements equal, but in different locations
   for (; it_i != initial_list.end() && it_c != copy_list.end();
        ++it_i, ++it_c) {
@@ -101,11 +101,11 @@ TEST(Assembly, StoreDoubleWord) {
 TEST(JIT, SetupAndTeardown) {
   std::vector<Instruction> instructions;
   wrap_in_function(instructions);
-  auto code_chunk = CodeChunk(std::move(instructions), 1, 0);
+  auto code_chunk = CodeChunk(std::move(instructions), 1, 1);
 
-  auto pcb = create_process(code_chunk);
+  auto pcb = create_process(code_chunk, 0);
 
-  execute_erlang_func(pcb, code_chunk, 0);
+  resume_process(pcb);
 
   SUCCEED();
 }
@@ -115,19 +115,19 @@ TEST(RISCV, Allocate) {
   std::vector<Instruction> instructions = {
       Instruction{ALLOCATE_OP, {get_lit(3)}}};
   wrap_in_function(instructions);
-  auto code_chunk = CodeChunk(std::move(instructions), 1, 0);
+  auto code_chunk = CodeChunk(std::move(instructions), 1, 1);
 
   ErlTerm e[5];
   uint8_t code[20];
 
-  auto pcb = create_process(code_chunk);
+  auto pcb = create_process(code_chunk, 0);
   pcb->set_shared<STOP>(e + 4);
 
   auto code_ptr = code + 5; // arbitrary
   pcb->set_shared<CODE_POINTER>(code_ptr);
 
   // when
-  execute_erlang_func(pcb, code_chunk, 0);
+  resume_process(pcb);
 
   // then
   auto val = pcb->get_shared<STOP>();
@@ -146,15 +146,15 @@ TEST(RISCV, AllocateAndDeallocate) {
       Instruction{DEALLOCATE_OP, {get_lit(3)}}};
 
   wrap_in_function(instructions);
-  auto code_chunk = CodeChunk(std::move(instructions), 1, 0);
+  auto code_chunk = CodeChunk(std::move(instructions), 1, 1);
 
   ErlTerm e[5];
 
-  auto pcb = create_process(code_chunk);
+  auto pcb = create_process(code_chunk, 0);
   pcb->set_shared<STOP>(e);
 
   // when
-  execute_erlang_func(pcb, code_chunk, 0);
+  resume_process(pcb);
 
   // then
   auto val = pcb->get_shared<STOP>();
@@ -172,9 +172,9 @@ TEST(RISCV, GetList) {
                   }}};
 
   wrap_in_function(instructions);
-  auto code_chunk = CodeChunk(std::move(instructions), 1, 0);
+  auto code_chunk = CodeChunk(std::move(instructions), 1, 1);
 
-  auto pcb = create_process(code_chunk);
+  auto pcb = create_process(code_chunk, 0);
 
   ErlTerm xreg[1001];
   pcb->set_shared<XREG_ARRAY>(xreg);
@@ -183,7 +183,7 @@ TEST(RISCV, GetList) {
   xreg[0] = list;
 
   // when
-  execute_erlang_func(pcb, code_chunk, 0);
+  resume_process(pcb);
 
   // then
   ASSERT_EQ(xreg[1], 20);
@@ -197,7 +197,7 @@ CodeChunk getCallCodeChunk(bool *flag) {
       Instruction{ALLOCATE_OP, {get_lit(1)}},
       Instruction{CALL_OP,
                   {
-                      Argument{LITERAL_TAG, {.arg_num = 0}}, // arity
+                      Argument{LITERAL_TAG, {.arg_num = 1}}, // arity
                       Argument{LABEL_TAG, {.arg_num = 2}}    // label
                   }},
       Instruction{DEALLOCATE_OP, {get_lit(1)}},
@@ -230,14 +230,14 @@ TEST(RISCV, CallStandard) {
   // given
   bool called = false;
   auto code_chunk = getCallCodeChunk(&called);
-  auto pcb = create_process(code_chunk);
+  auto pcb = create_process(code_chunk, 0);
 
   ErlTerm e[5];
   pcb->set_shared<STOP>(e + 4);
   pcb->set_shared<REDUCTIONS>(5);
 
   // when
-  auto result = execute_erlang_func(pcb, code_chunk, 0);
+  auto result = resume_process(pcb);
 
   // then
   ASSERT_EQ(called, true);
@@ -251,7 +251,7 @@ TEST(RISCV, CallNoReductions) {
   // given
   bool called = false;
   auto code_chunk = getCallCodeChunk(&called);
-  auto pcb = create_process(code_chunk);
+  auto pcb = create_process(code_chunk, 0);
 
   ErlTerm e[5];
   pcb->set_shared<STOP>(e + 4);
@@ -260,11 +260,14 @@ TEST(RISCV, CallNoReductions) {
   pcb->set_shared<REDUCTIONS>(0);
 
   // when
-  auto result = execute_erlang_func(pcb, code_chunk, 0);
+  auto result = resume_process(pcb);
 
   // then
   ASSERT_EQ(called, false);
   ASSERT_EQ(result, YIELD);
+
+  auto resume_label = pcb->get_shared<RESUME_LABEL>();
+  ASSERT_EQ(resume_label, 2);  // resume at label 2
 }
 
 int main(int argc, char **argv) {

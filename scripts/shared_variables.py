@@ -4,7 +4,8 @@ shared_var_names = [
     "XREG_ARRAY",
     "CODE_CHUNK_P",
     "REDUCTIONS",
-    "CODE_POINTER"
+    "CODE_POINTER",
+    "RESUME_LABEL"
 ]
 
 shared_variables = {

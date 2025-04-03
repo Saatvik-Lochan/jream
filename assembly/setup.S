@@ -23,17 +23,17 @@ mv s2, a1  # compacted arg array
 # s3 used for local arg array
 mv s4, a2  # all function array
 ld s5, 16(s1) # generated from 'load_shared s5, XREG_ARRAY'
-mv s6, a3  # compiled function pointers
+mv s6, a3  # label loc pointers
 mv s7, a5 # pointer to teardown function
 mv s8, zero # the exit code value
-# s9 is a multi purpose saved register, so we can make ext calls
+# s9 is a multi purpose saved register
 
 # go to teardown if trying to return back here
 sd s7, 40(s1) # generated from 'store_shared s7, CODE_POINTER'
 
-# a4 has function index
+# a4 has label index
 slli t0, a4, 3 
-add s9, s6, t0
+add s9, s6, t0  
 ld t0, 0(s9)
 
 jr t0

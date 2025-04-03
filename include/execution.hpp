@@ -4,6 +4,8 @@
 #include "pcb.hpp"
 #include <cassert>
 #include <cstdint>
+#include <type_traits>
+#include <unordered_set>
 
 struct RISCV_Instruction {
   uint8_t raw[4];
@@ -32,11 +34,35 @@ struct RISCV_Instruction {
 };
 
 // must match with meta_assembly_compile
-enum ErlReturnCode {
-  FINISH = 0,
-  YIELD = 1,
-  ERROR = 2
+enum ErlReturnCode { FINISH = 0, YIELD = 1, ERROR = 2 };
+
+struct Scheduler {
+  std::unordered_set<ProcessControlBlock *> runnable;
+  std::unordered_set<ProcessControlBlock *> waiting;
+
+  ProcessControlBlock *pick_next();
+  bool signal(ProcessControlBlock *process);
 };
+
+inline Scheduler main_scheduler;
+
+struct Message {
+  uint64_t values[2];
+
+  inline explicit Message(ErlTerm e) { values[0] = e; };
+
+  inline ErlTerm get_payload() { return ErlTerm(values[0]); }
+
+  // we assume that the pointer to the Message struct
+  // is the same as the pointer to the first field (values)
+  // see static assert below
+  inline void set_next(Message *next) {
+    values[1] = reinterpret_cast<uint64_t>(next);
+  }
+};
+
+static_assert(std::is_standard_layout_v<Message>,
+              "Message is not standard layout. Required.");
 
 RISCV_Instruction create_load_doubleword(uint8_t rd, uint8_t rs, int16_t imm);
 RISCV_Instruction create_store_doubleword(uint8_t rd, uint8_t rs, int16_t imm);
@@ -44,9 +70,9 @@ RISCV_Instruction create_store_doubleword(uint8_t rd, uint8_t rs, int16_t imm);
 uint8_t *move_code_to_memory(const std::vector<uint8_t> &code);
 void run_code_section(CodeChunk &code_chunk, const CodeSection code_sec,
                       ProcessControlBlock *pcb);
-
 uint8_t *compile_erlang_func(const CodeChunk &code_chunk, uint64_t func_index);
-ErlReturnCode execute_erlang_func(ProcessControlBlock *pcb, const CodeChunk &code_chunk,
-                         uint64_t func_index);
-ProcessControlBlock *create_process(CodeChunk &code_chunk);
+
+ProcessControlBlock *create_process(CodeChunk &code_chunk, uint64_t func_index);
+ErlReturnCode resume_process(ProcessControlBlock *pcb);
+
 #endif

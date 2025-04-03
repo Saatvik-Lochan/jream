@@ -87,7 +87,8 @@ template <> struct std::hash<CodeSection> {
 
 using FunctionLabelTable = uint64_t *;
 using LabelTable = std::vector<uint64_t>;
-using LabelFunctionTable = std::unordered_map<uint64_t, uint64_t>;
+using LabelFunctionTable = std::vector<uint64_t>;
+using LabelOffsetTable = std::unordered_map<uint64_t, size_t>;
 
 struct CodeChunk {
   std::vector<Instruction> instructions;
@@ -97,9 +98,11 @@ struct CodeChunk {
   FunctionLabelTable func_label_table;
   LabelFunctionTable label_func_table;
   LabelTable label_table;
+  LabelOffsetTable label_offsets;
 
   uint64_t **compacted_arg_p_array;
-  const uint8_t *volatile *compiled_code_lookup;
+  const uint8_t *volatile *label_jump_locations;
+  const uint8_t **compiled_functions;
 
   CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
             uint32_t label_count);

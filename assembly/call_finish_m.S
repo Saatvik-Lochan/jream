@@ -1,4 +1,5 @@
-  # assume function index at a4
+# DEPRECATED
+# assume label index at a4
   slli a2, a4, 3
   add a2, a2, s6
   ld t1, 0(a2)

@@ -3,32 +3,28 @@
 #ifndef PCB_H
 #define PCB_H
 
-#include "generated/shared_variables.hpp"
 #include "beam_defs.hpp"
+#include "generated/shared_variables.hpp"
+
+#define ENUM_TYPE(ENUM, TYPE)                                                  \
+  template <> struct getFieldType<ENUM> {                                      \
+    using type = TYPE;                                                         \
+  };
 
 template <PCBSharedFields> struct getFieldType {
   using type = void;
 };
-template <> struct getFieldType<HTOP> {
-  using type = ErlTerm *;
-};
-template <> struct getFieldType<STOP> {
-  using type = ErlTerm *;
-};
-template <> struct getFieldType<XREG_ARRAY> {
-  using type = ErlTerm *;
-};
-template <> struct getFieldType<CODE_CHUNK_P> {
-  using type = CodeChunk *;  
-};
-template <> struct getFieldType<CODE_POINTER> {
-  using type = uint8_t *;  
-};
-template <> struct getFieldType<REDUCTIONS> {
-  using type = uint64_t;  
-};
 
-struct ProcessControlBlock {
+ENUM_TYPE(HTOP, ErlTerm *);
+ENUM_TYPE(STOP, ErlTerm *);
+ENUM_TYPE(XREG_ARRAY, ErlTerm *);
+ENUM_TYPE(CODE_CHUNK_P, CodeChunk *);
+ENUM_TYPE(CODE_POINTER, uint8_t *);
+ENUM_TYPE(REDUCTIONS, uint64_t);
+ENUM_TYPE(RESUME_LABEL, uint64_t);
+
+// we align by 16 bytes so we use 4 tag in pointers
+struct __attribute__((aligned(16))) ProcessControlBlock {
   volatile uint64_t shared[SHARED_FIELDS];
 
   template <PCBSharedFields Field>
