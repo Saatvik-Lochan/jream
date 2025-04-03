@@ -31,12 +31,16 @@ struct ErlTerm {
                                                    bool is_initial = true);
   template <typename T> static ErlTerm from_integer(T integer);
 
+  inline ErlTerm *as_ptr() {
+    return reinterpret_cast<ErlTerm *>(this->term & TAGGING_MASK);
+  }
+
   std::string display();
   std::string raw_display();
   ~ErlTerm() {} // TODO make a destructor
 };
 
-ErlTerm erl_list_from_vec(const std::vector<ErlTerm> &terms, ErlTerm end);
+ErlTerm erl_list_from_vec(std::vector<ErlTerm> terms, ErlTerm end);
 ErlTerm get_nil_term();
 
 #endif

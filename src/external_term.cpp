@@ -6,11 +6,11 @@
 #include <cassert>
 #include <cstdint>
 #include <format>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <vector>
-
 
 TagType ErlTerm::getTagType() {
   const uint8_t tag = term & 0b11;
@@ -82,25 +82,6 @@ std::string ErlTerm::display() {
 
 ErlTerm from_integer(const std::vector<uint8_t> &big_integer) {
   throw NotImplementedException("Really big integers not supported now");
-}
-
-ErlTerm get_nil_term() { return 0b111011; }
-
-ErlTerm erl_list_from_vec(const std::vector<ErlTerm> &terms, ErlTerm end) {
-  ErlTerm head;
-  ErlTerm *curr = &head;
-
-  for (auto term : terms) {
-    ErlTerm *const new_node = new ErlTerm[2]();
-
-    curr->term = (reinterpret_cast<uint64_t>(new_node) & TAGGING_MASK) | 0b01;
-    new_node[0] = term;
-
-    curr = new_node + 1;
-  }
-
-  curr->term = end;
-  return head;
 }
 
 // TODO test this!
@@ -196,6 +177,134 @@ std::pair<ErlTerm, uint8_t *> ErlTerm::from_binary(uint8_t *data,
         std::to_string(type_byte);
 
     throw NotImplementedException(err_msg.c_str());
+  }
+  }
+}
+
+class ErlListIterator {
+private:
+  ErlTerm *curr_node_ptr;
+  ErlTerm end;
+
+public:
+  explicit ErlListIterator(ErlTerm p) : curr_node_ptr(p.as_ptr()) {};
+  explicit ErlListIterator(ErlTerm *ptr) : curr_node_ptr(ptr) {};
+
+  ErlTerm operator*() const { return *(curr_node_ptr); }
+  ErlListIterator &operator++() {
+    // ++ must not be called after it goes out of bounds
+    end = *(curr_node_ptr + 1);
+    bool next_node_is_cons = (end & 0b11) == 0b10;
+    curr_node_ptr = next_node_is_cons ? end.as_ptr() : nullptr;
+
+    return *this;
+  }
+
+  bool operator!=(const ErlListIterator &other) const {
+    return other.curr_node_ptr != curr_node_ptr;
+  }
+
+  ErlTerm get_end() {
+    assert(curr_node_ptr == nullptr);
+    return end;
+  }
+};
+
+class ErlList {
+private:
+  ErlTerm head;
+
+public:
+  explicit ErlList(ErlTerm e) : head(e) {};
+
+  ErlListIterator begin() { return ErlListIterator(head); }
+  ErlListIterator end() { return ErlListIterator(nullptr); }
+};
+
+ErlTerm get_nil_term() { return 0b111011; }
+
+ErlTerm erl_list_from_vec(std::vector<ErlTerm> terms, ErlTerm end) {
+  ErlTerm head;
+  ErlTerm *curr = &head;
+
+  for (auto term : terms) {
+    ErlTerm *const new_node = new ErlTerm[2]();
+
+    curr->term = (reinterpret_cast<uint64_t>(new_node) & TAGGING_MASK) | 0b01;
+    new_node[0] = term;
+
+    curr = new_node + 1;
+  }
+
+  curr->term = end;
+  return head;
+}
+
+class ErlListBuilder {
+private:
+  ErlTerm head;
+  ErlTerm *tail = &head;
+
+public:
+  // loc should have space for two ErlTerms
+  void add_term(ErlTerm e, ErlTerm *loc) {
+    tail->term = (reinterpret_cast<uint64_t>(loc) & TAGGING_MASK) | 0b01;
+    loc[0] = e;
+
+    tail = loc + 1;
+  }
+
+  void set_end(ErlTerm e) { tail->term = e; }
+
+  ErlTerm get_head() { return head; }
+};
+
+// Assume that all required space has already been allocated contiguously.
+// Copies anything necessary to to_loc and returns the the word representing
+// the whole type
+//
+// TODO tests!
+ErlTerm deepcopy(ErlTerm e, ErlTerm *to_loc) {
+  const uint8_t bits = e.term & 0b11;
+
+  switch (bits) {
+  case 0b11: { // only one word to copy
+    return e;
+  }
+  case 0b10: {
+    ErlTerm *header_ptr = e.as_ptr();
+    ErlTerm header = *header_ptr;
+    assert((header & 0b11) == 0b00);
+
+    uint64_t length = header >> 6;
+
+    auto box_start = header_ptr + 1;
+    auto box_end = box_start + length;
+
+    // here we assume that to_loc has enough room
+    std::copy(box_start, box_end, to_loc);
+
+    return e;
+  }
+  case 0b01: {
+    ErlList e_list(e);
+    ErlListBuilder builder;
+
+    size_t counter = 0;
+
+    auto it = e_list.begin();
+    for (; it != e_list.end(); ++it) {
+      builder.add_term(*it, to_loc + counter);
+      counter += 2; // space for two more terms
+    }
+
+    builder.set_end(it.get_end());
+
+    return builder.get_head();
+  }
+  default: {
+    throw std::logic_error(
+        "Deepcopy not possibly for return address/header words (tag: 0b00)");
   }
   }
 }
