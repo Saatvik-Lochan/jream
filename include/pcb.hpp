@@ -1,7 +1,8 @@
-#include "external_term.hpp"
-#include <cstdint>
 #ifndef PCB_H
 #define PCB_H
+
+#include "external_term.hpp"
+#include <cstdint>
 
 #include "beam_defs.hpp"
 #include "generated/shared_variables.hpp"

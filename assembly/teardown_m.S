@@ -11,6 +11,7 @@ ld s6, 48(sp)
 ld s7, 56(sp)
 ld s8, 64(sp)
 ld s9, 72(sp)
-addi sp, sp, 80
+ld s9, 80(sp)
+addi sp, sp, 96
 
 ret

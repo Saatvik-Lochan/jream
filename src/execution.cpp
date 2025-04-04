@@ -11,6 +11,7 @@
 #include "asm_callable.hpp"
 #include "asm_utility.hpp"
 #include "beam_defs.hpp"
+#include "bif.hpp"
 #include "execution.hpp"
 #include "generated/instr_code.hpp"
 #include "op_arity.hpp"
@@ -207,6 +208,22 @@ create_store_appropriate(Argument arg, uint8_t dest_reg) {
   }
 }
 
+std::optional<ext_func> bif_from_id(GlobalFunctionIdentifier id,
+                                    const AtomChunk &atom_chunk) {
+
+  auto &atoms = atom_chunk.atoms;
+
+  auto id_string = std::format("{}:{}/{}", atoms[id.module],
+                               atoms[id.function_name], id.arity);
+  auto result = name_bif_map.find(id_string);
+
+  if (result == name_bif_map.end()) {
+    return std::nullopt;
+  }
+
+  return std::make_optional(result->second);
+}
+
 // garbage collection is tricky
 inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
                                                    CodeSection code_sec) {
@@ -280,6 +297,32 @@ inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
       // check reductions and maybe yield
       add_code(get_riscv(CALL_SNIP));
       break;
+    }
+
+    case CALL_EXT_OP: {
+      add_setup_args_code();
+
+      [[maybe_unused]]
+      auto arity = instr.arguments[0];
+      assert(arity.tag == LITERAL_TAG);
+
+      auto destination = instr.arguments[1];
+      assert(destination.tag == LITERAL_TAG);
+
+      auto index = destination.arg_raw.arg_num;
+      auto func_id = code_chunk.import_table_chunk->imports[index];
+
+      auto result = bif_from_id(func_id, *code_chunk.atom_chunk);
+
+      if (result) {
+        // i.e. we are calling a bif, so replace with the direct jump
+        // ld t0, imm(s7)(export table location)
+        create_load_doubleword(5, 29, index * 8);
+
+      } else {
+        // external call which is either not implemented or user defined
+        throw std::logic_error("Bif not yet defined");
+      }
     }
 
     case RETURN_OP: {
@@ -372,7 +415,8 @@ ErlReturnCode setup_and_go_label(ProcessControlBlock *pcb, uint64_t label_num) {
 
   return PreCompiled::setup_and_goto_label(
       pcb, code_chunk->compacted_arg_p_array, all_funs,
-      code_chunk->label_jump_locations, label_num, PreCompiled::teardown_code);
+      code_chunk->label_jump_locations, label_num, PreCompiled::teardown_code,
+      code_chunk->external_jump_locations);
 }
 
 ErlReturnCode resume_process(ProcessControlBlock *pcb) {
@@ -423,27 +467,17 @@ bool Scheduler::signal(ProcessControlBlock *process) {
   return true;
 }
 
-std::optional<uintptr_t> bif_from_name(std::string module_name,
-                                       std::string function_name,
-                                       uint32_t arity) {
-  // TODO
-  return std::make_optional<uintptr_t>();
-}
-
 void init_ext_jump(BeamFile *file) {
   const auto &imports = file->import_table_chunk.imports;
 
   // allocate imports
   auto import_num = imports.size();
-  auto ext_jumps = new uintptr_t[import_num];
-
-  const auto &atoms = file->atom_chunk.atoms;
+  auto ext_jumps = new ext_func[import_num];
 
   for (size_t i = 0; i < import_num; i++) {
     const auto func_id = imports[i];
 
-    auto result = bif_from_name(atoms[func_id.module],
-                                atoms[func_id.function_name], func_id.arity);
+    auto result = bif_from_id(func_id, file->atom_chunk);
 
     if (result) {
       ext_jumps[i] = *result;
@@ -457,8 +491,10 @@ void create_emulator(std::vector<BeamFile *> files) {
   Emulator out;
 
   // set imports/exports
-
   for (auto file_p : files) {
+    file_p->code_chunk.import_table_chunk = &file_p->import_table_chunk;
+    file_p->code_chunk.function_table_chunk = &file_p->function_table_chunk;
+    file_p->code_chunk.atom_chunk = &file_p->atom_chunk;
     init_ext_jump(file_p);
   }
 }

@@ -1,3 +1,6 @@
+#ifndef BEAM_DEFS
+#define BEAM_DEFS
+
 #include "external_term.hpp"
 #include "op_arity.hpp"
 
@@ -6,9 +9,6 @@
 #include <cstring>
 #include <unordered_map>
 #include <vector>
-
-#ifndef BEAM_DEFS
-#define BEAM_DEFS
 
 // data structures
 enum Tag {
@@ -113,10 +113,23 @@ struct FunctionTableChunk {
   void log(const AtomChunk& atom_chunk);
 };
 
+struct ImportTableChunk {
+  std::vector<GlobalFunctionIdentifier> imports;
+
+  ImportTableChunk(std::vector<GlobalFunctionIdentifier> imports)
+      : imports(std::move(imports)) {}
+
+  void log(const AtomChunk& atom_chunk);
+};
+
 using FunctionLabelTable = uint64_t *;
 using LabelTable = std::vector<uint64_t>;
 using LabelFunctionTable = std::vector<uint64_t>;
 using LabelOffsetTable = std::unordered_map<uint64_t, size_t>;
+
+struct CodeChunk;
+
+typedef void (*ext_func)(ErlTerm *x_reg_array, CodeChunk *code_chunk_p);
 
 struct CodeChunk {
   std::vector<Instruction> instructions;
@@ -130,10 +143,12 @@ struct CodeChunk {
 
   uint64_t **compacted_arg_p_array;
   const uint8_t *volatile *label_jump_locations;
-  volatile uintptr_t *external_jump_locations;
+  volatile ext_func *external_jump_locations;
   const uint8_t **compiled_functions;
 
-  std::vector<AnonymousFunctionId> *lambda_table;
+  AtomChunk *atom_chunk;
+  ImportTableChunk *import_table_chunk;
+  FunctionTableChunk *function_table_chunk;
 
   CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
             uint32_t label_count);
@@ -148,15 +163,6 @@ struct LiteralChunk {
   LiteralChunk(std::vector<ErlTerm> literals) : literals(std::move(literals)) {}
 
   void log();
-};
-
-struct ImportTableChunk {
-  std::vector<GlobalFunctionIdentifier> imports;
-
-  ImportTableChunk(std::vector<GlobalFunctionIdentifier> imports)
-      : imports(std::move(imports)) {}
-
-  void log(const AtomChunk& atom_chunk);
 };
 
 struct BeamFile {

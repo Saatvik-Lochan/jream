@@ -1,4 +1,5 @@
-addi sp, sp, -80 # remember must be 16-byte aligned
+addi sp, sp, -96 # remember must be 16-byte aligned
+sd s10, 80(sp)
 sd s9, 72(sp)
 sd s8, 64(sp)
 sd s7, 56(sp)
@@ -20,6 +21,7 @@ mv s6, a3  # label loc pointers
 mv s7, a5 # pointer to teardown function
 mv s8, zero # the exit code value
 # s9 is a multi purpose saved register
+mv s10, a6 # external jump pointer
 
 # go to teardown if trying to return back here
 store_shared s7, CODE_POINTER
