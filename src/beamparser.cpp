@@ -199,13 +199,12 @@ std::vector<Argument> *parse_extended_list(std::ifstream &stream) {
   auto tag = parse_tag(next_byte);
 
   assert(tag == LITERAL_TAG);
-
   auto list_size = parse_argument_number(stream, next_byte);
   // assumed to last the lifetime of the program, so no delete/cleanup
   auto arg_vec_p = new std::vector<Argument>(list_size);
 
   for (uint64_t i = 0; i < list_size; i++) {
-    arg_vec_p->push_back(parse_argument(stream));
+    (*arg_vec_p)[i] = parse_argument(stream);
   }
 
   return arg_vec_p;
@@ -318,7 +317,6 @@ Argument parse_argument(std::ifstream &stream) {
 }
 
 CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
-          
 
   // TODO use these for optimising allocations
   const uint32_t sub_size = read_big_endian(stream);
@@ -425,18 +423,44 @@ LiteralChunk parse_literal_chunk(std::ifstream &stream,
   return LiteralChunk(std::move(terms));
 }
 
-std::vector<FunctionIdentifier>
+std::vector<GlobalFunctionIdentifier>
 read_function_identifiers(std::ifstream &stream) {
   uint32_t func_id_count = read_big_endian(stream);
-  std::vector<FunctionIdentifier> func_ids;
+  std::vector<GlobalFunctionIdentifier> func_ids;
 
   for (uint32_t i = 0; i < func_id_count; i++) {
     uint32_t module_name = read_big_endian(stream);
     uint32_t function_name = read_big_endian(stream);
     uint32_t arity = read_big_endian(stream);
 
-    func_ids.push_back(FunctionIdentifier{
+    func_ids.push_back(GlobalFunctionIdentifier{
         .module = module_name, .function_name = function_name, .arity = arity});
+  }
+
+  return func_ids;
+}
+
+std::vector<AnonymousFunctionId> read_local_function_id(std::ifstream &stream) {
+  uint32_t func_id_count = read_big_endian(stream);
+  std::vector<AnonymousFunctionId> func_ids;
+
+  LOG(INFO) << "  anonymous func count: " << func_id_count;
+
+  for (uint32_t i = 0; i < func_id_count; i++) {
+    uint32_t function_name = read_big_endian(stream);
+    uint32_t arity = read_big_endian(stream);
+    uint32_t label = read_big_endian(stream);
+
+    uint32_t index = read_big_endian(stream);
+    uint32_t num_free = read_big_endian(stream);
+    uint32_t old_uniq = read_big_endian(stream);
+
+    func_ids.push_back(AnonymousFunctionId{.function_name = function_name,
+                                           .arity = arity,
+                                           .label = label,
+                                           .index = index,
+                                           .num_free = num_free,
+                                           .old_uniq = old_uniq});
   }
 
   return func_ids;
@@ -450,7 +474,7 @@ ImportTableChunk parse_import_table_chunk(std::ifstream &stream) {
 
 FunctionTableChunk parse_function_table_chunk(std::ifstream &stream) {
 
-  auto functions = read_function_identifiers(stream);
+  auto functions = read_local_function_id(stream);
   return FunctionTableChunk(functions);
 }
 
@@ -513,6 +537,6 @@ BeamFile read_chunks(const std::string &filename) {
     input.seekg(chunk_end);
   }
 
-  return BeamFile(*atom_chunk, *code_chunk, *literal_chunk,
-                  *import_table_chunk, *function_table_chunk);
+  return BeamFile(*atom_chunk, *code_chunk, *literal_chunk, *import_table_chunk,
+                  *function_table_chunk);
 }

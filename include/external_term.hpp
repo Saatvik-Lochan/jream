@@ -19,9 +19,15 @@ enum TagType {
   NIL_T,
 };
 
+enum BoxedType {
+  ARITYVAL_T,
+  FUN_T
+};
+
 struct ErlTerm {
   uint64_t term;
   TagType getTagType();
+  BoxedType getBoxedType();
 
   ErlTerm(uint64_t term) : term(term) {}
   ErlTerm() : term(0) {}

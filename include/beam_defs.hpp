@@ -54,16 +54,27 @@ struct Instruction {
   std::vector<Argument> arguments;
 };
 
-struct FunctionIdentifier {
+struct GlobalFunctionIdentifier {
   uint32_t module; // indexes to the appropriate atom in the atom table
   uint32_t function_name;
   uint32_t arity;
 
-  bool operator==(const FunctionIdentifier &other) const = default;
+  bool operator==(const GlobalFunctionIdentifier &other) const = default;
 };
 
-template <> struct std::hash<FunctionIdentifier> {
-  size_t operator()(const FunctionIdentifier &id) const {
+struct AnonymousFunctionId {
+  uint32_t function_name;
+  uint32_t arity;
+  uint32_t label;
+  uint32_t index;
+  uint32_t num_free;
+  uint32_t old_uniq;
+
+  bool operator==(const AnonymousFunctionId &other) const = default;
+};
+
+template <> struct std::hash<GlobalFunctionIdentifier> {
+  size_t operator()(const GlobalFunctionIdentifier &id) const {
     size_t h1 = std::hash<uint64_t>{}(id.module);
     size_t h2 = std::hash<uint64_t>{}(id.function_name);
     size_t h3 = std::hash<uint64_t>{}(id.arity);
@@ -85,11 +96,6 @@ template <> struct std::hash<CodeSection> {
   }
 };
 
-using FunctionLabelTable = uint64_t *;
-using LabelTable = std::vector<uint64_t>;
-using LabelFunctionTable = std::vector<uint64_t>;
-using LabelOffsetTable = std::unordered_map<uint64_t, size_t>;
-
 struct AtomChunk {
   std::vector<std::string> atoms;
 
@@ -97,6 +103,20 @@ struct AtomChunk {
 
   void log();
 };
+
+struct FunctionTableChunk {
+  std::vector<AnonymousFunctionId> functions;
+
+  FunctionTableChunk(std::vector<AnonymousFunctionId> functions)
+      : functions(std::move(functions)) {}
+
+  void log(const AtomChunk& atom_chunk);
+};
+
+using FunctionLabelTable = uint64_t *;
+using LabelTable = std::vector<uint64_t>;
+using LabelFunctionTable = std::vector<uint64_t>;
+using LabelOffsetTable = std::unordered_map<uint64_t, size_t>;
 
 struct CodeChunk {
   std::vector<Instruction> instructions;
@@ -113,8 +133,11 @@ struct CodeChunk {
   volatile uintptr_t *external_jump_locations;
   const uint8_t **compiled_functions;
 
+  std::vector<AnonymousFunctionId> *lambda_table;
+
   CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
             uint32_t label_count);
+
 
   void log(const AtomChunk& atom_chunk);
 };
@@ -128,19 +151,10 @@ struct LiteralChunk {
 };
 
 struct ImportTableChunk {
-  std::vector<FunctionIdentifier> imports;
+  std::vector<GlobalFunctionIdentifier> imports;
 
-  ImportTableChunk(std::vector<FunctionIdentifier> imports)
+  ImportTableChunk(std::vector<GlobalFunctionIdentifier> imports)
       : imports(std::move(imports)) {}
-
-  void log(const AtomChunk& atom_chunk);
-};
-
-struct FunctionTableChunk {
-  std::vector<FunctionIdentifier> functions;
-
-  FunctionTableChunk(std::vector<FunctionIdentifier> functions)
-      : functions(std::move(functions)) {}
 
   void log(const AtomChunk& atom_chunk);
 };

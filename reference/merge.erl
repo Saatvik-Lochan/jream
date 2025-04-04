@@ -1,5 +1,15 @@
 -module(merge).
--export([merge_sort/1]).
+-export([merge_sort/1, woah/0]).
+
+temp() ->
+  Parent = rand:uint64_t(),
+  Parent2 = rand:uint64_t(),
+  Parent3 = rand:uint64_t(),
+  fun(A, B) -> A + B - Parent + Parent2 - Parent3 end.
+
+woah() ->
+  A = temp(),
+  A(1, 2).
 
 % Entry point
 merge_sort(List) ->

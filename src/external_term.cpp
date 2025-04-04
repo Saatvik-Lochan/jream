@@ -53,6 +53,22 @@ TagType ErlTerm::getTagType() {
   }
 }
 
+BoxedType ErlTerm::getBoxedType() {
+  assert(getTagType() == BOXED_T);
+
+  ErlTerm header = *as_ptr();
+  auto tag = (header >> 2) & 0b1111;
+
+  switch (tag) {
+  case 0b0000:
+    return ARITYVAL_T;
+  case 0b0101:
+    return FUN_T;
+  default:
+    throw std::domain_error("Boxed type not yet supported");
+  }
+}
+
 std::string ErlTerm::raw_display() { return std::format("{:b}", term); }
 
 std::string ErlTerm::display() {
@@ -197,7 +213,7 @@ ErlTerm erl_list_from_vec(std::vector<ErlTerm> terms, ErlTerm end) {
 std::vector<ErlTerm> vec_from_erl_list(ErlTerm e, bool include_end) {
   ErlList list(e);
   std::vector<ErlTerm> out;
-    
+
   auto it = list.begin();
   for (; it != list.end(); ++it) {
     out.push_back(*it);

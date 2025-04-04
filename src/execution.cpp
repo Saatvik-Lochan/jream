@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <optional>
 #include <stdexcept>
 #include <sys/mman.h>
 #include <unordered_map>
@@ -378,13 +379,21 @@ ErlReturnCode resume_process(ProcessControlBlock *pcb) {
   return setup_and_go_label(pcb, pcb->get_shared<RESUME_LABEL>());
 }
 
-ProcessControlBlock *create_process(CodeChunk &code_chunk,
-                                    uint64_t func_index) {
+ProcessControlBlock *create_process(CodeChunk &code_chunk) {
   ProcessControlBlock *pcb = new ProcessControlBlock;
-  auto label_num = code_chunk.func_label_table[func_index];
 
   // TODO initialise all shared code
   pcb->set_shared<CODE_CHUNK_P>(&code_chunk);
+  pcb->set_shared<XREG_ARRAY>(new ErlTerm[1001]);
+
+  return pcb;
+}
+
+ProcessControlBlock *create_process(CodeChunk &code_chunk,
+                                    uint64_t func_index) {
+  auto pcb = create_process(code_chunk);
+
+  auto label_num = code_chunk.func_label_table[func_index];
   pcb->set_shared<RESUME_LABEL>(label_num);
 
   return pcb;
@@ -417,7 +426,8 @@ bool Scheduler::signal(ProcessControlBlock *process) {
 std::optional<uintptr_t> bif_from_name(std::string module_name,
                                        std::string function_name,
                                        uint32_t arity) {
-
+  // TODO
+  return std::make_optional<uintptr_t>();
 }
 
 void init_ext_jump(BeamFile *file) {

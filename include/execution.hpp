@@ -77,6 +77,7 @@ void run_code_section(CodeChunk &code_chunk, const CodeSection code_sec,
 uint8_t *compile_erlang_func(const CodeChunk &code_chunk, uint64_t func_index);
 
 ProcessControlBlock *create_process(CodeChunk &code_chunk, uint64_t func_index);
+ProcessControlBlock *create_process(CodeChunk &code_chunk);
 ErlReturnCode resume_process(ProcessControlBlock *pcb);
 
 #endif

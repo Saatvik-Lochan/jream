@@ -94,6 +94,11 @@ std::string get_argument_string(Argument arg, const AtomChunk &atom_chunk) {
     return tag_name + static_cast<char>(val.arg_num);
   case EXT_LIST_TAG: {
     const auto &vec = *val.arg_vec_p;
+
+    if (vec.empty()) {
+      return tag_name + "[]";
+    }
+
     std::string vec_string = "[ ";
 
     size_t i = 0;
@@ -119,9 +124,8 @@ std::string get_argument_string(Argument arg, const AtomChunk &atom_chunk) {
 void AtomChunk::log() {
   LOG(INFO) << "AtomChunk";
 
-  uint32_t count = 0;
-  for (auto atom : atoms) {
-    LOG(INFO) << "    " << ++count << ":  " << atom;
+  for (size_t i = 1; i < atoms.size(); i++) {
+    LOG(INFO) << "    " << i << ":  " << atoms[i];
   }
 }
 
@@ -135,8 +139,7 @@ void CodeChunk::log(const AtomChunk &atom_chunk) {
     auto arity = op_arities[op_code];
 
     LOG(INFO) << "";
-    LOG(INFO) << std::format("  {} | {}/{} ", name, op_code,
-                             arity);
+    LOG(INFO) << std::format("  {} | {}/{} ", name, op_code, arity);
 
     const auto &args = instr.arguments;
 
@@ -148,7 +151,7 @@ void CodeChunk::log(const AtomChunk &atom_chunk) {
 
 void LiteralChunk::log() { LOG(INFO) << "Literal Chunk"; }
 
-std::string get_func_id_name(FunctionIdentifier func_id,
+std::string get_func_id_name(GlobalFunctionIdentifier func_id,
                              const AtomChunk &atom_chunk) {
   auto &atoms = atom_chunk.atoms;
   return std::format("{}:{}/{}", atoms[func_id.module],
@@ -161,6 +164,12 @@ void ImportTableChunk::log(const AtomChunk &atom_chunk) {
     LOG(INFO) << "    " << i << ": "
               << get_func_id_name(imports[i], atom_chunk);
   }
+}
+
+std::string get_func_id_name(AnonymousFunctionId func_id,
+                             const AtomChunk &atom_chunk) {
+  auto &atoms = atom_chunk.atoms;
+  return std::format("{} - label {}, arity {}, num_free {}", atoms[func_id.function_name], func_id.label, func_id.arity, func_id.num_free);
 }
 
 void FunctionTableChunk::log(const AtomChunk &atom_chunk) {
