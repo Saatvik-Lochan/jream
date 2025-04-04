@@ -44,7 +44,11 @@ struct Scheduler {
   bool signal(ProcessControlBlock *process);
 };
 
-inline Scheduler main_scheduler;
+struct Emulator {
+  Scheduler scheduler;
+};
+
+inline Emulator emulator_main;
 
 struct Message {
   uint64_t values[2];

@@ -276,7 +276,6 @@ inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
       auto label = instr.arguments[1];
       assert(label.tag == LABEL_TAG);
 
-
       // check reductions and maybe yield
       add_code(get_riscv(CALL_SNIP));
       break;
@@ -415,12 +414,54 @@ bool Scheduler::signal(ProcessControlBlock *process) {
   return true;
 }
 
-void emulator_main(CodeChunk &code_chunk, uint64_t func_index) {
+std::optional<uintptr_t> bif_from_name(std::string module_name,
+                                       std::string function_name,
+                                       uint32_t arity) {
+
+}
+
+void init_ext_jump(BeamFile *file) {
+  const auto &imports = file->import_table_chunk.imports;
+
+  // allocate imports
+  auto import_num = imports.size();
+  auto ext_jumps = new uintptr_t[import_num];
+
+  const auto &atoms = file->atom_chunk.atoms;
+
+  for (size_t i = 0; i < import_num; i++) {
+    const auto func_id = imports[i];
+
+    auto result = bif_from_name(atoms[func_id.module],
+                                atoms[func_id.function_name], func_id.arity);
+
+    if (result) {
+      ext_jumps[i] = *result;
+    }
+  }
+
+  file->code_chunk.external_jump_locations = ext_jumps;
+}
+
+void create_emulator(std::vector<BeamFile *> files) {
+  Emulator out;
+
+  // set imports/exports
+
+  for (auto file_p : files) {
+    init_ext_jump(file_p);
+  }
+}
+
+void run_emulator(Emulator emulator, CodeChunk &code_chunk,
+                  uint64_t func_index) {
+
+  auto &scheduler = emulator.scheduler;
 
   auto process = create_process(code_chunk, func_index);
-  main_scheduler.waiting.insert(process);
+  scheduler.waiting.insert(process);
 
-  while (auto to_run = main_scheduler.pick_next()) {
+  while (auto to_run = scheduler.pick_next()) {
     resume_process(to_run);
   }
 }

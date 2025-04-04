@@ -31,5 +31,5 @@ void send_message(ErlTerm message, ErlTerm destination_pid) {
   auto copied_handle = deepcopy(message, heap_top); // updates heap_top
   process->set_shared<HTOP>(heap_top);
   
-  main_scheduler.signal(process);
+  emulator_main.scheduler.signal(process);
 }

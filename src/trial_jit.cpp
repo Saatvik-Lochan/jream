@@ -14,5 +14,6 @@ int main(int argc, char *argv[]) {
   setup_logging(argv[0]);
 
   auto beamfile = read_chunks(argv[1]);
+  beamfile.log();
   auto code_chunk = beamfile.code_chunk;
 }

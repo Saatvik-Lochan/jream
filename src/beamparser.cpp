@@ -1,3 +1,4 @@
+#include <functional>
 #include <glog/logging.h>
 
 #include "beam_defs.hpp"
@@ -77,13 +78,9 @@ AtomChunk parse_atom_chunk(std::ifstream &stream) {
 
   atoms.push_back("dummy"); // indexing dummy
 
-  LOG(INFO) << "Atoms:" << std::endl;
-
   for (uint32_t i = 0; i < num_atoms; i++) {
     uint8_t atom_length = read_byte(stream);
     std::string atom_name = read_string(stream, atom_length);
-
-    LOG(INFO) << i+1 << ":  " << atom_name << std::endl;
 
     atoms.push_back(atom_name);
   }
@@ -188,7 +185,6 @@ uint64_t parse_argument_number(std::ifstream &stream, uint8_t tag_byte) {
 uint64_t parse_extended_literal(std::ifstream &stream) {
   auto next_byte = read_byte(stream);
   auto tag = parse_tag(next_byte);
-  LOG(INFO) << TagToString(tag) << std::endl;
 
   assert(tag == LITERAL_TAG);
 
@@ -321,50 +317,8 @@ Argument parse_argument(std::ifstream &stream) {
   }
 }
 
-std::string get_argument_string(Argument arg, const AtomChunk &atom_chunk) {
-  std::string tag_name = TagToString(arg.tag) + " = ";
-  auto val = arg.arg_raw;
-  auto &atoms = atom_chunk.atoms;
-
-  switch (arg.tag) {
-  case LITERAL_TAG:
-  case LABEL_TAG:
-  case INTEGER_TAG:
-    return tag_name + std::to_string(val.arg_num);
-  case ATOM_TAG:
-    return tag_name + atoms[val.arg_num];
-  case X_REGISTER_TAG:
-    return tag_name + "x" + std::to_string(val.arg_num);
-  case Y_REGISTER_TAG:
-    return tag_name + "y" + std::to_string(val.arg_num);
-  case CHARACTER_TAG:
-    return tag_name + static_cast<char>(val.arg_num);
-  case EXT_LIST_TAG: {
-    const auto &vec = *val.arg_vec_p;
-    std::string vec_string = "[ ";
-
-    size_t i = 0;
-    for (; i < vec.size() - 1; i++) {
-      vec_string += get_argument_string(vec[i], atom_chunk);
-      vec_string += ", ";
-    }
-
-    vec_string += get_argument_string(vec[i], atom_chunk);
-    vec_string += "]";
-
-    return tag_name + vec_string;
-  }
-  case EXT_ALLOC_LIST_TAG:
-  case EXT_LITERAL_TAG:
-  case TYPED_REGISTER_TAG:
-  case EXT_FPREG_TAG:
-  default:
-    return tag_name;
-  }
-}
-
-CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end,
-                           const AtomChunk &atom_chunk) {
+CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
+          
 
   // TODO use these for optimising allocations
   const uint32_t sub_size = read_big_endian(stream);
@@ -393,14 +347,10 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end,
     op_code = read_byte(stream);
     uint8_t arity = op_arities[op_code];
 
-    LOG(WARNING) << std::format("{}, op_code: {}, arity: {} ",
-                                op_names[op_code], op_code, arity);
-
     std::vector<Argument> args(arity);
 
     for (int i = 0; i < arity; i++) {
       args[i] = parse_argument(stream);
-      LOG(INFO) << "    " << get_argument_string(args[i], atom_chunk);
     }
 
     instructions.push_back(
@@ -475,29 +425,33 @@ LiteralChunk parse_literal_chunk(std::ifstream &stream,
   return LiteralChunk(std::move(terms));
 }
 
-ImportTableChunk parse_import_table_chunk(std::ifstream &stream,
-                                          const AtomChunk &atom_chunk) {
+std::vector<FunctionIdentifier>
+read_function_identifiers(std::ifstream &stream) {
+  uint32_t func_id_count = read_big_endian(stream);
+  std::vector<FunctionIdentifier> func_ids;
 
-  uint32_t import_count = read_big_endian(stream);
-  std::vector<FunctionIdentifier> imports;
-
-  LOG(INFO) << "import count: " << import_count;
-
-  for (uint32_t i = 0; i < import_count; i++) {
+  for (uint32_t i = 0; i < func_id_count; i++) {
     uint32_t module_name = read_big_endian(stream);
     uint32_t function_name = read_big_endian(stream);
     uint32_t arity = read_big_endian(stream);
 
-    auto &atoms = atom_chunk.atoms;
-
-    LOG(INFO) << i << ":  " << atoms[module_name] << ":" << atoms[function_name]
-              << "/" << arity;
-
-    imports.push_back(FunctionIdentifier{
+    func_ids.push_back(FunctionIdentifier{
         .module = module_name, .function_name = function_name, .arity = arity});
   }
 
+  return func_ids;
+}
+
+ImportTableChunk parse_import_table_chunk(std::ifstream &stream) {
+
+  auto imports = read_function_identifiers(stream);
   return ImportTableChunk(imports);
+}
+
+FunctionTableChunk parse_function_table_chunk(std::ifstream &stream) {
+
+  auto functions = read_function_identifiers(stream);
+  return FunctionTableChunk(functions);
 }
 
 BeamFile read_chunks(const std::string &filename) {
@@ -517,6 +471,7 @@ BeamFile read_chunks(const std::string &filename) {
   auto code_chunk = std::optional<CodeChunk>();
   auto literal_chunk = std::optional<LiteralChunk>();
   auto import_table_chunk = std::optional<ImportTableChunk>();
+  auto function_table_chunk = std::optional<FunctionTableChunk>();
 
   while (input.peek() != EOF) {
     const std::string module_name = read_string(input, 4);
@@ -535,8 +490,7 @@ BeamFile read_chunks(const std::string &filename) {
       try {
         // use size, not the aligned chunk size here
         code_chunk = std::optional(parse_code_chunk(
-            input, chunk_start + static_cast<std::streamoff>(raw_size),
-            *atom_chunk));
+            input, chunk_start + static_cast<std::streamoff>(raw_size)));
       } catch (NotImplementedException *e) {
         LOG(WARNING) << e->what() << std::endl;
       }
@@ -548,7 +502,9 @@ BeamFile read_chunks(const std::string &filename) {
     } else if (module_name == "LitT") {
       literal_chunk = parse_literal_chunk(input, raw_size);
     } else if (module_name == "ImpT") {
-      import_table_chunk = parse_import_table_chunk(input, *atom_chunk);
+      import_table_chunk = parse_import_table_chunk(input);
+    } else if (module_name == "FunT") {
+      function_table_chunk = parse_function_table_chunk(input);
     }
 
     const auto chunk_end =
@@ -558,5 +514,5 @@ BeamFile read_chunks(const std::string &filename) {
   }
 
   return BeamFile(*atom_chunk, *code_chunk, *literal_chunk,
-                  *import_table_chunk);
+                  *import_table_chunk, *function_table_chunk);
 }

@@ -44,8 +44,8 @@ struct Argument {
   Tag tag;
   union {
     const std::vector<Argument> *arg_vec_p; // when EXT_LIST
-    AllocList *alloc_list;            // when EXT_ALLOC_LIST
-    uint64_t arg_num;                 // otherwise
+    AllocList *alloc_list;                  // when EXT_ALLOC_LIST
+    uint64_t arg_num;                       // otherwise
   } arg_raw;
 };
 
@@ -90,6 +90,14 @@ using LabelTable = std::vector<uint64_t>;
 using LabelFunctionTable = std::vector<uint64_t>;
 using LabelOffsetTable = std::unordered_map<uint64_t, size_t>;
 
+struct AtomChunk {
+  std::vector<std::string> atoms;
+
+  AtomChunk(std::vector<std::string> atoms) : atoms(std::move(atoms)) {}
+
+  void log();
+};
+
 struct CodeChunk {
   std::vector<Instruction> instructions;
   uint32_t function_count;
@@ -102,29 +110,39 @@ struct CodeChunk {
 
   uint64_t **compacted_arg_p_array;
   const uint8_t *volatile *label_jump_locations;
+  volatile uintptr_t *external_jump_locations;
   const uint8_t **compiled_functions;
 
   CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
             uint32_t label_count);
-};
 
-struct AtomChunk {
-  std::vector<std::string> atoms;
-
-  AtomChunk(std::vector<std::string> atoms) : atoms(std::move(atoms)) {}
+  void log(const AtomChunk& atom_chunk);
 };
 
 struct LiteralChunk {
   std::vector<ErlTerm> literals;
 
   LiteralChunk(std::vector<ErlTerm> literals) : literals(std::move(literals)) {}
+
+  void log();
 };
 
 struct ImportTableChunk {
   std::vector<FunctionIdentifier> imports;
 
   ImportTableChunk(std::vector<FunctionIdentifier> imports)
-      : imports(std::move(imports)) {};
+      : imports(std::move(imports)) {}
+
+  void log(const AtomChunk& atom_chunk);
+};
+
+struct FunctionTableChunk {
+  std::vector<FunctionIdentifier> functions;
+
+  FunctionTableChunk(std::vector<FunctionIdentifier> functions)
+      : functions(std::move(functions)) {}
+
+  void log(const AtomChunk& atom_chunk);
 };
 
 struct BeamFile {
@@ -132,11 +150,17 @@ struct BeamFile {
   CodeChunk code_chunk;
   LiteralChunk literal_chunk;
   ImportTableChunk import_table_chunk;
+  FunctionTableChunk function_table_chunk;
 
   BeamFile(AtomChunk atom_chunk, CodeChunk code_chunk,
-           LiteralChunk literal_chunk, ImportTableChunk import_table_chunk)
+           LiteralChunk literal_chunk, ImportTableChunk import_table_chunk,
+           FunctionTableChunk function_table_chunk)
       : atom_chunk(std::move(atom_chunk)), code_chunk(std::move(code_chunk)),
-        literal_chunk(std::move(literal_chunk)), import_table_chunk(std::move(import_table_chunk)) {}
+        literal_chunk(std::move(literal_chunk)),
+        import_table_chunk(std::move(import_table_chunk)),
+        function_table_chunk(std::move(function_table_chunk)) {}
+
+  void log();
 };
 
 #endif

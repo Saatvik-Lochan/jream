@@ -1,4 +1,5 @@
 #include "beam_defs.hpp"
+#include "op_arity.hpp"
 #include "precompiled.hpp"
 #include <algorithm>
 #include <glog/logging.h>
@@ -71,4 +72,110 @@ CodeChunk::CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
       label_table.push_back(i);
     }
   }
+}
+
+std::string get_argument_string(Argument arg, const AtomChunk &atom_chunk) {
+  std::string tag_name = TagToString(arg.tag) + " = ";
+  auto val = arg.arg_raw;
+  auto &atoms = atom_chunk.atoms;
+
+  switch (arg.tag) {
+  case LITERAL_TAG:
+  case LABEL_TAG:
+  case INTEGER_TAG:
+    return tag_name + std::to_string(val.arg_num);
+  case ATOM_TAG:
+    return tag_name + atoms[val.arg_num];
+  case X_REGISTER_TAG:
+    return tag_name + "x" + std::to_string(val.arg_num);
+  case Y_REGISTER_TAG:
+    return tag_name + "y" + std::to_string(val.arg_num);
+  case CHARACTER_TAG:
+    return tag_name + static_cast<char>(val.arg_num);
+  case EXT_LIST_TAG: {
+    const auto &vec = *val.arg_vec_p;
+    std::string vec_string = "[ ";
+
+    size_t i = 0;
+    for (; i < vec.size() - 1; i++) {
+      vec_string += get_argument_string(vec[i], atom_chunk);
+      vec_string += ", ";
+    }
+
+    vec_string += get_argument_string(vec[i], atom_chunk);
+    vec_string += "]";
+
+    return tag_name + vec_string;
+  }
+  case EXT_ALLOC_LIST_TAG:
+  case EXT_LITERAL_TAG:
+  case TYPED_REGISTER_TAG:
+  case EXT_FPREG_TAG:
+  default:
+    return tag_name;
+  }
+}
+
+void AtomChunk::log() {
+  LOG(INFO) << "AtomChunk";
+
+  uint32_t count = 0;
+  for (auto atom : atoms) {
+    LOG(INFO) << "    " << ++count << ":  " << atom;
+  }
+}
+
+void CodeChunk::log(const AtomChunk &atom_chunk) {
+  LOG(INFO) << "CodeChunk";
+  LOG(INFO) << "name | op_code/arity";
+
+  for (auto instr : instructions) {
+    auto op_code = static_cast<uint32_t>(instr.op_code);
+    auto name = op_names[op_code];
+    auto arity = op_arities[op_code];
+
+    LOG(INFO) << "";
+    LOG(INFO) << std::format("  {} | {}/{} ", name, op_code,
+                             arity);
+
+    const auto &args = instr.arguments;
+
+    for (auto arg : args) {
+      LOG(INFO) << "    " << get_argument_string(arg, atom_chunk);
+    }
+  }
+}
+
+void LiteralChunk::log() { LOG(INFO) << "Literal Chunk"; }
+
+std::string get_func_id_name(FunctionIdentifier func_id,
+                             const AtomChunk &atom_chunk) {
+  auto &atoms = atom_chunk.atoms;
+  return std::format("{}:{}/{}", atoms[func_id.module],
+                     atoms[func_id.function_name], func_id.arity);
+}
+
+void ImportTableChunk::log(const AtomChunk &atom_chunk) {
+  LOG(INFO) << "Import Table Chunk";
+  for (size_t i = 0; i < imports.size(); i++) {
+    LOG(INFO) << "    " << i << ": "
+              << get_func_id_name(imports[i], atom_chunk);
+  }
+}
+
+void FunctionTableChunk::log(const AtomChunk &atom_chunk) {
+  LOG(INFO) << "Function Table Chunk:";
+  for (size_t i = 0; i < functions.size(); i++) {
+    LOG(INFO) << "    " << i << ": "
+              << get_func_id_name(functions[i], atom_chunk);
+  }
+}
+
+void BeamFile::log() {
+
+  atom_chunk.log();
+  code_chunk.log(atom_chunk);
+  import_table_chunk.log(atom_chunk);
+  function_table_chunk.log(atom_chunk);
+  literal_chunk.log();
 }
