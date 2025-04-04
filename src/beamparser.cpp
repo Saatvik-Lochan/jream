@@ -83,7 +83,7 @@ AtomChunk parse_atom_chunk(std::ifstream &stream) {
     uint8_t atom_length = read_byte(stream);
     std::string atom_name = read_string(stream, atom_length);
 
-    LOG(INFO) << "\t" << atom_name << std::endl;
+    LOG(INFO) << i+1 << ":  " << atom_name << std::endl;
 
     atoms.push_back(atom_name);
   }
@@ -283,8 +283,6 @@ Argument parse_argument(std::ifstream &stream) {
   uint8_t tag_byte = read_byte(stream);
   enum Tag tag = parse_tag(tag_byte);
 
-  LOG(INFO) << "\t" << TagToString(tag);
-
   switch (tag) {
   case LITERAL_TAG:
   case INTEGER_TAG:
@@ -323,7 +321,50 @@ Argument parse_argument(std::ifstream &stream) {
   }
 }
 
-CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
+std::string get_argument_string(Argument arg, const AtomChunk &atom_chunk) {
+  std::string tag_name = TagToString(arg.tag) + " = ";
+  auto val = arg.arg_raw;
+  auto &atoms = atom_chunk.atoms;
+
+  switch (arg.tag) {
+  case LITERAL_TAG:
+  case LABEL_TAG:
+  case INTEGER_TAG:
+    return tag_name + std::to_string(val.arg_num);
+  case ATOM_TAG:
+    return tag_name + atoms[val.arg_num];
+  case X_REGISTER_TAG:
+    return tag_name + "x" + std::to_string(val.arg_num);
+  case Y_REGISTER_TAG:
+    return tag_name + "y" + std::to_string(val.arg_num);
+  case CHARACTER_TAG:
+    return tag_name + static_cast<char>(val.arg_num);
+  case EXT_LIST_TAG: {
+    const auto &vec = *val.arg_vec_p;
+    std::string vec_string = "[ ";
+
+    size_t i = 0;
+    for (; i < vec.size() - 1; i++) {
+      vec_string += get_argument_string(vec[i], atom_chunk);
+      vec_string += ", ";
+    }
+
+    vec_string += get_argument_string(vec[i], atom_chunk);
+    vec_string += "]";
+
+    return tag_name + vec_string;
+  }
+  case EXT_ALLOC_LIST_TAG:
+  case EXT_LITERAL_TAG:
+  case TYPED_REGISTER_TAG:
+  case EXT_FPREG_TAG:
+  default:
+    return tag_name;
+  }
+}
+
+CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end,
+                           const AtomChunk &atom_chunk) {
 
   // TODO use these for optimising allocations
   const uint32_t sub_size = read_big_endian(stream);
@@ -359,6 +400,7 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
 
     for (int i = 0; i < arity; i++) {
       args[i] = parse_argument(stream);
+      LOG(INFO) << "    " << get_argument_string(args[i], atom_chunk);
     }
 
     instructions.push_back(
@@ -434,7 +476,7 @@ LiteralChunk parse_literal_chunk(std::ifstream &stream,
 }
 
 ImportTableChunk parse_import_table_chunk(std::ifstream &stream,
-                                          AtomChunk atom_chunk) {
+                                          const AtomChunk &atom_chunk) {
 
   uint32_t import_count = read_big_endian(stream);
   std::vector<FunctionIdentifier> imports;
@@ -448,7 +490,7 @@ ImportTableChunk parse_import_table_chunk(std::ifstream &stream,
 
     auto &atoms = atom_chunk.atoms;
 
-    LOG(INFO) << "  " << atoms[module_name] << ":" << atoms[function_name]
+    LOG(INFO) << i << ":  " << atoms[module_name] << ":" << atoms[function_name]
               << "/" << arity;
 
     imports.push_back(FunctionIdentifier{
@@ -493,7 +535,8 @@ BeamFile read_chunks(const std::string &filename) {
       try {
         // use size, not the aligned chunk size here
         code_chunk = std::optional(parse_code_chunk(
-            input, chunk_start + static_cast<std::streamoff>(raw_size)));
+            input, chunk_start + static_cast<std::streamoff>(raw_size),
+            *atom_chunk));
       } catch (NotImplementedException *e) {
         LOG(WARNING) << e->what() << std::endl;
       }

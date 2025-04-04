@@ -43,7 +43,7 @@ struct AllocList {
 struct Argument {
   Tag tag;
   union {
-    std::vector<Argument> *arg_vec_p; // when EXT_LIST
+    const std::vector<Argument> *arg_vec_p; // when EXT_LIST
     AllocList *alloc_list;            // when EXT_ALLOC_LIST
     uint64_t arg_num;                 // otherwise
   } arg_raw;
