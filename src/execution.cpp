@@ -316,8 +316,7 @@ inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
 
       if (result) {
         code_chunk.external_jump_locations[index].func = *result;
-        get_riscv(CALL_EXT_BIF_SNIP);
-
+        add_code(get_riscv(CALL_EXT_BIF_SNIP));
       } else {
         // external call which is either not implemented or user defined
         // if external then what?
@@ -497,7 +496,6 @@ void create_emulator(std::vector<BeamFile *> files) {
     file_p->code_chunk.import_table_chunk = &file_p->import_table_chunk;
     file_p->code_chunk.function_table_chunk = &file_p->function_table_chunk;
     file_p->code_chunk.atom_chunk = &file_p->atom_chunk;
-    init_ext_jump(file_p);
   }
 }
 

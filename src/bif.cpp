@@ -2,6 +2,11 @@
 #include "execution.hpp"
 #include "external_term.hpp"
 
+
+void add(ErlTerm *x_regs, CodeChunk *code_chunk_p) {
+  x_regs[0] = 100;
+}
+
 void spawn_1(ErlTerm *x_regs, CodeChunk *code_chunk_p) {
   auto fun = x_regs[0];
   assert(fun.getTagType() == BOXED_T);

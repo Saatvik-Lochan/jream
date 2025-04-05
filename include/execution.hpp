@@ -80,4 +80,6 @@ ProcessControlBlock *create_process(CodeChunk &code_chunk, uint64_t func_index);
 ProcessControlBlock *create_process(CodeChunk &code_chunk);
 ErlReturnCode resume_process(ProcessControlBlock *pcb);
 
+void create_emulator(std::vector<BeamFile *> files);
+
 #endif

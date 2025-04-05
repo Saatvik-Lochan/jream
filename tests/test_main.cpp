@@ -11,7 +11,7 @@ TEST(ErlTerm, ErlListFromVecAndBack) {
   std::vector<ErlTerm> initial_vec = {0, 1, 2, 3, 4, 5};
   auto list = erl_list_from_vec(initial_vec, get_nil_term());
   auto transformed_vec = vec_from_erl_list(list);
-  
+
   ASSERT_NE(&initial_vec, &transformed_vec);
   ASSERT_EQ(initial_vec, transformed_vec);
 }
@@ -109,7 +109,7 @@ TEST(Assembly, StoreDoubleWord) {
 TEST(JIT, SetupAndTeardown) {
   std::vector<Instruction> instructions;
   wrap_in_function(instructions);
-  auto code_chunk = CodeChunk(std::move(instructions), 1, 1);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
 
   auto pcb = create_process(code_chunk, 0);
 
@@ -123,7 +123,7 @@ TEST(RISCV, Allocate) {
   std::vector<Instruction> instructions = {
       Instruction{ALLOCATE_OP, {get_lit(3)}}};
   wrap_in_function(instructions);
-  auto code_chunk = CodeChunk(std::move(instructions), 1, 1);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
 
   ErlTerm e[5];
   uint8_t code[20];
@@ -154,7 +154,7 @@ TEST(RISCV, AllocateAndDeallocate) {
       Instruction{DEALLOCATE_OP, {get_lit(3)}}};
 
   wrap_in_function(instructions);
-  auto code_chunk = CodeChunk(std::move(instructions), 1, 1);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
 
   ErlTerm e[5];
 
@@ -180,7 +180,7 @@ TEST(RISCV, GetList) {
                   }}};
 
   wrap_in_function(instructions);
-  auto code_chunk = CodeChunk(std::move(instructions), 1, 1);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
 
   auto pcb = create_process(code_chunk, 0);
 
@@ -276,6 +276,54 @@ TEST(RISCV, CallNoReductions) {
 
   auto resume_label = pcb->get_shared<RESUME_LABEL>();
   ASSERT_EQ(resume_label, 2); // resume at label 2
+}
+
+BeamFile get_beam_file(CodeChunk c, AtomChunk a, ImportTableChunk i) {
+  std::vector<ErlTerm> terms;
+  LiteralChunk l(terms);
+
+  std::vector<AnonymousFunctionId> anons;
+  FunctionTableChunk f(anons);
+
+  return BeamFile(a, c, l, i, f);
+}
+
+TEST(RISCV, CallExtBif) {
+  std::vector<Instruction> instructions = {
+      Instruction{ALLOCATE_OP, {get_lit(0)}},
+      Instruction{CALL_EXT_OP,
+                  {
+                      Argument{LITERAL_TAG, {.arg_num = 1}}, // arity
+                      Argument{LITERAL_TAG, {.arg_num = 0}}  // import index
+                  }},
+      Instruction{DEALLOCATE_OP, {get_lit(0)}},
+  };
+  wrap_in_function(instructions);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
+
+  AtomChunk a(std::vector<std::string>({"dummy", "erlang", "test"}));
+
+  std::vector<GlobalFunctionIdentifier> imports = {
+      GlobalFunctionIdentifier{.module = 1, .function_name = 2, .arity = 0}};
+
+  ImportTableChunk i(imports);
+  auto file = get_beam_file(std::move(code_chunk), std::move(a), std::move(i));
+
+  std::vector<BeamFile *> files = {&file};
+  create_emulator(files);
+
+  auto pcb = create_process(file.code_chunk, 0);
+
+  ErlTerm e[5];
+  pcb->set_shared<STOP>(e + 4);
+  pcb->get_shared<XREG_ARRAY>()[0] = 0;
+
+  // when
+  resume_process(pcb);
+
+  // then
+  auto x_reg = pcb->get_shared<XREG_ARRAY>();
+  ASSERT_EQ(x_reg[0], 100); // this is what the test bif does
 }
 
 int main(int argc, char **argv) {

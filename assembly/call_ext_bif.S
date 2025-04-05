@@ -11,5 +11,8 @@ ld t0, 8(s3) # generated from 'load_arg t0, 1'
 slli t1, t0, 3
 add t2, t1, s10
 
+mv a0, s5
+ld a1, 24(s1) # generated from 'load_shared a1, CODE_CHUNK_P'
+
 ld t0, 0(t2)
 jalr t0
