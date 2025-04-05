@@ -315,14 +315,15 @@ inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
       auto result = bif_from_id(func_id, *code_chunk.atom_chunk);
 
       if (result) {
-        // i.e. we are calling a bif, so replace with the direct jump
-        // ld t0, imm(s7)(export table location)
-        create_load_doubleword(5, 29, index * 8);
+        code_chunk.external_jump_locations[index].func = *result;
+        get_riscv(CALL_EXT_BIF_SNIP);
 
       } else {
         // external call which is either not implemented or user defined
+        // if external then what?
         throw std::logic_error("Bif not yet defined");
       }
+      break;
     }
 
     case RETURN_OP: {
@@ -414,9 +415,7 @@ ErlReturnCode setup_and_go_label(ProcessControlBlock *pcb, uint64_t label_num) {
   auto code_chunk = pcb->get_shared<CODE_CHUNK_P>();
 
   return PreCompiled::setup_and_goto_label(
-      pcb, code_chunk->compacted_arg_p_array, all_funs,
-      code_chunk->label_jump_locations, label_num, PreCompiled::teardown_code,
-      code_chunk->external_jump_locations);
+      code_chunk, pcb, all_funs, PreCompiled::teardown_code, label_num);
 }
 
 ErlReturnCode resume_process(ProcessControlBlock *pcb) {
@@ -467,12 +466,15 @@ bool Scheduler::signal(ProcessControlBlock *process) {
   return true;
 }
 
+// TODO this can actually just go in the compilation step, I
+// anyway need to find the bif_from_id there, so I might as well fill in the
+// relevant thing...
 void init_ext_jump(BeamFile *file) {
   const auto &imports = file->import_table_chunk.imports;
 
   // allocate imports
   auto import_num = imports.size();
-  auto ext_jumps = new ext_func[import_num];
+  auto ext_jumps = new ExtJump[import_num];
 
   for (size_t i = 0; i < import_num; i++) {
     const auto func_id = imports[i];
@@ -480,7 +482,7 @@ void init_ext_jump(BeamFile *file) {
     auto result = bif_from_id(func_id, file->atom_chunk);
 
     if (result) {
-      ext_jumps[i] = *result;
+      ext_jumps[i].func = *result;
     }
   }
 

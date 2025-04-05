@@ -11,23 +11,37 @@ sd s2, 16(sp)
 sd s1, 8(sp)
 sd ra, 0(sp)
 
-# These should ideally all stay at the same place
-mv s1, a0  # pcb pointer
-mv s2, a1  # compacted arg array
-# s3 used for local arg array
-mv s4, a2  # all function array
-load_shared s5, XREG_ARRAY
-mv s6, a3  # label loc pointers
-mv s7, a5 # pointer to teardown function
+# typedef ErlReturnCode (*goto_asm_label_p)(CodeChunk *code_chunk (a0),
+#                                           ProcessControlBlock *pcb (a1),
+#                                           std::uintptr_t func_array[] (a2),
+#                                           const uint8_t *teardown_code (a3),
+#                                           uint64_t label_num (a4));
+# 
+
+mv s1, a1 # pcb pointer (necessary for load_shared/store_shared)
+# s2 is the compacted arg array (assigned by setuping up code_chunk_p)
+# s3 used for local arg array (see add_setup_args in translate_code_section)
+mv s4, a2 # all function array (necessary for call_cxx_fun)
+load_shared s5, XREG_ARRAY 
+# s6 is the label loc pointer (assigned by setuping up code_chunk_p)
+mv s7, a3 # pointer to teardown code
 mv s8, zero # the exit code value
-# s9 is a multi purpose saved register
-mv s10, a6 # external jump pointer
+# s9 is a multipurpose register we pre-save
+# s10 is the external jump pointer (assigned by setuping up code_chunk_p)
+
+mv s9, a4 # temp to save it
+
+# a0, s1 are implicit arguments
+call_cxx_fun SET_NEW_CODE_CHUNK
 
 # go to teardown if trying to return back here
 store_shared s7, CODE_POINTER
 
+# move back as argument to compile stub
+mv a1, s9
+
 # a4 has label index
-slli t0, a4, 3 
+slli t0, s9, 3 
 add s9, s6, t0  
 ld t0, 0(s9)
 

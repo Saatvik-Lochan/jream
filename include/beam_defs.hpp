@@ -110,7 +110,7 @@ struct FunctionTableChunk {
   FunctionTableChunk(std::vector<AnonymousFunctionId> functions)
       : functions(std::move(functions)) {}
 
-  void log(const AtomChunk& atom_chunk);
+  void log(const AtomChunk &atom_chunk);
 };
 
 struct ImportTableChunk {
@@ -119,7 +119,7 @@ struct ImportTableChunk {
   ImportTableChunk(std::vector<GlobalFunctionIdentifier> imports)
       : imports(std::move(imports)) {}
 
-  void log(const AtomChunk& atom_chunk);
+  void log(const AtomChunk &atom_chunk);
 };
 
 using FunctionLabelTable = uint64_t *;
@@ -130,6 +130,18 @@ using LabelOffsetTable = std::unordered_map<uint64_t, size_t>;
 struct CodeChunk;
 
 typedef void (*ext_func)(ErlTerm *x_reg_array, CodeChunk *code_chunk_p);
+
+// we're making some assumptions on the layout of memory here
+union ExtJump {
+  ext_func func;
+  struct {
+    CodeChunk *code_chunk;
+    uint64_t label;
+  } ext_id;
+};
+
+static_assert(sizeof(ExtJump) == 16,
+              "ExtJump must be 16 bytes so that we can index into it");
 
 struct CodeChunk {
   std::vector<Instruction> instructions;
@@ -143,7 +155,7 @@ struct CodeChunk {
 
   uint64_t **compacted_arg_p_array;
   const uint8_t *volatile *label_jump_locations;
-  volatile ext_func *external_jump_locations;
+  volatile ExtJump *external_jump_locations;
   const uint8_t **compiled_functions;
 
   AtomChunk *atom_chunk;
@@ -153,8 +165,10 @@ struct CodeChunk {
   CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
             uint32_t label_count);
 
+  void set_exteral_jump_locations(uint64_t index, CodeChunk *, uint64_t label);
+  void set_exteral_jump_locations(uint64_t index, ext_func);
 
-  void log(const AtomChunk& atom_chunk);
+  void log(const AtomChunk &atom_chunk);
 };
 
 struct LiteralChunk {

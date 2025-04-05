@@ -3,6 +3,7 @@
 #include "precompiled.hpp"
 #include <algorithm>
 #include <glog/logging.h>
+#include <stdexcept>
 
 CodeChunk::CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
                      uint32_t label_count)
@@ -72,6 +73,28 @@ CodeChunk::CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
       label_table.push_back(i);
     }
   }
+}
+
+void CodeChunk::set_exteral_jump_locations(uint64_t index,
+                                           CodeChunk *code_chunk_p,
+                                           uint64_t label) {
+  if (!external_jump_locations) {
+    throw std::logic_error(
+        "Can't set an external jump location before exports are allocated");
+  }
+
+  auto &loc = external_jump_locations[index].ext_id;
+  loc.code_chunk = code_chunk_p;
+  loc.label = label;
+}
+
+void CodeChunk::set_exteral_jump_locations(uint64_t index, ext_func ext_func) {
+  if (!external_jump_locations) {
+    throw std::logic_error(
+        "Can't set an external jump location before exports are allocated");
+  }
+
+  external_jump_locations[index].func = ext_func;
 }
 
 std::string get_argument_string(Argument arg, const AtomChunk &atom_chunk) {
@@ -169,7 +192,9 @@ void ImportTableChunk::log(const AtomChunk &atom_chunk) {
 std::string get_func_id_name(AnonymousFunctionId func_id,
                              const AtomChunk &atom_chunk) {
   auto &atoms = atom_chunk.atoms;
-  return std::format("{} - label {}, arity {}, num_free {}", atoms[func_id.function_name], func_id.label, func_id.arity, func_id.num_free);
+  return std::format("{} - label {}, arity {}, num_free {}",
+                     atoms[func_id.function_name], func_id.label, func_id.arity,
+                     func_id.num_free);
 }
 
 void FunctionTableChunk::log(const AtomChunk &atom_chunk) {

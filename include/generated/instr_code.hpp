@@ -9,6 +9,7 @@ enum AsmSnippet {
   GET_LIST_SNIP, // assembly/get_list_m.S
   SEND_SNIP, // assembly/send_m.S
   LOAD_3_ARGS_SNIP, // assembly/load_3_args_m.S
+  CALL_EXT_BIF_SNIP, // assembly/call_ext_bif_m.S
   CALL_SNIP, // assembly/call_m.S
   DEALLOCATE_SNIP, // assembly/deallocate_m.S
   CALL_FINISH_SNIP, // assembly/call_finish_m.S
@@ -23,6 +24,7 @@ enum AsmSnippet {
   CALL_SETUP_SNIP, // assembly/call_setup_m.S
   ENTER_FUNC_SNIP, // assembly/enter_func_m.S
   TEMP_SNIP, // assembly/temp_m.S
+  CALL_EXT_SNIP, // assembly/call_ext_m.S
   LOAD_1_ARG_SNIP, // assembly/load_1_arg_m.S
 };
 

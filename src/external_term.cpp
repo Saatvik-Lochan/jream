@@ -255,12 +255,10 @@ ErlTerm deepcopy(ErlTerm e, ErlTerm *&to_loc) {
     ErlList e_list(e);
     ErlListBuilder builder;
 
-    int count = 0;
     auto it = e_list.begin();
     for (; it != e_list.end(); ++it) {
       builder.add_term(*it, to_loc);
       to_loc += 2;
-      std::cout << count++;
     }
 
     builder.set_end(it.get_end());

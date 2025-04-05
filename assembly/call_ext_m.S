@@ -1,8 +1,11 @@
   # load index in table
   load_arg t0, 1
+  slli t3, t0, 3
   add t0, t0, s10
 
   # CHANGE CODE POINTER HERE
+  # mv new code_chunk_p into a0 here! 
+call_cxx_fun SET_NEW_CODE_CHUNK
 
 # check reductions - maybe yields
   load_shared t0, REDUCTIONS
@@ -18,10 +21,19 @@
   add a2, a2, s6
   ld t1, 0(a2)
 
-  la t0, 2f # load pc relative address at the end
+  la t0, 3f # load pc relative address at the end
   store_shared t0, CODE_POINTER
 
   jr t1
-2:
 
+2: 
+  nop  # we will never reach here so we can store the code pointer here
+  nop  # 2 ops because 64 = 32 * 2
+3:
+
+  la t0, 2b
+  ld a0, 0(t0)
+
+  # original code chunk pointer over here
+call_cxx_fun SET_NEW_CODE_CHUNK
   # RESTORE CODE POINTER HERE

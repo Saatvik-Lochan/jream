@@ -8,7 +8,10 @@
 #include <cstdint>
 
 void print_int(uint64_t a);
-const uint8_t *get_or_compile_label(CodeChunk* code_chunk, uint64_t func_index);
+const uint8_t *get_or_compile_label(CodeChunk *code_chunk, uint64_t func_index);
+void update_code_chunk_registers(CodeChunk *code_chunk);
+
+#define CAST(Func) reinterpret_cast<std::uintptr_t>(&Func)
 
 // This array can not be longer than 2048 / 8 = 256 elements long
 // so we can access the elemnts in one instruction from riscv.
@@ -16,8 +19,9 @@ const uint8_t *get_or_compile_label(CodeChunk* code_chunk, uint64_t func_index);
 // Every function must have a comment with it's meta meta assembly name
 // or the indexing will be wrong
 inline std::uintptr_t all_funs[] = {
-    reinterpret_cast<std::uintptr_t>(&print_int), // m_asm: PRINT_INT
-    reinterpret_cast<std::uintptr_t>(&get_or_compile_label), // m_asm: COMPILE_LABEL
+    CAST(print_int),                   // m_asm: PRINT_INT
+    CAST(get_or_compile_label),        // m_asm: COMPILE_LABEL
+    CAST(update_code_chunk_registers), // m_asm: SET_NEW_CODE_CHUNK
 };
 
 #endif

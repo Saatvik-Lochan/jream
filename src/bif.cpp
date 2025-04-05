@@ -11,7 +11,7 @@ void spawn_1(ErlTerm *x_regs, CodeChunk *code_chunk_p) {
   auto header = *header_ptr;
 
   auto index = header_ptr[1];
-  auto func_id = (*code_chunk_p->lambda_table)[index];
+  auto func_id = code_chunk_p->function_table_chunk->functions[index];
 
   // +1 for the index ptr
   auto size = header >> 6;
