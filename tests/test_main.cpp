@@ -198,6 +198,55 @@ TEST(RISCV, GetList) {
   // TODO check that the list is correct & other registers unchanged
 }
 
+TEST(RISCV, MakeFun) {
+  // given
+  std::vector<Argument> save_list = {
+      Argument{X_REGISTER_TAG, {.arg_num = 1}},
+      Argument{X_REGISTER_TAG, {.arg_num = 2}},
+  };
+
+  uint64_t used_index = 62;
+
+  std::vector<Instruction> instructions = {Instruction{
+      MAKE_FUN3_OP,
+      {
+          Argument{LITERAL_TAG, {.arg_num = used_index}},    // old_index
+          Argument{X_REGISTER_TAG, {.arg_num = 0}},          // x0 (dest)
+          Argument{EXT_LIST_TAG, {.arg_vec_p = &save_list}}, // terms
+      }}};
+
+  wrap_in_function(instructions);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
+
+  auto pcb = create_process(code_chunk, 0);
+  ErlTerm heap[5];
+  ErlTerm xregs[5];
+
+  auto x1_start_val = 20;
+  auto x2_start_val = 30;
+
+  xregs[1] = x1_start_val;
+  xregs[2] = x2_start_val;
+
+  pcb->set_shared<HTOP>(heap);
+  pcb->set_shared<XREG_ARRAY>(xregs);
+
+  // when
+  resume_process(pcb);
+
+  const auto &header = heap[0];
+  const auto &index = heap[1];
+  const auto &x1_val = heap[2];
+  const auto &x2_val = heap[3];
+
+  ASSERT_EQ(header & 0b111111, 0b010100); // header tag
+  ASSERT_EQ(header >> 6, 3);              // the header size is correct
+  ASSERT_EQ(index, used_index);
+  ASSERT_EQ(x1_val, x1_start_val);
+  ASSERT_EQ(x2_val, x2_start_val);
+  ASSERT_EQ(xregs[0].as_ptr(), &header);
+}
+
 void set_flag(bool *address) { *address = true; }
 
 CodeChunk getCallCodeChunk(bool *flag) {
@@ -289,20 +338,22 @@ BeamSrc get_beam_file(CodeChunk c, AtomChunk a, ImportTableChunk i) {
                  std::move(f));
 }
 
-TEST(RISCV, CallExtBif) {
+BeamSrc get_call_ext_file(std::string module_name, std::string function_name,
+                          uint64_t arity) {
+
+  // don't need alloc/dealloc if it is a bif
   std::vector<Instruction> instructions = {
-      Instruction{ALLOCATE_OP, {get_lit(0)}},
       Instruction{CALL_EXT_OP,
                   {
-                      Argument{LITERAL_TAG, {.arg_num = 1}}, // arity
-                      Argument{LITERAL_TAG, {.arg_num = 0}}  // import index
+                      Argument{LITERAL_TAG, {.arg_num = arity}},
+                      Argument{LITERAL_TAG, {.arg_num = 0}} // import index
                   }},
-      Instruction{DEALLOCATE_OP, {get_lit(0)}},
   };
+
   wrap_in_function(instructions);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
-  AtomChunk a(std::vector<std::string>({"dummy", "erlang", "test"}));
+  AtomChunk a(std::vector<std::string>({"dummy", module_name, function_name}));
 
   std::vector<GlobalFunctionIdentifier> imports = {
       GlobalFunctionIdentifier{.module = 1, .function_name = 2, .arity = 0}};
@@ -310,12 +361,13 @@ TEST(RISCV, CallExtBif) {
   ImportTableChunk i(imports);
   auto file = get_beam_file(std::move(code_chunk), std::move(a), std::move(i));
 
-  std::vector<BeamSrc *> files = {&file};
+  return file;
+}
 
+TEST(RISCV, CallExtBif) {
+  auto file = get_call_ext_file("erlang", "test", 0);
   auto pcb = create_process(file.code_chunk, 0);
 
-  ErlTerm e[5];
-  pcb->set_shared<STOP>(e + 4);
   pcb->get_shared<XREG_ARRAY>()[0] = 0;
 
   // when

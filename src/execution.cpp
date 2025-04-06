@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstdlib>
 #include <glog/logging.h>
 
 #include <cassert>
@@ -37,9 +38,13 @@ uint64_t *get_compact_and_cache_instr_args(const CodeChunk &code_chunk,
     const auto &argument = args[i];
 
     // not implemented yet
-    assert(argument.tag != EXT_LIST_TAG && argument.tag != EXT_ALLOC_LIST_TAG);
+    assert(argument.tag != EXT_ALLOC_LIST_TAG);
 
-    c_args_ptr[i] = argument.arg_raw.arg_num;
+    if (argument.tag == EXT_LIST_TAG) {
+      c_args_ptr[i] = reinterpret_cast<uint64_t>(argument.arg_raw.arg_vec_p);
+    } else {
+      c_args_ptr[i] = argument.arg_raw.arg_num;
+    }
   }
 
   return c_args_ptr;
@@ -191,16 +196,16 @@ create_load_appropriate(Argument arg, uint8_t dest_reg) {
 }
 
 inline std::vector<RISCV_Instruction>
-create_store_appropriate(Argument arg, uint8_t dest_reg) {
+create_store_appropriate(Argument arg, uint8_t src_reg) {
   switch (arg.tag) {
   case X_REGISTER_TAG: {
     // assume s5 is the x array register
     return std::vector<RISCV_Instruction>{
-        create_store_x_reg(dest_reg, arg.arg_raw.arg_num, 21)};
+        create_store_x_reg(src_reg, arg.arg_raw.arg_num, 21)};
   }
   case Y_REGISTER_TAG: {
     // assumes s1 points to the pcb
-    return create_store_y_reg(dest_reg, arg.arg_raw.arg_num, 9);
+    return create_store_y_reg(src_reg, arg.arg_raw.arg_num, 9);
   }
   default:
     throw std::logic_error(
@@ -335,7 +340,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_setup_args_code();
       add_code(get_riscv(LOAD_1_ARG_SNIP));
 
-      // load the register pointed at in t1
+      // load the register pointed at in t0
       add_riscv_instrs(create_load_appropriate(instr.arguments[0], 5));
 
       add_code(get_riscv(GET_LIST_SNIP));
@@ -343,6 +348,44 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       // store from t1 and t2
       add_riscv_instrs(create_store_appropriate(instr.arguments[1], 6));
       add_riscv_instrs(create_store_appropriate(instr.arguments[2], 7));
+      break;
+    }
+
+    case MAKE_FUN3_OP: {
+      add_setup_args_code();
+
+      auto index = instr.arguments[0];
+      assert(index.tag == LITERAL_TAG);
+
+      auto freeze_list = instr.arguments[2];
+      assert(freeze_list.tag == EXT_LIST_TAG);
+
+      auto freeze_list_val = freeze_list.arg_raw.arg_vec_p;
+
+      auto num_free = freeze_list_val->size();
+
+      // now we alloc heap space and store index
+      // store num spots to allocate in t0
+      add_riscv_instr(create_add_immediate(5, 0, num_free + 2));
+      add_code(get_riscv(MAKE_FUN3_SNIP));
+
+      // now pointing to pos right after the index loc
+      int position = 16;
+
+      for (const auto &reg_to_save : *freeze_list_val) {
+        // load reg to t0
+        add_riscv_instrs(create_load_appropriate(reg_to_save, 5));
+
+        // t1 has the heap pointer
+        // sd t0, pos(t1)
+        add_riscv_instr(create_store_doubleword(6, 5, position));
+
+        position += 8;
+      }
+
+      // the value in t1 (i.e. the heap pointer before this)
+      add_riscv_instrs(create_store_appropriate(instr.arguments[1], 6));
+
       break;
     }
 

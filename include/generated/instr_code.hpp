@@ -16,6 +16,7 @@ enum AsmSnippet {
   RETURN_SNIP, // assembly/return_m.S
   DEBUG_EXECUTE_ARIBITRARY_SNIP, // assembly/debug_execute_aribitrary_m.S
   TEARDOWN_SNIP, // assembly/teardown_m.S
+  MAKE_FUN3_SNIP, // assembly/make_fun3_m.S
   STORE_DOUBLEWORD_TEST_SNIP, // assembly/store_doubleword_test_m.S
   COMPILE_STUB_SNIP, // assembly/compile_stub_m.S
   GOTO_LABEL_SNIP, // assembly/goto_label_m.S
