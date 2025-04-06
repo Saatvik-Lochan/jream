@@ -47,14 +47,16 @@ void update_code_chunk_registers(CodeChunk *code_chunk) {
 
 void send_message(ErlTerm message, ErlTerm destination_pid) {
 
-  ProcessControlBlock *process =
-      reinterpret_cast<ProcessControlBlock *>(destination_pid & (-0x10));
+  ProcessControlBlock *process = from_pid(destination_pid);
 
   // TODO fix this if garbage collection
   // assume there is space!
   auto heap_top = process->get_shared<HTOP>();
   auto copied_handle = deepcopy(message, heap_top); // updates heap_top
   process->set_shared<HTOP>(heap_top);
+
+  auto msg = new Message(copied_handle);
+  process->queue_message(msg);
 
   emulator_main.scheduler.signal(process);
 }

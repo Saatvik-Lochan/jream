@@ -5,7 +5,9 @@ shared_var_names = [
     "CODE_CHUNK_P",
     "REDUCTIONS",
     "CODE_POINTER",
-    "RESUME_LABEL"
+    "RESUME_LABEL",
+    "MBOX_HEAD",
+    "MBOX_TAIL",
 ]
 
 shared_variables = {

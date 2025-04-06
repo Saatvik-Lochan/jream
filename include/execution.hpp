@@ -50,20 +50,7 @@ struct Emulator {
 
 inline Emulator emulator_main;
 
-struct Message {
-  uint64_t values[2];
-
-  inline explicit Message(ErlTerm e) { values[0] = e; };
-
-  inline ErlTerm get_payload() { return ErlTerm(values[0]); }
-
-  // we assume that the pointer to the Message struct
-  // is the same as the pointer to the first field (values)
-  // see static assert below
-  inline void set_next(Message *next) {
-    values[1] = reinterpret_cast<uint64_t>(next);
-  }
-};
+void queue_message(ProcessControlBlock *, Message *);
 
 static_assert(std::is_standard_layout_v<Message>,
               "Message is not standard layout. Required.");

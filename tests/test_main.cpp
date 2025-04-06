@@ -390,14 +390,12 @@ TEST(RISCV, CallExtBif) {
 TEST(RISCV, Spawn) {
   // given
   uint32_t label = 20;
-  
-  std::vector<AnonymousFunctionId> lambdas = {
-    AnonymousFunctionId{
+
+  std::vector<AnonymousFunctionId> lambdas = {AnonymousFunctionId{
       .arity = 3,
       .label = label,
       .num_free = 3,
-    }
-  };
+  }};
 
   auto file = get_call_ext_file("erlang", "spawn", 1, lambdas);
   auto pcb = create_process(file.code_chunk, 0);
@@ -428,6 +426,24 @@ TEST(RISCV, Spawn) {
   ASSERT_EQ(new_xregs[1], 20);
   ASSERT_EQ(new_xregs[2], 30);
   ASSERT_EQ(spawned_process->get_shared<RESUME_LABEL>(), label);
+}
+
+TEST(RISCV, Send) {
+  std::vector<Instruction> instructions = {Instruction{SEND_OP, {}}};
+  wrap_in_function(instructions);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
+
+  auto pcb = create_process(code_chunk, 0);
+  auto xreg = pcb->get_shared<XREG_ARRAY>();
+
+  auto other_pcb = create_process(code_chunk, 0);
+  xreg[0] = make_pid(other_pcb);
+  xreg[1] = ErlTerm(1234);
+
+  // assert other htop
+  // assert other heap
+  // assert other mail box
+  // assert other waiting position
 }
 
 int main(int argc, char **argv) {

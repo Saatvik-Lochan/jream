@@ -2,6 +2,7 @@
 #define PCB_H
 
 #include "external_term.hpp"
+#include "messages.hpp"
 #include <cstdint>
 
 #include "beam_defs.hpp"
@@ -16,13 +17,15 @@ template <PCBSharedFields> struct getFieldType {
   using type = void;
 };
 
-ENUM_TYPE(HTOP, ErlTerm *);
-ENUM_TYPE(STOP, ErlTerm *);
-ENUM_TYPE(XREG_ARRAY, ErlTerm *);
-ENUM_TYPE(CODE_CHUNK_P, CodeChunk *);
-ENUM_TYPE(CODE_POINTER, uint8_t *);
-ENUM_TYPE(REDUCTIONS, uint64_t);
-ENUM_TYPE(RESUME_LABEL, uint64_t);
+ENUM_TYPE(HTOP, ErlTerm *)
+ENUM_TYPE(STOP, ErlTerm *)
+ENUM_TYPE(XREG_ARRAY, ErlTerm *)
+ENUM_TYPE(CODE_CHUNK_P, CodeChunk *)
+ENUM_TYPE(CODE_POINTER, uint8_t *)
+ENUM_TYPE(REDUCTIONS, uint64_t)
+ENUM_TYPE(RESUME_LABEL, uint64_t)
+ENUM_TYPE(MBOX_HEAD, Message *)
+ENUM_TYPE(MBOX_TAIL, Message **)
 
 // we align by 16 bytes so we use 4 tag in pointers
 struct __attribute__((aligned(16))) ProcessControlBlock {
@@ -37,6 +40,8 @@ struct __attribute__((aligned(16))) ProcessControlBlock {
   inline void set_shared(typename getFieldType<Field>::type new_val) {
     this->shared[Field] = reinterpret_cast<uint64_t>(new_val);
   }
+
+  void queue_message(Message *msg);
 };
 
 constexpr uint64_t PID_TAGGING_MASK = ~0UL << 4;

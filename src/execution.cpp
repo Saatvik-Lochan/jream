@@ -508,6 +508,14 @@ bool Scheduler::signal(ProcessControlBlock *process) {
   return true;
 }
 
+void queue_message(ProcessControlBlock *pcb, Message *msg) {
+  auto head_ptr = pcb->get_shared<MBOX_HEAD>();
+
+  if (!head_ptr) {
+    pcb->set_shared<MBOX_HEAD>(msg);
+  }
+}
+
 // TODO this can actually just go in the compilation step, I
 // anyway need to find the bif_from_id there, so I might as well fill in the
 // relevant thing...
