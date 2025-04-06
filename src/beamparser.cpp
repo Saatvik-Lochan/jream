@@ -478,7 +478,7 @@ FunctionTableChunk parse_function_table_chunk(std::ifstream &stream) {
   return FunctionTableChunk(functions);
 }
 
-BeamFile read_chunks(const std::string &filename) {
+BeamSrc read_chunks(const std::string &filename) {
   std::ifstream input(filename, std::ios::binary);
   input.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 
@@ -537,6 +537,6 @@ BeamFile read_chunks(const std::string &filename) {
     input.seekg(chunk_end);
   }
 
-  return BeamFile(*atom_chunk, *code_chunk, *literal_chunk, *import_table_chunk,
+  return BeamSrc(*atom_chunk, *code_chunk, *literal_chunk, *import_table_chunk,
                   *function_table_chunk);
 }

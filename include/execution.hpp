@@ -74,12 +74,12 @@ RISCV_Instruction create_store_doubleword(uint8_t rd, uint8_t rs, int16_t imm);
 uint8_t *move_code_to_memory(const std::vector<uint8_t> &code);
 void run_code_section(CodeChunk &code_chunk, const CodeSection code_sec,
                       ProcessControlBlock *pcb);
-uint8_t *compile_erlang_func(const CodeChunk &code_chunk, uint64_t func_index);
+uint8_t *compile_erlang_func(CodeChunk &code_chunk, uint64_t func_index);
 
 ProcessControlBlock *create_process(CodeChunk &code_chunk, uint64_t func_index);
 ProcessControlBlock *create_process(CodeChunk &code_chunk);
 ErlReturnCode resume_process(ProcessControlBlock *pcb);
 
-void create_emulator(std::vector<BeamFile *> files);
+void create_emulator(std::vector<BeamSrc *> files);
 
 #endif

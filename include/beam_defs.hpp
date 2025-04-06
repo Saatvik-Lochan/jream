@@ -155,8 +155,9 @@ struct CodeChunk {
 
   uint64_t **compacted_arg_p_array;
   const uint8_t *volatile *label_jump_locations;
-  volatile ExtJump *external_jump_locations;
   const uint8_t **compiled_functions;
+
+  volatile ExtJump *external_jump_locations = nullptr;
 
   AtomChunk *atom_chunk;
   ImportTableChunk *import_table_chunk;
@@ -165,8 +166,8 @@ struct CodeChunk {
   CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
             uint32_t label_count);
 
-  void set_exteral_jump_locations(uint64_t index, CodeChunk *, uint64_t label);
-  void set_exteral_jump_locations(uint64_t index, ext_func);
+  void set_external_jump_loc(uint64_t index, CodeChunk *, uint64_t label);
+  void set_external_jump_loc(uint64_t index, ext_func);
 
   void log(const AtomChunk &atom_chunk);
 };
@@ -179,20 +180,27 @@ struct LiteralChunk {
   void log();
 };
 
-struct BeamFile {
+struct BeamSrc {
   AtomChunk atom_chunk;
   CodeChunk code_chunk;
   LiteralChunk literal_chunk;
   ImportTableChunk import_table_chunk;
   FunctionTableChunk function_table_chunk;
 
-  BeamFile(AtomChunk atom_chunk, CodeChunk code_chunk,
-           LiteralChunk literal_chunk, ImportTableChunk import_table_chunk,
-           FunctionTableChunk function_table_chunk)
+  BeamSrc(AtomChunk atom_chunk, CodeChunk code_chunk,
+          LiteralChunk literal_chunk, ImportTableChunk import_table_chunk,
+          FunctionTableChunk function_table_chunk)
       : atom_chunk(std::move(atom_chunk)), code_chunk(std::move(code_chunk)),
         literal_chunk(std::move(literal_chunk)),
         import_table_chunk(std::move(import_table_chunk)),
-        function_table_chunk(std::move(function_table_chunk)) {}
+        function_table_chunk(std::move(function_table_chunk)) {
+
+    this->code_chunk.import_table_chunk = &this->import_table_chunk;
+    this->code_chunk.function_table_chunk = &this->function_table_chunk;
+    this->code_chunk.atom_chunk = &this->atom_chunk;
+
+    this->code_chunk.external_jump_locations = new ExtJump[import_table_chunk.imports.size()];
+  }
 
   void log();
 };

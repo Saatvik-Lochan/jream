@@ -75,7 +75,7 @@ CodeChunk::CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
   }
 }
 
-void CodeChunk::set_exteral_jump_locations(uint64_t index,
+void CodeChunk::set_external_jump_loc(uint64_t index,
                                            CodeChunk *code_chunk_p,
                                            uint64_t label) {
   if (!external_jump_locations) {
@@ -88,7 +88,7 @@ void CodeChunk::set_exteral_jump_locations(uint64_t index,
   loc.label = label;
 }
 
-void CodeChunk::set_exteral_jump_locations(uint64_t index, ext_func ext_func) {
+void CodeChunk::set_external_jump_loc(uint64_t index, ext_func ext_func) {
   if (!external_jump_locations) {
     throw std::logic_error(
         "Can't set an external jump location before exports are allocated");
@@ -205,7 +205,7 @@ void FunctionTableChunk::log(const AtomChunk &atom_chunk) {
   }
 }
 
-void BeamFile::log() {
+void BeamSrc::log() {
 
   atom_chunk.log();
   code_chunk.log(atom_chunk);

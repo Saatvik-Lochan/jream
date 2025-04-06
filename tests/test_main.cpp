@@ -278,14 +278,15 @@ TEST(RISCV, CallNoReductions) {
   ASSERT_EQ(resume_label, 2); // resume at label 2
 }
 
-BeamFile get_beam_file(CodeChunk c, AtomChunk a, ImportTableChunk i) {
+BeamSrc get_beam_file(CodeChunk c, AtomChunk a, ImportTableChunk i) {
   std::vector<ErlTerm> terms;
   LiteralChunk l(terms);
 
   std::vector<AnonymousFunctionId> anons;
   FunctionTableChunk f(anons);
 
-  return BeamFile(a, c, l, i, f);
+  return BeamSrc(std::move(a), std::move(c), std::move(l), std::move(i),
+                 std::move(f));
 }
 
 TEST(RISCV, CallExtBif) {
@@ -309,8 +310,7 @@ TEST(RISCV, CallExtBif) {
   ImportTableChunk i(imports);
   auto file = get_beam_file(std::move(code_chunk), std::move(a), std::move(i));
 
-  std::vector<BeamFile *> files = {&file};
-  create_emulator(files);
+  std::vector<BeamSrc *> files = {&file};
 
   auto pcb = create_process(file.code_chunk, 0);
 

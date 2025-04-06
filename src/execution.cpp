@@ -225,7 +225,7 @@ std::optional<ext_func> bif_from_id(GlobalFunctionIdentifier id,
 }
 
 // garbage collection is tricky
-inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
+inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
                                                    CodeSection code_sec) {
   std::vector<uint8_t> compiled;
   std::unordered_map<uint64_t, size_t> label_offsets;
@@ -315,7 +315,7 @@ inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
       auto result = bif_from_id(func_id, *code_chunk.atom_chunk);
 
       if (result) {
-        code_chunk.external_jump_locations[index].func = *result;
+        code_chunk.set_external_jump_loc(index, *result);
         add_code(get_riscv(CALL_EXT_BIF_SNIP));
       } else {
         // external call which is either not implemented or user defined
@@ -359,7 +359,7 @@ inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
   return compiled;
 }
 
-std::vector<uint8_t> translate_function(const CodeChunk &code_chunk,
+std::vector<uint8_t> translate_function(CodeChunk &code_chunk,
                                         uint64_t func_index) {
   assert(func_index < code_chunk.function_count);
 
@@ -403,7 +403,7 @@ uint8_t *move_code_to_memory(const std::vector<uint8_t> &code) {
   return reinterpret_cast<uint8_t *>(allocated_mem);
 }
 
-uint8_t *compile_erlang_func(const CodeChunk &code_chunk, uint64_t func_index) {
+uint8_t *compile_erlang_func(CodeChunk &code_chunk, uint64_t func_index) {
   auto code = translate_function(code_chunk, func_index);
   auto code_ptr = move_code_to_memory(code);
   return code_ptr;
@@ -468,7 +468,7 @@ bool Scheduler::signal(ProcessControlBlock *process) {
 // TODO this can actually just go in the compilation step, I
 // anyway need to find the bif_from_id there, so I might as well fill in the
 // relevant thing...
-void init_ext_jump(BeamFile *file) {
+void init_ext_jump(BeamSrc *file) {
   const auto &imports = file->import_table_chunk.imports;
 
   // allocate imports
@@ -488,7 +488,7 @@ void init_ext_jump(BeamFile *file) {
   file->code_chunk.external_jump_locations = ext_jumps;
 }
 
-void create_emulator(std::vector<BeamFile *> files) {
+void create_emulator(std::vector<BeamSrc *> files) {
   Emulator out;
 
   // set imports/exports
