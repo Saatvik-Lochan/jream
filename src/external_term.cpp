@@ -6,7 +6,6 @@
 #include <cassert>
 #include <cstdint>
 #include <format>
-#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -271,3 +270,7 @@ ErlTerm deepcopy(ErlTerm e, ErlTerm *&to_loc) {
   }
   }
 }
+
+ErlTerm make_boxed(ErlTerm *ptr) {
+  return (reinterpret_cast<uint64_t>(ptr) & TAGGING_MASK) + 0b10;
+} 

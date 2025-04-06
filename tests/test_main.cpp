@@ -6,6 +6,7 @@
 #include <cassert>
 #include <gtest/gtest.h>
 #include <iterator>
+#include <optional>
 
 TEST(ErlTerm, ErlListFromVecAndBack) {
   std::vector<ErlTerm> initial_vec = {0, 1, 2, 3, 4, 5};
@@ -327,19 +328,21 @@ TEST(RISCV, CallNoReductions) {
   ASSERT_EQ(resume_label, 2); // resume at label 2
 }
 
-BeamSrc get_beam_file(CodeChunk c, AtomChunk a, ImportTableChunk i) {
+BeamSrc get_beam_file(CodeChunk c, AtomChunk a, ImportTableChunk i,
+                      std::vector<AnonymousFunctionId> anons) {
   std::vector<ErlTerm> terms;
   LiteralChunk l(terms);
 
-  std::vector<AnonymousFunctionId> anons;
   FunctionTableChunk f(anons);
 
   return BeamSrc(std::move(a), std::move(c), std::move(l), std::move(i),
                  std::move(f));
 }
 
-BeamSrc get_call_ext_file(std::string module_name, std::string function_name,
-                          uint64_t arity) {
+BeamSrc
+get_call_ext_file(std::string module_name, std::string function_name,
+                  uint32_t arity,
+                  std::optional<std::vector<AnonymousFunctionId>> anons) {
 
   // don't need alloc/dealloc if it is a bif
   std::vector<Instruction> instructions = {
@@ -355,17 +358,23 @@ BeamSrc get_call_ext_file(std::string module_name, std::string function_name,
 
   AtomChunk a(std::vector<std::string>({"dummy", module_name, function_name}));
 
-  std::vector<GlobalFunctionIdentifier> imports = {
-      GlobalFunctionIdentifier{.module = 1, .function_name = 2, .arity = 0}};
+  std::vector<GlobalFunctionIdentifier> imports = {GlobalFunctionIdentifier{
+      .module = 1, .function_name = 2, .arity = arity}};
 
   ImportTableChunk i(imports);
-  auto file = get_beam_file(std::move(code_chunk), std::move(a), std::move(i));
+
+  if (!anons) {
+    anons = std::vector<AnonymousFunctionId>();
+  }
+
+  auto file =
+      get_beam_file(std::move(code_chunk), std::move(a), std::move(i), *anons);
 
   return file;
 }
 
 TEST(RISCV, CallExtBif) {
-  auto file = get_call_ext_file("erlang", "test", 0);
+  auto file = get_call_ext_file("erlang", "test", 0, std::nullopt);
   auto pcb = create_process(file.code_chunk, 0);
 
   pcb->get_shared<XREG_ARRAY>()[0] = 0;
@@ -376,6 +385,49 @@ TEST(RISCV, CallExtBif) {
   // then
   auto x_reg = pcb->get_shared<XREG_ARRAY>();
   ASSERT_EQ(x_reg[0], 100); // this is what the test bif does
+}
+
+TEST(RISCV, Spawn) {
+  // given
+  uint32_t label = 20;
+  
+  std::vector<AnonymousFunctionId> lambdas = {
+    AnonymousFunctionId{
+      .arity = 3,
+      .label = label,
+      .num_free = 3,
+    }
+  };
+
+  auto file = get_call_ext_file("erlang", "spawn", 1, lambdas);
+  auto pcb = create_process(file.code_chunk, 0);
+
+  auto header = 0b100010100;
+  auto index = 0;
+  auto arg_1 = 10;
+  auto arg_2 = 20;
+  auto arg_3 = 30;
+
+  ErlTerm fun[] = {
+      header, index, arg_1, arg_2, arg_3,
+  };
+
+  pcb->get_shared<XREG_ARRAY>()[0] = make_boxed(fun);
+
+  // when
+  resume_process(pcb);
+
+  // then
+  auto result = pcb->get_shared<XREG_ARRAY>()[0];
+  ProcessControlBlock *spawned_process = from_pid(result);
+
+  auto new_xregs = spawned_process->get_shared<XREG_ARRAY>();
+
+  ASSERT_TRUE(emulator_main.scheduler.runnable.contains(spawned_process));
+  ASSERT_EQ(new_xregs[0], 10);
+  ASSERT_EQ(new_xregs[1], 20);
+  ASSERT_EQ(new_xregs[2], 30);
+  ASSERT_EQ(spawned_process->get_shared<RESUME_LABEL>(), label);
 }
 
 int main(int argc, char **argv) {

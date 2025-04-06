@@ -1,6 +1,7 @@
 #include "bif.hpp"
 #include "execution.hpp"
 #include "external_term.hpp"
+#include "pcb.hpp"
 
 
 void add(ErlTerm *x_regs, CodeChunk *code_chunk_p) {
@@ -16,7 +17,10 @@ void spawn_1(ErlTerm *x_regs, CodeChunk *code_chunk_p) {
   auto header = *header_ptr;
 
   auto index = header_ptr[1];
-  auto func_id = code_chunk_p->function_table_chunk->functions[index];
+  auto &functions = code_chunk_p->function_table_chunk->functions;
+
+  assert(index < functions.size());
+  auto func_id = functions[index];
 
   // +1 for the index ptr
   auto size = header >> 6;
@@ -35,8 +39,11 @@ void spawn_1(ErlTerm *x_regs, CodeChunk *code_chunk_p) {
   std::copy(x_regs, x_regs + func_arity, new_x_reg);
 
   // copy frozen variales
-  std::copy(header_ptr + 1, header_ptr + 1 + num_free, new_x_reg + func_arity);
+  std::copy(header_ptr + 2, header_ptr + 2 + num_free, new_x_reg + func_arity);
 
   // move to ready queue
   emulator_main.scheduler.runnable.insert(pcb);
+
+  // prepare return value
+  x_regs[0] = make_pid(pcb);
 }

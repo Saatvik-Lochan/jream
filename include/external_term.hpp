@@ -52,6 +52,8 @@ ErlTerm get_nil_term();
 ErlTerm deepcopy(ErlTerm e, ErlTerm *&to_loc);
 std::vector<ErlTerm> vec_from_erl_list(ErlTerm e, bool include_end = false);
 
+ErlTerm make_boxed(ErlTerm *);
+
 class ErlListIterator {
 private:
   ErlTerm *curr_node_ptr;

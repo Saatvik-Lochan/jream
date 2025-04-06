@@ -39,4 +39,9 @@ struct __attribute__((aligned(16))) ProcessControlBlock {
   }
 };
 
+constexpr uint64_t PID_TAGGING_MASK = ~0UL << 4;
+
+ErlTerm make_pid(ProcessControlBlock *pcb);
+ProcessControlBlock *from_pid(ErlTerm term);
+
 #endif
