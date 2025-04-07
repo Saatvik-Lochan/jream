@@ -5,8 +5,8 @@ load_shared t1, MBOX_TAIL
 # if yes jump to label
 split
 
-load_shared t2, MBOX_HEAD
+# otherwise
+ld t1, 0(t0) # *save
+ld t2, 0(t1) # (*save)->value (value is the front of the struct)
 
-split
-
-li t0, 4
+# load into save register

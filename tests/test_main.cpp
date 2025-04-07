@@ -2,6 +2,7 @@
 #include "../include/execution.hpp"
 #include "../include/external_term.hpp"
 #include "../include/generated/instr_code.hpp"
+#include "../include/riscv_gen.hpp"
 #include "../include/setup_logging.hpp"
 #include <cassert>
 #include <gtest/gtest.h>
@@ -64,6 +65,39 @@ TEST(Assembly, CreateLoadDoubleWord) {
   for (int i = 0; i < 4; i++) {
     ASSERT_EQ(result.raw[i], should[i]);
   }
+}
+
+TEST(Assembly, CreateBranchEquals) {
+  uint8_t rs1 = 5;
+  uint8_t rs2 = 6;
+  int16_t imm = 0x30;
+
+  // when
+  auto result = create_branch_equal(rs1, rs2, imm);
+
+  // then
+  uint8_t should[] = {0x63, 0x88, 0x62, 0x02};
+
+  for (int i = 0; i < 4; i++) {
+    ASSERT_EQ(result.raw[i], should[i]) << result.display_hex();
+  }
+}
+
+TEST(Assembly, SetBTypeImmediate) {
+  uint8_t rs1 = 5;
+  uint8_t rs2 = 6;
+
+  // when
+  auto result = create_branch_equal(rs1, rs2, 0x30);
+  set_imm_B_type_instruction(result, 0x48);
+
+  // then
+  auto should = create_branch_equal(rs1, rs2, 0x48);
+
+  for (int i = 0; i < 4; i++) {
+    ASSERT_EQ(result.raw[i], should.raw[i]) << result.display_hex();
+  }
+
 }
 
 CodeChunk create_code_chunk(std::vector<Instruction> instructions) {
