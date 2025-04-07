@@ -710,6 +710,38 @@ TEST(RISCV, IsTupleOpWrongBoxed) {
   ASSERT_TRUE(b);
 }
 
+TEST(RISCV, InitYRegs) {
+
+  std::vector<Argument> arguments = {
+      Argument{Y_REGISTER_TAG, {.arg_num = 0}},
+      Argument{Y_REGISTER_TAG, {.arg_num = 1}},
+  };
+
+  std::vector<Instruction> instructions = {
+      Instruction{ALLOCATE_OP, {get_lit(3)}},
+      Instruction{INIT_YREGS_OP,
+                  {Argument{EXT_LIST_TAG, {.arg_vec_p = &arguments}}}},
+      Instruction{WAIT_OP, {get_tag(LABEL_TAG, 0)}} // label doesn't matter
+  };
+
+  wrap_in_function(instructions);
+
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
+  auto pcb = create_process(code_chunk, 0);
+
+  ErlTerm stack[4];
+  pcb->set_shared<STOP>(stack + 4);
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_NE(stack[0], get_nil_term()); // code pointer
+  ASSERT_EQ(stack[1], get_nil_term()); // y0
+  ASSERT_EQ(stack[2], get_nil_term()); // y1
+  ASSERT_NE(stack[3], get_nil_term()); // y2 (not initialised)
+}
+
 int main(int argc, char **argv) {
   setup_logging(argv[0]);
   testing::InitGoogleTest(&argc, argv);

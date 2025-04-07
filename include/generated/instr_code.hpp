@@ -10,6 +10,7 @@ enum AsmSnippet {
   ENTER_FUNC_SNIP, // assembly/build/enter_func.S
   GOTO_LABEL_SNIP, // assembly/build/goto_label.S
   CALL_EXT_BIF_SNIP, // assembly/build/call_ext_bif.S
+  INIT_YREGS_SNIP, // assembly/build/init_yregs.S
   LOOP_REC_1_SNIP, // assembly/build/loop_rec_1.S
   TEMP_SNIP, // assembly/build/temp.S
   MAKE_FUN3_SNIP, // assembly/build/make_fun3.S

@@ -160,6 +160,23 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       break;
     }
 
+    case INIT_YREGS_OP: {
+      // extended list
+      auto yregs = instr.arguments[0];
+      assert(yregs.tag == EXT_LIST_TAG);
+
+      auto yregs_val = yregs.arg_raw.arg_vec_p;
+
+      add_code(get_riscv(INIT_YREGS_SNIP));
+
+      for (const auto &reg_to_save : *yregs_val) {
+        assert(reg_to_save.tag == Y_REGISTER_TAG);
+        add_riscv_instrs(create_store_appropriate(reg_to_save, 5));
+      }
+
+      break;
+    }
+
     case CALL_OP: {
       add_setup_args_code();
 
