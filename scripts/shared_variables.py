@@ -8,6 +8,7 @@ shared_var_names = [
     "RESUME_LABEL",
     "MBOX_HEAD",
     "MBOX_TAIL",
+    "MBOX_SAVE",
 ]
 
 shared_variables = {

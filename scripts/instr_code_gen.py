@@ -2,6 +2,7 @@ import sys
 import os
 import subprocess
 from pathlib import Path
+from meta_assembly_compile import do_compile
 
 project_root = Path(sys.argv[1])
 callable_fun_file = Path(sys.argv[2])
@@ -11,7 +12,7 @@ def enum_and_case_from(file: Path):
     assert (file.is_file())
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    script_path = os.path.join(script_dir, 'riscv_from_meta.sh')
+    script_path = os.path.join(script_dir, 'get_binary.sh')
     result = subprocess.run([script_path, file, callable_fun_file],
                             text=True, capture_output=True)
 
@@ -22,7 +23,7 @@ def enum_and_case_from(file: Path):
     byte_array_str = result.stdout.strip()
 
     # get enum name from file
-    enum_name = f"{file.name[:-4]}_SNIP".upper()
+    enum_name = f"{file.name[:-2]}_SNIP".upper()
 
     case_text = (
         f"  case {enum_name}:\n"
@@ -77,6 +78,11 @@ asm_directory = Path(sys.argv[3])
 assert (asm_directory.is_dir())
 
 for file in asm_directory.glob("*_m.S"):
+    do_compile(file, callable_fun_file)
+
+build_directory = asm_directory / "build"
+
+for file in build_directory.glob("*.S"):
     enum_option, switch_case = enum_and_case_from(file)
     src_lines.append(switch_case)
     header_lines.append(enum_option)
