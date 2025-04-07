@@ -209,8 +209,7 @@ create_load_appropriate(Argument arg, uint8_t dest_reg) {
   switch (arg.tag) {
   case X_REGISTER_TAG: {
     // assume s5 is the x array register
-    return std::vector<RISCV_Instruction>{
-        create_load_x_reg(dest_reg, arg.arg_raw.arg_num, 21)};
+    return {create_load_x_reg(dest_reg, arg.arg_raw.arg_num, 21)};
   }
   case Y_REGISTER_TAG: {
     // assumes s1 points to the pcb
@@ -219,7 +218,7 @@ create_load_appropriate(Argument arg, uint8_t dest_reg) {
   case LITERAL_TAG: {
     // TODO I am unsure if the 'LITERAL' tag is what I think it is
     // return an empty vector as we don't need to make any changes
-    return std::vector<RISCV_Instruction>();
+    throw std::logic_error("not yet implemented loading arbitrary literal");
   }
   default:
     throw std::logic_error(
@@ -232,8 +231,7 @@ create_store_appropriate(Argument arg, uint8_t src_reg) {
   switch (arg.tag) {
   case X_REGISTER_TAG: {
     // assume s5 is the x array register
-    return std::vector<RISCV_Instruction>{
-        create_store_x_reg(src_reg, arg.arg_raw.arg_num, 21)};
+    return {create_store_x_reg(src_reg, arg.arg_raw.arg_num, 21)};
   }
   case Y_REGISTER_TAG: {
     // assumes s1 points to the pcb

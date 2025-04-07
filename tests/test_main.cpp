@@ -152,6 +152,58 @@ TEST(JIT, SetupAndTeardown) {
   SUCCEED();
 }
 
+TEST(RISCV, Move) {
+  // only testing with X register for now
+  std::vector<Instruction> instructions = {
+      Instruction{MOVE_OP,
+                  {
+                      get_tag(X_REGISTER_TAG, 0), // source
+                      get_tag(X_REGISTER_TAG, 1)  // destination
+                  }}};
+
+  wrap_in_function(instructions);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
+
+  auto pcb = create_process(code_chunk, 0);
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+
+  xregs[0] = 25;
+  xregs[1] = 30;
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_EQ(xregs[0], 25);
+  ASSERT_EQ(xregs[1], 25);
+}
+
+TEST(RISCV, Swap) {
+  // only testing with X register for now
+  std::vector<Instruction> instructions = {
+      Instruction{SWAP_OP,
+                  {
+                      get_tag(X_REGISTER_TAG, 0), // source
+                      get_tag(X_REGISTER_TAG, 1)  // destination
+                  }}};
+
+  wrap_in_function(instructions);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
+
+  auto pcb = create_process(code_chunk, 0);
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+
+  xregs[0] = 25;
+  xregs[1] = 30;
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_EQ(xregs[0], 30);
+  ASSERT_EQ(xregs[1], 25);
+}
+
 TEST(RISCV, Allocate) {
   // given
   std::vector<Instruction> instructions = {
@@ -220,7 +272,7 @@ TEST(RISCV, TestGetTupleElement) {
   auto xregs = pcb->get_shared<XREG_ARRAY>();
 
   // tuple of arity 3, elements (0, 1, 2)
-  ErlTerm heap[] = { 3 << 6, 0, 10, 20 };  
+  ErlTerm heap[] = {3 << 6, 0, 10, 20};
   xregs[0] = make_boxed(heap);
 
   // when

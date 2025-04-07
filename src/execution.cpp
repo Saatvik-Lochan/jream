@@ -198,6 +198,29 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       break;
     }
 
+    case MOVE_OP: {
+      auto source = instr.arguments[0];
+      auto destination = instr.arguments[1];
+
+      add_riscv_instrs(create_load_appropriate(source, 5));
+      add_riscv_instrs(create_store_appropriate(destination, 5));
+
+      break;
+    }
+
+    case SWAP_OP: {
+      auto reg1 = instr.arguments[0];
+      auto reg2 = instr.arguments[1];
+
+      add_riscv_instrs(create_load_appropriate(reg1, 5));
+      add_riscv_instrs(create_load_appropriate(reg2, 6));
+
+      add_riscv_instrs(create_store_appropriate(reg1, 6));
+      add_riscv_instrs(create_store_appropriate(reg2, 5));
+
+      break;
+    }
+
     case INIT_YREGS_OP: {
       // extended list
       auto yregs = instr.arguments[0];
