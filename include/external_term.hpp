@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstdint>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 constexpr uint64_t TAGGING_MASK = 0xfffffffffffffffc;
@@ -46,6 +47,9 @@ struct ErlTerm {
   std::string raw_display();
   ~ErlTerm() {} // TODO make a destructor
 };
+
+static_assert(std::is_standard_layout_v<ErlTerm>);
+static_assert(sizeof(ErlTerm) == 8);
 
 ErlTerm erl_list_from_vec(std::vector<ErlTerm> terms, ErlTerm end);
 ErlTerm get_nil_term();

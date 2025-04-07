@@ -22,6 +22,17 @@ def transform_if_necessary(line: str):
         return f"ld {register}, {index * 8}(s1) " + \
             f"# generated from '{line.strip()}'\n"
 
+    if line.startswith("load_xreg"):
+        tokens = get_tokens(line)
+
+        assert (len(tokens) == 3)
+        assert (tokens[0] == "load_xreg")
+        register = tokens[1]
+        index = int(tokens[2])
+
+        return f"ld {register}, {index * 8}(s5) " + \
+            f"# generated from '{line.strip()}'\n"
+
     if line.startswith("load_addr"):
         tokens = get_tokens(line)
 

@@ -8,7 +8,6 @@
 #include <gtest/gtest.h>
 #include <iterator>
 #include <optional>
-#include <queue>
 
 TEST(ErlTerm, ErlListFromVecAndBack) {
   std::vector<ErlTerm> initial_vec = {0, 1, 2, 3, 4, 5};
@@ -595,8 +594,7 @@ TEST(RISCV, Wait) {
   ASSERT_EQ(pcb->get_shared<RESUME_LABEL>(), wait_label);
 }
 
-
-TEST(RISCV, DISABLED_Send) {
+TEST(RISCV, Send) {
   std::vector<Instruction> instructions = {Instruction{SEND_OP, {}}};
   wrap_in_function(instructions);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
@@ -605,13 +603,34 @@ TEST(RISCV, DISABLED_Send) {
   auto xreg = pcb->get_shared<XREG_ARRAY>();
 
   auto other_pcb = create_process(code_chunk, 0);
+  emulator_main.scheduler.waiting.insert(other_pcb);
+
+  std::vector<ErlTerm> list = {0, 1, 2, 3, 4};
+  auto erl_list = erl_list_from_vec(list, get_nil_term());
   xreg[0] = make_pid(other_pcb);
-  xreg[1] = ErlTerm(1234);
+  xreg[1] = erl_list;
+
+  ErlTerm heap[10];
+  other_pcb->set_shared<HTOP>(heap);
+
+  // when
+  resume_process(pcb);
 
   // assert other htop
-  // assert other heap
-  // assert other mail box
-  // assert other waiting position
+  auto other_htop = other_pcb->get_shared<HTOP>();
+  ASSERT_EQ(other_htop, heap + 10);
+
+  auto other_mbox_head = other_pcb->get_shared<MBOX_HEAD>();
+  auto msg_payload = other_mbox_head->get_payload();
+
+  auto msg_vec = vec_from_erl_list(msg_payload);
+
+  ASSERT_EQ(msg_vec, list);
+  ASSERT_NE(msg_payload, erl_list);
+
+  const auto& scheduler = emulator_main.scheduler;
+  ASSERT_TRUE(scheduler.runnable.contains(other_pcb));
+  ASSERT_FALSE(scheduler.waiting.contains(other_pcb));
 }
 
 int main(int argc, char **argv) {

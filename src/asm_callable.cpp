@@ -45,7 +45,10 @@ void update_code_chunk_registers(CodeChunk *code_chunk) {
 #pragma GCC diagnostic pop
 }
 
-void send_message(ErlTerm message, ErlTerm destination_pid) {
+void send_message(ErlTerm *xregs) {
+
+  uint64_t destination_pid = xregs[0];
+  uint64_t message = xregs[1];
 
   ProcessControlBlock *process = from_pid(destination_pid);
 
@@ -61,6 +64,4 @@ void send_message(ErlTerm message, ErlTerm destination_pid) {
   emulator_main.scheduler.signal(process);
 }
 
-void free_msg(Message *msg) {
-  delete msg;
-}
+void free_msg(Message *msg) { delete msg; }
