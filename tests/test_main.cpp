@@ -785,6 +785,56 @@ TEST(RISCV, CallLast) {
   ASSERT_EQ(pcb->get_shared<STOP>(), stack + 4);
 }
 
+TEST(RISCV, TestArityTrue) {
+  bool a = false;
+  bool b = false;
+
+  auto instructions =
+      get_test_instrs(Instruction{TEST_ARITY_OP,
+                                  {get_tag(LABEL_TAG, 1),
+                                   get_tag(X_REGISTER_TAG, 0), get_lit(3)}},
+                      &a, &b);
+
+  CodeChunk code_chunk(std::move(instructions), 1, 2);
+  auto pcb = create_process(code_chunk, 0);
+
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  ErlTerm heap[] = {3 << 6, 1, 2, 3}; // arity 3
+  xregs[0] = make_boxed(heap);
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_TRUE(a);
+  ASSERT_FALSE(b);
+}
+
+TEST(RISCV, TestArityFalse) {
+  bool a = false;
+  bool b = false;
+
+  auto instructions =
+      get_test_instrs(Instruction{TEST_ARITY_OP,
+                                  {get_tag(LABEL_TAG, 1),
+                                   get_tag(X_REGISTER_TAG, 0), get_lit(3)}},
+                      &a, &b);
+
+  CodeChunk code_chunk(std::move(instructions), 1, 2);
+  auto pcb = create_process(code_chunk, 0);
+
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  ErlTerm heap[] = {4 << 6, 1, 2, 3, 4}; // arity 4
+  xregs[0] = make_boxed(heap);
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_FALSE(a);
+  ASSERT_TRUE(b);
+}
+
 int main(int argc, char **argv) {
   setup_logging(argv[0]);
   testing::InitGoogleTest(&argc, argv);

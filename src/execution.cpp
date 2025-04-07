@@ -353,6 +353,31 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       break;
     }
 
+    case TEST_ARITY_OP: {
+      auto label = instr.arguments[0];
+      assert(label.tag == LABEL_TAG);
+
+      auto source = instr.arguments[1];
+
+      auto arity = instr.arguments[2];
+      assert(arity.tag == LITERAL_TAG);
+
+      // setup args
+      add_setup_args_code();
+
+      // load soucre into t1
+      add_riscv_instrs(create_load_appropriate(source, 6));
+      add_code(get_riscv(TEST_ARITY_SNIP));
+
+      auto label_val = label.arg_raw.arg_num;
+      reserve_branch_label(label_val);
+
+      // bne t0, t1
+      add_riscv_instr(create_branch_not_equal(5, 6, 0));
+
+      break;
+    }
+
     default: {
       add_setup_args_code();
 

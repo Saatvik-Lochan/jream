@@ -17,6 +17,7 @@ enum AsmSnippet {
   IS_TUPLE_1_SNIP, // assembly/build/is_tuple_1.S
   RETURN_SNIP, // assembly/build/return.S
   WAIT_SNIP, // assembly/build/wait.S
+  TEST_ARITY_SNIP, // assembly/build/test_arity.S
   ALLOCATE_SNIP, // assembly/build/allocate.S
   SEND_SNIP, // assembly/build/send.S
   CALL_SNIP, // assembly/build/call.S
