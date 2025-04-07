@@ -296,6 +296,29 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       break;
     }
 
+    case IS_TUPLE_OP: {
+      auto label = instr.arguments[0];
+      assert(label.tag == LABEL_TAG);
+
+      auto label_val = label.arg_raw.arg_num;
+
+      auto source = instr.arguments[1];
+
+      // load into t0
+      add_riscv_instrs(create_load_appropriate(source, 5));
+      add_code(get_riscv(IS_TUPLE_1_SNIP));
+
+      reserve_branch_label(label_val);
+      add_riscv_instr(create_branch_not_equal(6, 7, 0));
+
+      add_code(get_riscv(IS_TUPLE_2_SNIP));
+
+      reserve_branch_label(label_val);
+      add_riscv_instr(create_branch_not_equal(6, 7, 0));
+
+      break;
+    }
+
     default: {
       add_setup_args_code();
 

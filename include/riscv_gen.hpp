@@ -33,7 +33,7 @@ struct RISCV_Instruction {
     const auto masked = (value >> value_start) & mask;
 
     uint32_t *p = reinterpret_cast<uint32_t *>(raw);
-    *p &= ~(mask << start);  // 0 out the bits
+    *p &= ~(mask << start); // 0 out the bits
     *p |= masked << start;
   }
 
@@ -120,7 +120,15 @@ inline RISCV_Instruction create_S_type_instruction(uint8_t opcode,
 inline RISCV_Instruction create_branch_equal(uint8_t rs1, uint8_t rs2,
                                              uint16_t imm) {
   constexpr auto op_code_bits = 0b1100011;
-  constexpr auto funct3_bits = 0b000;
+  constexpr auto funct3_bits = 0x0;
+
+  return create_B_type_instruction(op_code_bits, funct3_bits, rs1, rs2, imm);
+}
+
+inline RISCV_Instruction create_branch_not_equal(uint8_t rs1, uint8_t rs2,
+                                                 uint16_t imm) {
+  constexpr auto op_code_bits = 0b1100011;
+  constexpr auto funct3_bits = 0x1;
 
   return create_B_type_instruction(op_code_bits, funct3_bits, rs1, rs2, imm);
 }
@@ -136,7 +144,7 @@ inline RISCV_Instruction create_add_immediate(uint8_t rd, uint8_t rs,
 inline RISCV_Instruction create_load_doubleword(uint8_t rd, uint8_t rs,
                                                 int16_t imm) {
   constexpr auto load_instr_bits = 0b0000011; // load
-  constexpr auto funct3_bits = 0b011;         // width
+  constexpr auto funct3_bits = 0x3;           // width
 
   return create_I_type_instruction(load_instr_bits, rd, funct3_bits, rs, imm);
 }
@@ -144,7 +152,7 @@ inline RISCV_Instruction create_load_doubleword(uint8_t rd, uint8_t rs,
 inline RISCV_Instruction create_store_doubleword(uint8_t rs1, uint8_t rs2,
                                                  int16_t imm) {
   constexpr auto store_instr_bits = 0b0100011; // store
-  constexpr auto funct3_bits = 0b011;          // width
+  constexpr auto funct3_bits = 0x3;            // width
 
   return create_S_type_instruction(store_instr_bits, funct3_bits, rs1, rs2,
                                    imm);

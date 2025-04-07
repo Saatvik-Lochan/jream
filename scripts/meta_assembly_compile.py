@@ -97,12 +97,14 @@ def transform_if_necessary(line: str):
     if line.startswith("untag"):
         tokens = get_tokens(line)
 
-        assert (len(tokens) == 2)
+        assert (len(tokens) == 3)
         assert (tokens[0] == "untag")
 
-        register = tokens[1]
+        register1 = tokens[1]
+        register2 = tokens[1]
+
         instructions = (
-            f"andi {register}, {register}, 0xfffffffffffffffc"
+            f"andi {register1}, {register2}, 0xfffffffffffffffc"
             f"# generated from '{line.strip()}'\n"
         )
         return instructions

@@ -586,7 +586,7 @@ TEST(RISCV, Wait) {
 
   auto pcb = create_process(code_chunk, 0);
 
-  // when 
+  // when
   auto result = resume_process(pcb);
 
   // then
@@ -628,9 +628,86 @@ TEST(RISCV, Send) {
   ASSERT_EQ(msg_vec, list);
   ASSERT_NE(msg_payload, erl_list);
 
-  const auto& scheduler = emulator_main.scheduler;
+  const auto &scheduler = emulator_main.scheduler;
   ASSERT_TRUE(scheduler.runnable.contains(other_pcb));
   ASSERT_FALSE(scheduler.waiting.contains(other_pcb));
+}
+
+std::vector<Instruction> get_test_instrs(Instruction instr, bool *a, bool *b) {
+  std::vector<Instruction> out = {
+      instr,
+      set_flag_instr(a),
+      Instruction{RETURN_OP, {}},
+      Instruction{LABEL_OP, {Argument{LITERAL_TAG, {.arg_num = 1}}}},
+      set_flag_instr(b),
+  };
+
+  wrap_in_function(out, 0);
+
+  return out;
+}
+
+ProcessControlBlock *setup_is_tuple(bool *a, bool *b) {
+  auto instructions =
+      get_test_instrs(Instruction{IS_TUPLE_OP,
+                                  {Argument{LABEL_TAG, {.arg_num = 1}},
+                                   Argument{X_REGISTER_TAG, {.arg_num = 0}}}},
+                      a, b);
+
+  auto code_chunk = new CodeChunk(std::move(instructions), 1, 2);
+
+  return create_process(*code_chunk, 0);
+}
+
+TEST(RISCV, IsTupleOp) {
+  bool a, b;
+
+  auto pcb = setup_is_tuple(&a, &b);
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+
+  ErlTerm e[3] = {0b11000000, 1, 2};
+  xregs[0] = make_boxed(e);
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_TRUE(a);
+  ASSERT_FALSE(b);
+}
+
+TEST(RISCV, IsTupleOpNotBoxed) {
+  bool a, b;
+
+  auto pcb = setup_is_tuple(&a, &b);
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+
+  ErlTerm e[3] = {0b11000000, 1, 2};
+  xregs[0] = 0b1011111; // 5 as a small integer
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_FALSE(a);
+  ASSERT_TRUE(b);
+}
+
+TEST(RISCV, IsTupleOpWrongBoxed) {
+  bool a, b;
+
+  auto pcb = setup_is_tuple(&a, &b);
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+
+  ErlTerm e[1] = {0b11010100}; // is a function now
+  xregs[0] = make_boxed(e);
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_FALSE(a);
+  ASSERT_TRUE(b);
 }
 
 int main(int argc, char **argv) {

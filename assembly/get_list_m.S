@@ -8,6 +8,6 @@
 # assume that the pointer in Source is in t0
 
   # untag the pointer
-  untag t0
+  untag t0, t0
   ld t1, 0(t0)
   ld t2, 8(t0)

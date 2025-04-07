@@ -13,6 +13,7 @@ enum AsmSnippet {
   LOOP_REC_1_SNIP, // assembly/build/loop_rec_1.S
   TEMP_SNIP, // assembly/build/temp.S
   MAKE_FUN3_SNIP, // assembly/build/make_fun3.S
+  IS_TUPLE_1_SNIP, // assembly/build/is_tuple_1.S
   RETURN_SNIP, // assembly/build/return.S
   WAIT_SNIP, // assembly/build/wait.S
   ALLOCATE_SNIP, // assembly/build/allocate.S
@@ -24,6 +25,7 @@ enum AsmSnippet {
   STORE_DOUBLEWORD_TEST_SNIP, // assembly/build/store_doubleword_test.S
   TEARDOWN_SNIP, // assembly/build/teardown.S
   REMOVE_SNIP, // assembly/build/remove.S
+  IS_TUPLE_2_SNIP, // assembly/build/is_tuple_2.S
   CALL_SETUP_SNIP, // assembly/build/call_setup.S
   LOOP_REC_2_SNIP, // assembly/build/loop_rec_2.S
   SETUP_SNIP, // assembly/build/setup.S
