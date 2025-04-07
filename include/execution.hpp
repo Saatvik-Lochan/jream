@@ -24,8 +24,6 @@ struct Emulator {
 
 inline Emulator emulator_main;
 
-void queue_message(ProcessControlBlock *, Message *);
-
 static_assert(std::is_standard_layout_v<Message>,
               "Message is not standard layout. Required.");
 

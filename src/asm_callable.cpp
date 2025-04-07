@@ -60,3 +60,7 @@ void send_message(ErlTerm message, ErlTerm destination_pid) {
 
   emulator_main.scheduler.signal(process);
 }
+
+void free_msg(Message *msg) {
+  delete msg;
+}

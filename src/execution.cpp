@@ -106,6 +106,21 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
         std::for_each(code.begin(), code.end(), add_riscv_instr);
       };
 
+  // reserve a spot which will need to be filled
+  struct LinkRequest {
+    ssize_t branch_instr_location;
+    uint64_t label;
+  };
+
+  std::vector<LinkRequest> link_requests;
+
+  // must be called before adding the branch instr
+  auto reserve_branch_label = [&link_requests, &compiled](uint64_t label) {
+    ssize_t curr_offset = compiled.size();
+    link_requests.push_back(
+        LinkRequest{.branch_instr_location = curr_offset, .label = label});
+  };
+
   // main loop
   for (size_t instr_index = code_sec.start; instr_index < code_sec.end;
        instr_index++) {
@@ -193,6 +208,30 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       break;
     }
 
+    case REMOVE_MESSAGE_OP: {
+      add_code(get_riscv(REMOVE_SNIP));
+      break;
+    }
+
+    case LOOP_REC_OP: {
+      auto label = instr.arguments[0];
+      assert(label.tag == LABEL_TAG);
+
+      add_code(get_riscv(LOOP_REC_1_SNIP));
+      reserve_branch_label(label.arg_raw.arg_num);
+
+      // beq t0, t1, LABEL
+      add_riscv_instr(create_branch_equal(5, 6, 0));
+
+      add_code(get_riscv(LOOP_REC_2_SNIP));
+
+      auto destination = instr.arguments[1];
+
+      // save t2
+      add_riscv_instrs(create_store_appropriate(destination, 7));
+      break;
+    }
+
     case GET_LIST_OP: {
       add_setup_args_code();
       add_code(get_riscv(LOAD_1_ARG_SNIP));
@@ -255,6 +294,23 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     }
     }
   }
+
+  // fix link requests
+  for (auto request : link_requests) {
+    auto index = request.branch_instr_location;
+    auto data_loc = &compiled[index];
+    auto as_riscv_instr = reinterpret_cast<RISCV_Instruction *>(data_loc);
+
+    // check if label is inside function scope
+    assert(label_offsets.contains(request.label));
+
+    ssize_t label_val = label_offsets[request.label];
+    int16_t offset = label_val - index;
+
+    set_imm_B_type_instruction(*as_riscv_instr, offset);
+  }
+
+  code_chunk.label_offsets = label_offsets;
 
   return compiled;
 }
@@ -338,6 +394,10 @@ ProcessControlBlock *create_process(CodeChunk &code_chunk,
   auto label_num = code_chunk.func_label_table[func_index];
   pcb->set_shared<RESUME_LABEL>(label_num);
 
+  auto head = pcb->get_address<MBOX_HEAD>();
+  pcb->set_shared<MBOX_TAIL>(head);
+  pcb->set_shared<MBOX_SAVE>(head);
+
   return pcb;
 }
 
@@ -363,14 +423,6 @@ bool Scheduler::signal(ProcessControlBlock *process) {
   runnable.insert(std::move(node));
 
   return true;
-}
-
-void queue_message(ProcessControlBlock *pcb, Message *msg) {
-  auto head_ptr = pcb->get_shared<MBOX_HEAD>();
-
-  if (!head_ptr) {
-    pcb->set_shared<MBOX_HEAD>(msg);
-  }
 }
 
 // TODO this can actually just go in the compilation step, I

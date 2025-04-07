@@ -9,4 +9,4 @@ split
 ld t1, 0(t0) # *save
 ld t2, 0(t1) # (*save)->value (value is the front of the struct)
 
-# load into save register
+# load into save register after

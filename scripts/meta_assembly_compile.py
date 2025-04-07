@@ -1,4 +1,3 @@
-import sys
 import os
 import re
 from shared_variables import shared_variables
@@ -21,6 +20,17 @@ def transform_if_necessary(line: str):
         # s1 is where we save the pointer to the shared variables
         # we initially pass it in as an argument then save it
         return f"ld {register}, {index * 8}(s1) " + \
+            f"# generated from '{line.strip()}'\n"
+
+    if line.startswith("load_addr"):
+        tokens = get_tokens(line)
+
+        assert (len(tokens) == 3)
+        assert (tokens[0] == "load_addr")
+        register = tokens[1]
+        index = shared_variables[tokens[2]]
+
+        return f"addi {register}, s1, {index * 8} " + \
             f"# generated from '{line.strip()}'\n"
 
     if line.startswith("store_shared"):

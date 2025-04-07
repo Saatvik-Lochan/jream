@@ -77,10 +77,16 @@ src_lines = [generated_tag, include_line, src_starting_lines]
 asm_directory = Path(sys.argv[3])
 assert (asm_directory.is_dir())
 
+build_directory = asm_directory / "build"
+
+# clear build dir
+for file in build_directory.iterdir():
+    if file.is_file():
+        file.unlink()
+
 for file in asm_directory.glob("*_m.S"):
     do_compile(file, callable_fun_file)
 
-build_directory = asm_directory / "build"
 
 for file in build_directory.glob("*.S"):
     enum_option, switch_case = enum_and_case_from(file)

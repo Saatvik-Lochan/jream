@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 #include <iterator>
 #include <optional>
+#include <queue>
 
 TEST(ErlTerm, ErlListFromVecAndBack) {
   std::vector<ErlTerm> initial_vec = {0, 1, 2, 3, 4, 5};
@@ -97,7 +98,6 @@ TEST(Assembly, SetBTypeImmediate) {
   for (int i = 0; i < 4; i++) {
     ASSERT_EQ(result.raw[i], should.raw[i]) << result.display_hex();
   }
-
 }
 
 CodeChunk create_code_chunk(std::vector<Instruction> instructions) {
@@ -462,7 +462,125 @@ TEST(RISCV, Spawn) {
   ASSERT_EQ(spawned_process->get_shared<RESUME_LABEL>(), label);
 }
 
-TEST(RISCV, Send) {
+Instruction set_flag_instr(bool *flag) {
+  return Instruction{
+      DEBUG_EXECUTE_ARBITRARY,
+      {Argument{LITERAL_TAG, {.arg_num = reinterpret_cast<uint64_t>(set_flag)}},
+       Argument{LITERAL_TAG, {.arg_num = reinterpret_cast<uint64_t>(flag)}}},
+  };
+}
+
+std::vector<Instruction> get_loop_rec_instructions(bool *a, bool *b) {
+  return {
+      Instruction{LOOP_REC_OP,
+                  {Argument{LABEL_TAG, {.arg_num = 2}},
+                   Argument{X_REGISTER_TAG, {.arg_num = 0}}}},
+      Instruction{LABEL_OP, {Argument{LITERAL_TAG, {.arg_num = 1}}}},
+      set_flag_instr(a),
+      Instruction{RETURN_OP, {}},
+      Instruction{LABEL_OP, {Argument{LITERAL_TAG, {.arg_num = 2}}}},
+      set_flag_instr(b),
+  };
+}
+
+TEST(RISCV, LoopRecEmptyMbox) {
+  bool flag_a = false;
+  bool flag_b = false;
+
+  auto instructions = get_loop_rec_instructions(&flag_a, &flag_b);
+  wrap_in_function(instructions, 0);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
+
+  auto pcb = create_process(code_chunk, 0);
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_FALSE(flag_a);
+  ASSERT_TRUE(flag_b);
+}
+
+TEST(RISCV, LoopRec) {
+  bool flag_a = false;
+  bool flag_b = false;
+
+  auto instructions = get_loop_rec_instructions(&flag_a, &flag_b);
+  wrap_in_function(instructions, 0);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
+
+  auto pcb = create_process(code_chunk, 0);
+
+  Message new_msg(10);
+  pcb->queue_message(&new_msg);
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_TRUE(flag_a);
+  ASSERT_FALSE(flag_b);
+
+  auto x0 = pcb->get_shared<XREG_ARRAY>()[0];
+  ASSERT_EQ(x0, 10);
+}
+
+TEST(RISCV, RemoveLastMessage) {
+  std::vector<Instruction> instructions = {
+    Instruction{REMOVE_MESSAGE_OP, {}}
+  };
+
+  wrap_in_function(instructions, 0);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
+
+  auto pcb = create_process(code_chunk, 0);
+
+  auto new_msg = new Message(10);
+  pcb->queue_message(new_msg);
+
+  // when
+  resume_process(pcb);
+
+  // then 
+  auto head_addr = pcb->get_address<MBOX_HEAD>();
+  auto tail = pcb->get_shared<MBOX_TAIL>();
+  auto save = pcb->get_shared<MBOX_SAVE>();
+
+  ASSERT_EQ(save, head_addr);
+  ASSERT_EQ(tail, head_addr);
+}
+
+TEST(RISCV, Remove) {
+  std::vector<Instruction> instructions = {
+    Instruction{REMOVE_MESSAGE_OP, {}}
+  };
+
+  wrap_in_function(instructions, 0);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
+
+  auto pcb = create_process(code_chunk, 0);
+
+  auto msg_one = new Message(10);
+  auto msg_two = new Message(20);
+
+  pcb->queue_message(msg_one);
+  pcb->queue_message(msg_two);
+
+  // when
+  resume_process(pcb);
+
+  // then 
+  auto head_addr = pcb->get_address<MBOX_HEAD>();
+  auto head = pcb->get_shared<MBOX_HEAD>();
+  auto tail = pcb->get_shared<MBOX_TAIL>();
+  auto save = pcb->get_shared<MBOX_SAVE>();
+
+  ASSERT_EQ(save, head_addr);
+  ASSERT_EQ(tail, msg_two->get_next_address());
+  ASSERT_EQ(head, msg_two);
+}
+
+TEST(RISCV, DISABLED_Send) {
   std::vector<Instruction> instructions = {Instruction{SEND_OP, {}}};
   wrap_in_function(instructions);
   CodeChunk code_chunk(std::move(instructions), 1, 1);

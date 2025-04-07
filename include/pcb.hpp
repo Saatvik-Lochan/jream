@@ -15,6 +15,7 @@
 
 template <PCBSharedFields> struct getFieldType {
   using type = void;
+  using pointer_type = type *;
 };
 
 ENUM_TYPE(HTOP, ErlTerm *)
@@ -25,7 +26,8 @@ ENUM_TYPE(CODE_POINTER, uint8_t *)
 ENUM_TYPE(REDUCTIONS, uint64_t)
 ENUM_TYPE(RESUME_LABEL, uint64_t)
 ENUM_TYPE(MBOX_HEAD, Message *)
-ENUM_TYPE(MBOX_TAIL, Message **)
+ENUM_TYPE(MBOX_TAIL, Message * volatile*)
+ENUM_TYPE(MBOX_SAVE, Message * volatile*)
 
 // we align by 16 bytes so we use 4 tag in pointers
 struct __attribute__((aligned(16))) ProcessControlBlock {
@@ -39,6 +41,12 @@ struct __attribute__((aligned(16))) ProcessControlBlock {
   template <PCBSharedFields Field>
   inline void set_shared(typename getFieldType<Field>::type new_val) {
     this->shared[Field] = reinterpret_cast<uint64_t>(new_val);
+  }
+
+  template <PCBSharedFields Field>
+  inline typename getFieldType<Field>::type volatile *get_address() {
+    return reinterpret_cast<getFieldType<Field>::type volatile *>(shared +
+                                                                  Field);
   }
 
   void queue_message(Message *msg);

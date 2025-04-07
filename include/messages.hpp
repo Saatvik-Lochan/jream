@@ -7,7 +7,10 @@
 struct Message {
   uint64_t values[2];
 
-  inline explicit Message(ErlTerm e) { values[0] = e; };
+  inline explicit Message(ErlTerm e) {
+    values[0] = e;
+    values[1] = reinterpret_cast<uint64_t>(nullptr);
+  };
 
   inline ErlTerm get_payload() { return ErlTerm(values[0]); }
   inline Message **get_next_address() {

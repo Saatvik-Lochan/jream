@@ -14,16 +14,15 @@ enum AsmSnippet {
   TEMP_SNIP, // assembly/build/temp.S
   MAKE_FUN3_SNIP, // assembly/build/make_fun3.S
   RETURN_SNIP, // assembly/build/return.S
-  LOOP_REC_3_SNIP, // assembly/build/loop_rec_3.S
   ALLOCATE_SNIP, // assembly/build/allocate.S
   SEND_SNIP, // assembly/build/send.S
-  LOOP_REC0_SNIP, // assembly/build/loop_rec0.S
   CALL_SNIP, // assembly/build/call.S
   CALL_FINISH_SNIP, // assembly/build/call_finish.S
   LOAD_1_ARG_SNIP, // assembly/build/load_1_arg.S
   LOAD_3_ARGS_SNIP, // assembly/build/load_3_args.S
   STORE_DOUBLEWORD_TEST_SNIP, // assembly/build/store_doubleword_test.S
   TEARDOWN_SNIP, // assembly/build/teardown.S
+  REMOVE_SNIP, // assembly/build/remove.S
   CALL_SETUP_SNIP, // assembly/build/call_setup.S
   LOOP_REC_2_SNIP, // assembly/build/loop_rec_2.S
   SETUP_SNIP, // assembly/build/setup.S
