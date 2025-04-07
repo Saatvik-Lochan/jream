@@ -193,6 +193,23 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       break;
     }
 
+    case CALL_LAST_OP: {
+      add_setup_args_code();
+
+      auto arity = instr.arguments[0];
+      assert(arity.tag == LITERAL_TAG);
+
+      auto label = instr.arguments[1];
+      assert(label.tag == LABEL_TAG);
+
+      auto deallocate = instr.arguments[2];
+      assert(deallocate.tag == LITERAL_TAG);
+
+      // check reductions and maybe yield
+      add_code(get_riscv(CALL_LAST_SNIP));
+      break;
+    }
+
     case CALL_EXT_OP: {
       add_setup_args_code();
 

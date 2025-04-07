@@ -742,6 +742,49 @@ TEST(RISCV, InitYRegs) {
   ASSERT_NE(stack[3], get_nil_term()); // y2 (not initialised)
 }
 
+CodeChunk getCallLastCodeChunk(bool *flag) {
+  std::vector<Instruction> func_1 = {
+      Instruction{ALLOCATE_OP, {get_lit(3)}},
+      Instruction{CALL_LAST_OP,
+                  {
+                      Argument{LITERAL_TAG, {.arg_num = 1}}, // arity
+                      Argument{LABEL_TAG, {.arg_num = 2}},   // label
+                      Argument{LITERAL_TAG, {.arg_num = 3}}  // num deallocate
+                  }},
+  };
+
+  std::vector<Instruction> func_2 = {set_flag_instr(flag)};
+
+  // assume labels in incrementing order from 1
+  // otherwise WILL NOT WORK! Label table allocation
+  // is messed up
+  wrap_in_function(func_1, 1);
+  wrap_in_function(func_2, 2);
+
+  auto both = std::move(func_1);
+  both.insert(both.end(), std::make_move_iterator(func_2.begin()),
+              std::make_move_iterator(func_2.end()));
+
+  return CodeChunk(std::move(both), 2, 2);
+}
+
+TEST(RISCV, CallLast) {
+  bool flag = false;
+  auto code_chunk = getCallLastCodeChunk(&flag);
+  auto pcb = create_process(code_chunk, 0);
+
+  ErlTerm stack[4];
+  pcb->set_shared<STOP>(stack + 4);
+  pcb->set_shared<REDUCTIONS>(1000);
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_TRUE(flag);
+  ASSERT_EQ(pcb->get_shared<STOP>(), stack + 4);
+}
+
 int main(int argc, char **argv) {
   setup_logging(argv[0]);
   testing::InitGoogleTest(&argc, argv);
