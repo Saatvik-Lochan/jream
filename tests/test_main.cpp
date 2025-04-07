@@ -835,6 +835,102 @@ TEST(RISCV, TestArityFalse) {
   ASSERT_TRUE(b);
 }
 
+TEST(RISCV, TestIsNonEmptyListTrue) {
+  bool a = false;
+  bool b = false;
+
+  auto instructions =
+      get_test_instrs(Instruction{IS_NONEMPTY_LIST_OP,
+                                  {get_tag(LABEL_TAG, 1),
+                                   get_tag(X_REGISTER_TAG, 0), get_lit(3)}},
+                      &a, &b);
+
+  CodeChunk code_chunk(std::move(instructions), 1, 2);
+  auto pcb = create_process(code_chunk, 0);
+
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  xregs[0] = erl_list_from_vec({1, 2, 3}, get_nil_term());
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_TRUE(a);
+  ASSERT_FALSE(b);
+}
+
+TEST(RISCV, TestIsNonEmptyListFalse) {
+  bool a = false;
+  bool b = false;
+
+  auto instructions =
+      get_test_instrs(Instruction{IS_NONEMPTY_LIST_OP,
+                                  {get_tag(LABEL_TAG, 1),
+                                   get_tag(X_REGISTER_TAG, 0), get_lit(3)}},
+                      &a, &b);
+
+  CodeChunk code_chunk(std::move(instructions), 1, 2);
+  auto pcb = create_process(code_chunk, 0);
+
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  xregs[0] = get_nil_term();
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_FALSE(a);
+  ASSERT_TRUE(b);
+}
+
+TEST(RISCV, TestIsNilTrue) {
+  bool a = false;
+  bool b = false;
+
+  auto instructions =
+      get_test_instrs(Instruction{IS_NIL_OP,
+                                  {get_tag(LABEL_TAG, 1),
+                                   get_tag(X_REGISTER_TAG, 0), get_lit(3)}},
+                      &a, &b);
+
+  CodeChunk code_chunk(std::move(instructions), 1, 2);
+  auto pcb = create_process(code_chunk, 0);
+
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  xregs[0] = get_nil_term();
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_TRUE(a);
+  ASSERT_FALSE(b);
+}
+
+TEST(RISCV, TestIsNilFalse) {
+  bool a = false;
+  bool b = false;
+
+  auto instructions =
+      get_test_instrs(Instruction{IS_NIL_OP,
+                                  {get_tag(LABEL_TAG, 1),
+                                   get_tag(X_REGISTER_TAG, 0), get_lit(3)}},
+                      &a, &b);
+
+  CodeChunk code_chunk(std::move(instructions), 1, 2);
+  auto pcb = create_process(code_chunk, 0);
+
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  xregs[0] = erl_list_from_vec({1, 2, 3}, get_nil_term());
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_FALSE(a);
+  ASSERT_TRUE(b);
+}
+
 int main(int argc, char **argv) {
   setup_logging(argv[0]);
   testing::InitGoogleTest(&argc, argv);

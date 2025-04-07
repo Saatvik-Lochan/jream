@@ -121,6 +121,44 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
         LinkRequest{.branch_instr_location = curr_offset, .label = label});
   };
 
+  auto test_stack_type = [&](Instruction instr, AsmSnippet stack_check) {
+    auto label = instr.arguments[0];
+    assert(label.tag == LABEL_TAG);
+
+    auto label_val = label.arg_raw.arg_num;
+
+    auto source = instr.arguments[1];
+
+    // load into t0
+    add_riscv_instrs(create_load_appropriate(source, 5));
+    add_code(get_riscv(stack_check));
+
+    reserve_branch_label(label_val);
+    add_riscv_instr(create_branch_not_equal(6, 7, 0));
+  };
+
+  auto test_heap_type = [&](Instruction instr, AsmSnippet stack_check,
+                            AsmSnippet heap_check) {
+    auto label = instr.arguments[0];
+    assert(label.tag == LABEL_TAG);
+
+    auto label_val = label.arg_raw.arg_num;
+
+    auto source = instr.arguments[1];
+
+    // load into t0
+    add_riscv_instrs(create_load_appropriate(source, 5));
+    add_code(get_riscv(stack_check));
+
+    reserve_branch_label(label_val);
+    add_riscv_instr(create_branch_not_equal(6, 7, 0));
+
+    add_code(get_riscv(heap_check));
+
+    reserve_branch_label(label_val);
+    add_riscv_instr(create_branch_not_equal(6, 7, 0));
+  };
+
   // main loop
   for (size_t instr_index = code_sec.start; instr_index < code_sec.end;
        instr_index++) {
@@ -331,25 +369,18 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     }
 
     case IS_TUPLE_OP: {
-      auto label = instr.arguments[0];
-      assert(label.tag == LABEL_TAG);
+      test_heap_type(instr, IS_TUPLE_1_SNIP, IS_TUPLE_2_SNIP);
 
-      auto label_val = label.arg_raw.arg_num;
+      break;
+    }
 
-      auto source = instr.arguments[1];
+    case IS_NONEMPTY_LIST_OP: {
+      test_stack_type(instr, IS_NONEMPTY_LIST_SNIP);
+      break;
+    }
 
-      // load into t0
-      add_riscv_instrs(create_load_appropriate(source, 5));
-      add_code(get_riscv(IS_TUPLE_1_SNIP));
-
-      reserve_branch_label(label_val);
-      add_riscv_instr(create_branch_not_equal(6, 7, 0));
-
-      add_code(get_riscv(IS_TUPLE_2_SNIP));
-
-      reserve_branch_label(label_val);
-      add_riscv_instr(create_branch_not_equal(6, 7, 0));
-
+    case IS_NIL_OP: {
+      test_stack_type(instr, IS_NIL_SNIP);
       break;
     }
 
