@@ -204,6 +204,32 @@ TEST(RISCV, AllocateAndDeallocate) {
   ASSERT_EQ(val, e) << "'e' was " << e;
 }
 
+TEST(RISCV, TestGetTupleElement) {
+  std::vector<Instruction> instructions = {
+      Instruction{GET_TUPLE_ELEMENT_OP,
+                  {
+                      Argument{X_REGISTER_TAG, {.arg_num = 0}}, // source
+                      Argument{LITERAL_TAG, {.arg_num = 1}},    // tuple index
+                      Argument{X_REGISTER_TAG, {.arg_num = 1}}, // destination
+                  }}};
+
+  wrap_in_function(instructions);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
+
+  auto pcb = create_process(code_chunk, 0);
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+
+  // tuple of arity 3, elements (0, 1, 2)
+  ErlTerm heap[] = { 3 << 6, 0, 10, 20 };  
+  xregs[0] = make_boxed(heap);
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_EQ(xregs[1], 10);
+}
+
 TEST(RISCV, GetList) {
   std::vector<Instruction> instructions = {
       Instruction{GET_LIST_OP,
@@ -240,7 +266,6 @@ TEST(RISCV, PutList) {
                       Argument{X_REGISTER_TAG, {.arg_num = 1}}, // tail
                       Argument{X_REGISTER_TAG, {.arg_num = 2}}, // destination
                   }}};
-
 
   wrap_in_function(instructions);
   CodeChunk code_chunk(std::move(instructions), 1, 1);

@@ -346,6 +346,22 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       break;
     }
 
+    case GET_TUPLE_ELEMENT_OP: {
+      add_setup_args_code();
+
+      auto source = instr.arguments[0];
+      auto element = instr.arguments[1];
+      assert(element.tag == LITERAL_TAG);
+      auto destination = instr.arguments[2];
+
+      // load source into t0
+      add_riscv_instrs(create_load_appropriate(source, 5));
+      add_code(get_riscv(GET_TUPLE_ELEMENT_SNIP));
+
+      add_riscv_instrs(create_store_appropriate(destination, 5));
+      break;
+    }
+
     case MAKE_FUN3_OP: {
       add_setup_args_code();
 

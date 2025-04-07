@@ -24,6 +24,7 @@ enum AsmSnippet {
   SEND_SNIP, // assembly/build/send.S
   CALL_SNIP, // assembly/build/call.S
   CALL_FINISH_SNIP, // assembly/build/call_finish.S
+  GET_TUPLE_ELEMENT_SNIP, // assembly/build/get_tuple_element.S
   LOAD_1_ARG_SNIP, // assembly/build/load_1_arg.S
   CALL_LAST_SNIP, // assembly/build/call_last.S
   LOAD_3_ARGS_SNIP, // assembly/build/load_3_args.S
