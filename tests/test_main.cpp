@@ -5,6 +5,7 @@
 #include "../include/riscv_gen.hpp"
 #include "../include/setup_logging.hpp"
 #include <cassert>
+#include <cstdint>
 #include <gtest/gtest.h>
 #include <iterator>
 #include <optional>
@@ -112,7 +113,7 @@ Argument get_tag(Tag tag, uint64_t num) {
 }
 
 void wrap_in_function(std::vector<Instruction> &instructions,
-                      uint64_t label = 0) {
+                      uint64_t label = 0, bool include_return = true) {
   auto start = {
       Instruction{FUNC_INFO_OP, // I don't actually parse the arguments
                   {get_tag(ATOM_TAG, 0), get_tag(ATOM_TAG, 0), get_lit(0)}},
@@ -121,7 +122,10 @@ void wrap_in_function(std::vector<Instruction> &instructions,
   auto end = Instruction{RETURN_OP, {}};
 
   instructions.insert(instructions.begin(), start.begin(), start.end());
-  instructions.push_back(end);
+
+  if (include_return) {
+    instructions.push_back(end);
+  }
 }
 
 TEST(Assembly, StoreDoubleWord) {
@@ -480,21 +484,11 @@ BeamSrc get_beam_file(CodeChunk c, AtomChunk a, ImportTableChunk i,
                  std::move(f));
 }
 
-BeamSrc
-get_call_ext_file(std::string module_name, std::string function_name,
-                  uint32_t arity,
-                  std::optional<std::vector<AnonymousFunctionId>> anons) {
+BeamSrc get_call_ext_file(std::string module_name, std::string function_name,
+                          uint32_t arity,
+                          std::optional<std::vector<AnonymousFunctionId>> anons,
+                          std::vector<Instruction> instructions) {
 
-  // don't need alloc/dealloc if it is a bif
-  std::vector<Instruction> instructions = {
-      Instruction{CALL_EXT_OP,
-                  {
-                      Argument{LITERAL_TAG, {.arg_num = arity}},
-                      Argument{LITERAL_TAG, {.arg_num = 0}} // import index
-                  }},
-  };
-
-  wrap_in_function(instructions);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
   AtomChunk a(std::vector<std::string>({"dummy", module_name, function_name}));
@@ -515,7 +509,21 @@ get_call_ext_file(std::string module_name, std::string function_name,
 }
 
 TEST(RISCV, CallExtBif) {
-  auto file = get_call_ext_file("erlang", "test", 0, std::nullopt);
+  uint64_t arity = 0;
+
+  // don't need alloc/dealloc if it is a bif
+  std::vector<Instruction> instructions = {
+      Instruction{CALL_EXT_OP,
+                  {
+                      Argument{LITERAL_TAG, {.arg_num = arity}},
+                      Argument{LITERAL_TAG, {.arg_num = 0}} // import index
+                  }},
+  };
+
+  wrap_in_function(instructions);
+  auto file = get_call_ext_file("erlang", "test", arity, std::nullopt,
+                                std::move(instructions));
+
   auto pcb = create_process(file.code_chunk, 0);
 
   pcb->get_shared<XREG_ARRAY>()[0] = 0;
@@ -528,9 +536,40 @@ TEST(RISCV, CallExtBif) {
   ASSERT_EQ(x_reg[0], 100); // this is what the test bif does
 }
 
+TEST(RISCV, CallExtOnlyBif) {
+  uint64_t arity = 0;
+
+  // don't need alloc/dealloc if it is a bif
+  std::vector<Instruction> instructions = {
+      Instruction{CALL_EXT_ONLY_OP,
+                  {
+                      Argument{LITERAL_TAG, {.arg_num = arity}},
+                      Argument{LITERAL_TAG, {.arg_num = 0}} // import index
+                  }},
+  };
+
+  wrap_in_function(instructions, 0, false); // don't use return!
+  auto file = get_call_ext_file("erlang", "test", arity, std::nullopt,
+                                std::move(instructions));
+
+  auto pcb = create_process(file.code_chunk, 0);
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  xregs[0] = 0;
+
+  // when
+  auto result = resume_process(pcb);
+
+  // then
+  ASSERT_EQ(xregs[0], 100); // this is what the test bif does
+
+  // the thing about ONLY is that it should finish
+  ASSERT_EQ(result, FINISH);
+}
+
 TEST(RISCV, Spawn) {
   // given
   uint32_t label = 20;
+  uint64_t arity = 1;
 
   std::vector<AnonymousFunctionId> lambdas = {AnonymousFunctionId{
       .arity = 3,
@@ -538,7 +577,17 @@ TEST(RISCV, Spawn) {
       .num_free = 3,
   }};
 
-  auto file = get_call_ext_file("erlang", "spawn", 1, lambdas);
+  std::vector<Instruction> instructions = {
+      Instruction{CALL_EXT_OP,
+                  {
+                      Argument{LITERAL_TAG, {.arg_num = arity}},
+                      Argument{LITERAL_TAG, {.arg_num = 0}} // import index
+                  }},
+  };
+  wrap_in_function(instructions);
+
+  auto file = get_call_ext_file("erlang", "spawn", arity, lambdas,
+                                std::move(instructions));
   auto pcb = create_process(file.code_chunk, 0);
 
   auto header = 0b100010100;

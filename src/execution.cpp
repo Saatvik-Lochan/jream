@@ -297,6 +297,35 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       break;
     }
 
+    // code is pretty much a duplicate of the above
+    // TODO deduplicate once you've implemented external module calling
+    case CALL_EXT_ONLY_OP: {
+      add_setup_args_code();
+
+      [[maybe_unused]]
+      auto arity = instr.arguments[0];
+      assert(arity.tag == LITERAL_TAG);
+
+      auto destination = instr.arguments[1];
+      assert(destination.tag == LITERAL_TAG);
+
+      auto index = destination.arg_raw.arg_num;
+      auto func_id = code_chunk.import_table_chunk->imports[index];
+
+      auto result = bif_from_id(func_id, *code_chunk.atom_chunk);
+
+      if (result) {
+        code_chunk.set_external_jump_loc(index, *result);
+        add_code(get_riscv(CALL_EXT_BIF_SNIP));
+        add_code(get_riscv(RETURN_SNIP)); // basically return once done
+      } else {
+        // external call which is either not implemented or user defined
+        throw std::logic_error("Bif not yet defined (call_ext_only)");
+      }
+
+      break;
+    }
+
     case RETURN_OP: {
       // load code pointer and jump
       add_code(get_riscv(RETURN_SNIP));
