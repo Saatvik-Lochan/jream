@@ -315,6 +315,22 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       break;
     }
 
+    case PUT_LIST_OP: {
+      auto head = instr.arguments[0];
+      auto tail = instr.arguments[1];
+      auto destination = instr.arguments[2];
+
+      // head goes in t1, tail goes in t2
+      add_riscv_instrs(create_load_appropriate(head, 5));
+      add_riscv_instrs(create_load_appropriate(tail, 6));
+
+      add_code(get_riscv(PUT_LIST_SNIP));
+
+      add_riscv_instrs(create_store_appropriate(destination, 5));
+
+      break;
+    }
+
     case GET_LIST_OP: {
       add_setup_args_code();
       add_code(get_riscv(LOAD_1_ARG_SNIP));

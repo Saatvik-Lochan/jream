@@ -35,6 +35,7 @@ enum AsmSnippet {
   LOOP_REC_2_SNIP, // assembly/build/loop_rec_2.S
   SETUP_SNIP, // assembly/build/setup.S
   GET_LIST_SNIP, // assembly/build/get_list.S
+  PUT_LIST_SNIP, // assembly/build/put_list.S
   CALL_EXT_SNIP, // assembly/build/call_ext.S
   DEBUG_EXECUTE_ARIBITRARY_SNIP, // assembly/build/debug_execute_aribitrary.S
   COMPILE_STUB_SNIP, // assembly/build/compile_stub.S

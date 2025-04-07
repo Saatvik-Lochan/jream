@@ -232,6 +232,37 @@ TEST(RISCV, GetList) {
   // TODO check that the list is correct & other registers unchanged
 }
 
+TEST(RISCV, PutList) {
+  std::vector<Instruction> instructions = {
+      Instruction{PUT_LIST_OP,
+                  {
+                      Argument{X_REGISTER_TAG, {.arg_num = 0}}, // head
+                      Argument{X_REGISTER_TAG, {.arg_num = 1}}, // tail
+                      Argument{X_REGISTER_TAG, {.arg_num = 2}}, // destination
+                  }}};
+
+
+  wrap_in_function(instructions);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
+
+  auto pcb = create_process(code_chunk, 0);
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+
+  ErlTerm heap[2];
+  pcb->set_shared<HTOP>(heap);
+
+  xregs[0] = 0;
+  xregs[1] = erl_list_from_vec({1, 2, 3}, get_nil_term());
+
+  // when
+  resume_process(pcb);
+
+  // then
+  std::vector<ErlTerm> out_list = vec_from_erl_list(xregs[2]);
+  std::vector<ErlTerm> final_list = {0, 1, 2, 3};
+  ASSERT_EQ(out_list, final_list);
+}
+
 TEST(RISCV, MakeFun) {
   // given
   std::vector<Argument> save_list = {
