@@ -526,9 +526,7 @@ TEST(RISCV, LoopRec) {
 }
 
 TEST(RISCV, RemoveLastMessage) {
-  std::vector<Instruction> instructions = {
-    Instruction{REMOVE_MESSAGE_OP, {}}
-  };
+  std::vector<Instruction> instructions = {Instruction{REMOVE_MESSAGE_OP, {}}};
 
   wrap_in_function(instructions, 0);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
@@ -541,7 +539,7 @@ TEST(RISCV, RemoveLastMessage) {
   // when
   resume_process(pcb);
 
-  // then 
+  // then
   auto head_addr = pcb->get_address<MBOX_HEAD>();
   auto tail = pcb->get_shared<MBOX_TAIL>();
   auto save = pcb->get_shared<MBOX_SAVE>();
@@ -551,9 +549,7 @@ TEST(RISCV, RemoveLastMessage) {
 }
 
 TEST(RISCV, Remove) {
-  std::vector<Instruction> instructions = {
-    Instruction{REMOVE_MESSAGE_OP, {}}
-  };
+  std::vector<Instruction> instructions = {Instruction{REMOVE_MESSAGE_OP, {}}};
 
   wrap_in_function(instructions, 0);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
@@ -569,7 +565,7 @@ TEST(RISCV, Remove) {
   // when
   resume_process(pcb);
 
-  // then 
+  // then
   auto head_addr = pcb->get_address<MBOX_HEAD>();
   auto head = pcb->get_shared<MBOX_HEAD>();
   auto tail = pcb->get_shared<MBOX_TAIL>();
@@ -579,6 +575,26 @@ TEST(RISCV, Remove) {
   ASSERT_EQ(tail, msg_two->get_next_address());
   ASSERT_EQ(head, msg_two);
 }
+
+TEST(RISCV, Wait) {
+  uint64_t wait_label = 22;
+
+  std::vector<Instruction> instructions = {
+      Instruction{WAIT_OP, {Argument{LABEL_TAG, {.arg_num = wait_label}}}}};
+
+  wrap_in_function(instructions);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
+
+  auto pcb = create_process(code_chunk, 0);
+
+  // when 
+  auto result = resume_process(pcb);
+
+  // then
+  ASSERT_EQ(result, WAIT);
+  ASSERT_EQ(pcb->get_shared<RESUME_LABEL>(), wait_label);
+}
+
 
 TEST(RISCV, DISABLED_Send) {
   std::vector<Instruction> instructions = {Instruction{SEND_OP, {}}};

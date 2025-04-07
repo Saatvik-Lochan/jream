@@ -105,9 +105,10 @@ def transform_if_necessary(line: str):
         reason = tokens[1]
 
         reason_code = {
+            "ERROR": -1,
             "FINISH": 0,
             "YIELD": 1,
-            "ERROR": 2
+            "WAIT": 2,
         }
 
         # s8 is the return value register because it doesnt' change

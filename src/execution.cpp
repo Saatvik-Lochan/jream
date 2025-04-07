@@ -213,6 +213,12 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       break;
     }
 
+    case WAIT_OP: {
+      add_setup_args_code();
+      add_code(get_riscv(WAIT_SNIP));
+      break;
+    }
+
     case LOOP_REC_OP: {
       auto label = instr.arguments[0];
       assert(label.tag == LABEL_TAG);

@@ -14,6 +14,7 @@ enum AsmSnippet {
   TEMP_SNIP, // assembly/build/temp.S
   MAKE_FUN3_SNIP, // assembly/build/make_fun3.S
   RETURN_SNIP, // assembly/build/return.S
+  WAIT_SNIP, // assembly/build/wait.S
   ALLOCATE_SNIP, // assembly/build/allocate.S
   SEND_SNIP, // assembly/build/send.S
   CALL_SNIP, // assembly/build/call.S
