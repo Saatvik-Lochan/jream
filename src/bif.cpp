@@ -49,10 +49,8 @@ BIFReturn spawn_1(uint64_t fun_raw) {
   auto size = header >> 6;
   assert(size == func_id.num_free + 1);
 
-  auto pcb = create_process(*code_chunk_p);
-
-  // set entry point
-  pcb->set_shared<RESUME_LABEL>(func_id.label);
+  // create process with entry point
+  auto pcb = create_process_entry_label(*code_chunk_p, func_id.label);
 
   auto new_x_reg = pcb->get_shared<XREG_ARRAY>();
   auto func_arity = func_id.arity - func_id.num_free;

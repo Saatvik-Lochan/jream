@@ -414,6 +414,12 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       break;
     }
 
+    case BADMATCH_OP: {
+      // TODO return the value?
+      add_code(get_riscv(BADMATCH_SNIP));
+      break;
+    }
+
     case REMOVE_MESSAGE_OP: {
       add_code(get_riscv(REMOVE_SNIP));
       break;
@@ -664,28 +670,27 @@ ErlReturnCode resume_process(ProcessControlBlock *pcb) {
   return setup_and_go_label(pcb, pcb->get_shared<RESUME_LABEL>());
 }
 
-ProcessControlBlock *create_process(CodeChunk &code_chunk) {
+ProcessControlBlock *create_process_entry_label(CodeChunk &code_chunk,
+                                                uint64_t label) {
   ProcessControlBlock *pcb = new ProcessControlBlock;
 
   // TODO initialise all shared code
   pcb->set_shared<CODE_CHUNK_P>(&code_chunk);
   pcb->set_shared<XREG_ARRAY>(new ErlTerm[1001]);
 
-  return pcb;
-}
-
-ProcessControlBlock *create_process(CodeChunk &code_chunk,
-                                    uint64_t func_index) {
-  auto pcb = create_process(code_chunk);
-
-  auto label_num = code_chunk.func_label_table[func_index];
-  pcb->set_shared<RESUME_LABEL>(label_num);
+  pcb->set_shared<RESUME_LABEL>(label);
 
   auto head = pcb->get_address<MBOX_HEAD>();
   pcb->set_shared<MBOX_TAIL>(head);
   pcb->set_shared<MBOX_SAVE>(head);
 
   return pcb;
+}
+
+ProcessControlBlock *create_process(CodeChunk &code_chunk,
+                                    uint64_t func_index) {
+  auto label_num = code_chunk.func_label_table[func_index];
+  return create_process_entry_label(code_chunk, label_num);
 }
 
 ProcessControlBlock *Scheduler::pick_next() {

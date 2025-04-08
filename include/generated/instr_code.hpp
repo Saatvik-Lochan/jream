@@ -27,6 +27,7 @@ enum AsmSnippet {
   CALL_FINISH_SNIP, // assembly/build/call_finish.S
   GET_TUPLE_ELEMENT_SNIP, // assembly/build/get_tuple_element.S
   LOAD_1_ARG_SNIP, // assembly/build/load_1_arg.S
+  BADMATCH_SNIP, // assembly/build/badmatch.S
   CALL_LAST_SNIP, // assembly/build/call_last.S
   LOAD_3_ARGS_SNIP, // assembly/build/load_3_args.S
   STORE_DOUBLEWORD_TEST_SNIP, // assembly/build/store_doubleword_test.S

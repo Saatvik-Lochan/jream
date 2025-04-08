@@ -35,7 +35,9 @@ void run_code_section(CodeChunk &code_chunk, const CodeSection code_sec,
 uint8_t *compile_erlang_func(CodeChunk &code_chunk, uint64_t func_index);
 
 ProcessControlBlock *create_process(CodeChunk &code_chunk, uint64_t func_index);
-ProcessControlBlock *create_process(CodeChunk &code_chunk);
+ProcessControlBlock *create_process_entry_label(CodeChunk &code_chunk,
+                                                uint64_t label);
+
 ErlReturnCode resume_process(ProcessControlBlock *pcb);
 
 void create_emulator(std::vector<BeamSrc *> files);

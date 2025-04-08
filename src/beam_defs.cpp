@@ -25,7 +25,8 @@ CodeChunk::CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
   assert(len != 0);
 
   // reserve vector space to give it a pointer val
-  compacted_arg_p_array.reserve(100);
+  // rough guess is len instructions
+  compacted_arg_p_array.reserve(len);
 
   // create function and label table
   func_label_table = new uint64_t[function_count];

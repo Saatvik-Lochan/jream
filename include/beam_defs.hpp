@@ -162,7 +162,7 @@ struct CodeChunk {
   FunctionTableChunk *function_table_chunk;
 
   CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
-            uint32_t label_count);
+            uint32_t label_count = 0); // label count helps but not necessary
 
   void set_external_jump_loc(uint64_t index, CodeChunk *, uint64_t label);
   void set_external_jump_loc(uint64_t index, uintptr_t);

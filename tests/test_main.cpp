@@ -1225,3 +1225,19 @@ int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
+
+TEST(RISCV, Badmatch) {
+  std::vector<Instruction> instructions = {
+    Instruction{BADMATCH_OP, {get_tag(Y_REGISTER_TAG, 0)}}
+  };
+  wrap_in_function(instructions);
+
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
+  auto pcb = create_process(code_chunk, 0);
+
+  // then
+  auto result = resume_process(pcb);
+
+  // then
+  ASSERT_EQ(result, ERROR);
+}
