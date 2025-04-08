@@ -6,15 +6,28 @@
 /* The functions here define the BIFs
  *
  * They must take trivial types as arguments. Pointers, uint64_t, for example.
- * If they are going to return they return an uint64_t
+ *
+ * If they are going to return they return an BIFReturn
  *
  * If they have an issue they return but they set the value in the register
  * s9 to 1.
  */
 
-uint64_t add() { return 100; }
+BIFReturn ret100() { return 100; }
 
-uint64_t spawn_1(uint64_t fun_raw) {
+BIFReturn mul10(uint64_t a) {
+  return a * 10;
+}
+
+BIFReturn add(uint64_t a, uint64_t b) {
+  return a + b;
+}
+
+BIFReturn test_fail(uint64_t a, uint64_t b) {
+  return fail();
+}
+
+BIFReturn spawn_1(uint64_t fun_raw) {
 
   auto fun = ErlTerm(fun_raw);
   auto code_chunk_p =
@@ -54,5 +67,5 @@ uint64_t spawn_1(uint64_t fun_raw) {
   emulator_main.scheduler.runnable.insert(pcb);
 
   // prepare return value
-  return make_pid(pcb);
+  return make_pid(pcb).term;
 }

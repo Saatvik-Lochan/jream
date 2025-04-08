@@ -128,6 +128,16 @@ void wrap_in_function(std::vector<Instruction> &instructions,
   }
 }
 
+void set_flag(bool *address) { *address = true; }
+
+Instruction set_flag_instr(bool *flag) {
+  return Instruction{
+      DEBUG_EXECUTE_ARBITRARY,
+      {Argument{LITERAL_TAG, {.arg_num = reinterpret_cast<uint64_t>(set_flag)}},
+       Argument{LITERAL_TAG, {.arg_num = reinterpret_cast<uint64_t>(flag)}}},
+  };
+}
+
 TEST(Assembly, StoreDoubleWord) {
   uint8_t rs1 = 21; // the one which holds the pointer
   uint8_t rs2 = 6;
@@ -393,8 +403,6 @@ TEST(RISCV, MakeFun) {
   ASSERT_EQ(xregs[0].as_ptr(), &header);
 }
 
-void set_flag(bool *address) { *address = true; }
-
 CodeChunk getCallCodeChunk(bool *flag) {
   std::vector<Instruction> func_1 = {
       Instruction{ALLOCATE_OP, {get_lit(1)}},
@@ -484,10 +492,11 @@ BeamSrc get_beam_file(CodeChunk c, AtomChunk a, ImportTableChunk i,
                  std::move(f));
 }
 
-BeamSrc get_call_ext_file(std::string module_name, std::string function_name,
-                          uint32_t arity,
-                          std::optional<std::vector<AnonymousFunctionId>> anons,
-                          std::vector<Instruction> instructions) {
+BeamSrc
+get_file_with_import(std::string module_name, std::string function_name,
+                     uint32_t arity,
+                     std::optional<std::vector<AnonymousFunctionId>> anons,
+                     std::vector<Instruction> instructions) {
 
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
@@ -521,8 +530,8 @@ TEST(RISCV, CallExtBif) {
   };
 
   wrap_in_function(instructions);
-  auto file = get_call_ext_file("erlang", "test", arity, std::nullopt,
-                                std::move(instructions));
+  auto file = get_file_with_import("erlang", "test", arity, std::nullopt,
+                                   std::move(instructions));
 
   auto pcb = create_process(file.code_chunk, 0);
 
@@ -549,8 +558,8 @@ TEST(RISCV, CallExtOnlyBif) {
   };
 
   wrap_in_function(instructions, 0, false); // don't use return!
-  auto file = get_call_ext_file("erlang", "test", arity, std::nullopt,
-                                std::move(instructions));
+  auto file = get_file_with_import("erlang", "test", arity, std::nullopt,
+                                   std::move(instructions));
 
   auto pcb = create_process(file.code_chunk, 0);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
@@ -564,6 +573,136 @@ TEST(RISCV, CallExtOnlyBif) {
 
   // the thing about ONLY is that it should finish
   ASSERT_EQ(result, FINISH);
+}
+
+TEST(RISCV, Bif0) {
+  std::vector<Instruction> instructions = {
+      Instruction{BIF0_OP,
+                  {Argument{LITERAL_TAG, {.arg_num = 0}}, // import index
+                   Argument{X_REGISTER_TAG, {.arg_num = 2}}}},
+  };
+
+  wrap_in_function(instructions, 0);
+  auto file = get_file_with_import("erlang", "test", 0, std::nullopt,
+                                   std::move(instructions));
+
+  auto pcb = create_process(file.code_chunk, 0);
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  xregs[2] = 0;
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_EQ(xregs[2], 100);
+}
+
+TEST(RISCV, GCBif1) {
+  bool a, b;
+
+  // don't need alloc/dealloc if it is a bif
+  std::vector<Instruction> instructions = {
+      Instruction{GC_BIF1_OP,
+                  {
+                      get_tag(LABEL_TAG, 1),   // fail label
+                      get_tag(LITERAL_TAG, 0), // Live X regs (not used till gc)
+                      get_tag(LITERAL_TAG, 0), // bif_num (import index)
+                      get_tag(X_REGISTER_TAG, 3), // arg_1
+                      get_tag(X_REGISTER_TAG, 2), // destination
+                  }},
+      set_flag_instr(&a),
+      Instruction{RETURN_OP},
+      Instruction{LABEL_OP, {get_lit(1)}},
+      set_flag_instr(&b),
+  };
+
+  wrap_in_function(instructions, 0);
+  auto file = get_file_with_import("erlang", "test", 1, std::nullopt,
+                                   std::move(instructions));
+
+  auto pcb = create_process(file.code_chunk, 0);
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  xregs[3] = 35;
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_EQ(xregs[2], 35 * 10);
+  ASSERT_TRUE(a);
+  ASSERT_FALSE(b);
+}
+
+TEST(RISCV, GCBif2) {
+  bool a, b;
+
+  // don't need alloc/dealloc if it is a bif
+  std::vector<Instruction> instructions = {
+      Instruction{GC_BIF2_OP,
+                  {
+                      get_tag(LABEL_TAG, 1),   // fail label
+                      get_tag(LITERAL_TAG, 0), // Live X regs (not used till gc)
+                      get_tag(LITERAL_TAG, 0), // bif_num (import index)
+                      get_tag(X_REGISTER_TAG, 1), // arg_1
+                      get_tag(X_REGISTER_TAG, 3), // arg_2
+                      get_tag(X_REGISTER_TAG, 2), // destination
+                  }},
+      set_flag_instr(&a),
+      Instruction{RETURN_OP},
+      Instruction{LABEL_OP, {get_lit(1)}},
+      set_flag_instr(&b),
+  };
+
+  wrap_in_function(instructions, 0);
+  auto file = get_file_with_import("erlang", "test", 2, std::nullopt,
+                                   std::move(instructions));
+
+  auto pcb = create_process(file.code_chunk, 0);
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  xregs[1] = 25;
+  xregs[3] = 37;
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_EQ(xregs[2], 25 + 37);
+  ASSERT_TRUE(a);
+  ASSERT_FALSE(b);
+}
+
+TEST(RISCV, GCBif2Fail) {
+  bool a, b;
+
+  // don't need alloc/dealloc if it is a bif
+  std::vector<Instruction> instructions = {
+      Instruction{GC_BIF2_OP,
+                  {
+                      get_tag(LABEL_TAG, 1),   // fail label
+                      get_tag(LITERAL_TAG, 0), // Live X regs (not used till gc)
+                      get_tag(LITERAL_TAG, 0), // bif_num (import index)
+                      get_tag(X_REGISTER_TAG, 1), // arg_1
+                      get_tag(X_REGISTER_TAG, 3), // arg_2
+                      get_tag(X_REGISTER_TAG, 2), // destination
+                  }},
+      set_flag_instr(&a),
+      Instruction{RETURN_OP},
+      Instruction{LABEL_OP, {get_lit(1)}},
+      set_flag_instr(&b),
+  };
+
+  wrap_in_function(instructions, 0);
+  auto file = get_file_with_import("erlang", "test_fail", 2, std::nullopt,
+                                   std::move(instructions));
+
+  auto pcb = create_process(file.code_chunk, 0);
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_FALSE(a);
+  ASSERT_TRUE(b);
 }
 
 TEST(RISCV, Spawn) {
@@ -586,8 +725,8 @@ TEST(RISCV, Spawn) {
   };
   wrap_in_function(instructions);
 
-  auto file = get_call_ext_file("erlang", "spawn", arity, lambdas,
-                                std::move(instructions));
+  auto file = get_file_with_import("erlang", "spawn", arity, lambdas,
+                                   std::move(instructions));
   auto pcb = create_process(file.code_chunk, 0);
 
   auto header = 0b100010100;
@@ -617,14 +756,6 @@ TEST(RISCV, Spawn) {
   ASSERT_EQ(new_xregs[1], 20);
   ASSERT_EQ(new_xregs[2], 30);
   ASSERT_EQ(spawned_process->get_shared<RESUME_LABEL>(), label);
-}
-
-Instruction set_flag_instr(bool *flag) {
-  return Instruction{
-      DEBUG_EXECUTE_ARBITRARY,
-      {Argument{LITERAL_TAG, {.arg_num = reinterpret_cast<uint64_t>(set_flag)}},
-       Argument{LITERAL_TAG, {.arg_num = reinterpret_cast<uint64_t>(flag)}}},
-  };
 }
 
 std::vector<Instruction> get_loop_rec_instructions(bool *a, bool *b) {

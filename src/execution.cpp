@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <optional>
 #include <stdexcept>
+#include <strings.h>
 #include <sys/mman.h>
 #include <unordered_map>
 
@@ -71,7 +72,7 @@ inline std::vector<uint8_t> get_riscv_from_snippet(OpCode op) {
 }
 
 std::optional<uintptr_t> bif_from_id(GlobalFunctionIdentifier id,
-                                    const AtomChunk &atom_chunk) {
+                                     const AtomChunk &atom_chunk) {
 
   auto &atoms = atom_chunk.atoms;
 
@@ -170,6 +171,41 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       // this in s2=x18) to the s3=x19 register
       add_riscv_instr(create_load_doubleword(19, 18, instr_index * 8));
       get_compact_and_cache_instr_args(code_chunk, instr_index);
+    };
+
+    auto add_call_biff = [&](std::span<Argument> bif_args, uint64_t fail_label,
+                             Argument dest_reg, uint64_t bif_num,
+                             size_t instr_index) {
+      add_setup_args_code();
+
+      for (size_t i = 0; i < bif_args.size(); i++) {
+        // load into a0, ..., aN
+        add_riscv_instrs(create_load_appropriate(bif_args[i], 10 + i));
+      }
+
+      // load into t0 the appropriate argument, based on BIFs
+
+      const auto func_id = code_chunk.import_table_chunk->imports[bif_num];
+      const auto result = bif_from_id(func_id, *code_chunk.atom_chunk);
+
+      if (!result) {
+        throw std::logic_error(std::format(
+            "BIF '{}' was called, but is not implemented", bif_num));
+      }
+
+      code_chunk.set_external_jump_loc(bif_num, *result);
+      code_chunk.compacted_arg_p_array[instr_index][0] = *result;
+
+      add_code(get_riscv(BIF_SNIP));
+
+      if (fail_label) {
+        reserve_branch_label(fail_label);
+        // i.e. if a1 is not 0, then branch
+        add_riscv_instr(create_branch_not_equal(11, 0, 0));
+      }
+
+      // store a0 in dest_reg
+      add_riscv_instrs(create_store_appropriate(dest_reg, 10));
     };
 
     const auto &instr = code_chunk.instructions[instr_index];
@@ -281,7 +317,53 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     }
 
     case BIF0_OP: {
-      // TODO
+      auto bif_num = instr.arguments[0];
+      assert(bif_num.tag == LITERAL_TAG);
+
+      auto bif_num_val = bif_num.arg_raw.arg_num;
+
+      auto destination = instr.arguments[1];
+
+      add_call_biff({}, 0, destination, bif_num_val, instr_index);
+      break;
+    }
+
+      // BIF1 and 2 are quite similar, maybe refactor
+    case GC_BIF1_OP: {
+      auto label = instr.arguments[0];
+      assert(label.tag == LABEL_TAG);
+      auto label_val = label.arg_raw.arg_num;
+
+      auto bif_num = instr.arguments[2];
+      assert(bif_num.tag == LITERAL_TAG);
+
+      auto bif_num_val = bif_num.arg_raw.arg_num;
+
+      Argument args[] = {instr.arguments[3]};
+
+      auto destination = instr.arguments[4];
+
+      add_call_biff(args, label_val, destination, bif_num_val, instr_index);
+
+      break;
+    }
+
+    case GC_BIF2_OP: {
+      auto label = instr.arguments[0];
+      assert(label.tag == LABEL_TAG);
+      auto label_val = label.arg_raw.arg_num;
+
+      auto bif_num = instr.arguments[2];
+      assert(bif_num.tag == LITERAL_TAG);
+
+      auto bif_num_val = bif_num.arg_raw.arg_num;
+
+      Argument args[] = {instr.arguments[3], instr.arguments[4]};
+
+      auto destination = instr.arguments[5];
+
+      add_call_biff(args, label_val, destination, bif_num_val, instr_index);
+
       break;
     }
 
@@ -354,7 +436,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
         throw std::logic_error("Bif not yet defined");
       }
       break;
-}
+    }
 
     case RETURN_OP: {
       // load code pointer and jump
