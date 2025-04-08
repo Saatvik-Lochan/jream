@@ -1,5 +1,5 @@
 # load arity to check
-  load_arg t0, 2
+  load_arg t0, 0
 
 # assume that Arg1 was loaded into t1
   untag t1, t1

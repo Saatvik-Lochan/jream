@@ -28,7 +28,7 @@ void update_code_chunk_registers(CodeChunk *code_chunk) {
                "mv s6, %1\n"
                "mv s10, %2\n"
                :
-               : "r"(code_chunk->compacted_arg_p_array),
+               : "r"(code_chunk->compacted_arg_p_array.data()),
                  "r"(code_chunk->label_jump_locations),
                  "r"(code_chunk->external_jump_locations)
                :);

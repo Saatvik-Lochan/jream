@@ -1,5 +1,5 @@
 # deallocate
-  load_arg t0, 2
+  load_arg t0, 1
   addi t0, t0, 1
   slli t1, t0, 3
 
@@ -10,7 +10,7 @@
 # load label we are going to
 # must be a1 since it is implicitly used as an argument when going to compile
 # stub
-  load_arg a1, 1
+  load_arg a1, 0
 
 # check reductions - maybe yields
   load_shared t0, REDUCTIONS

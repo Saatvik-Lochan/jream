@@ -21,56 +21,6 @@
 #include "precompiled.hpp"
 #include "riscv_gen.hpp"
 
-uint64_t *get_compact_and_cache_instr_args(const CodeChunk &code_chunk,
-                                           size_t index) {
-
-  auto &c_args_ptr = code_chunk.compacted_arg_p_array[index];
-  const auto &args = code_chunk.instructions[index].arguments;
-
-  if (c_args_ptr != nullptr) {
-    return c_args_ptr;
-  }
-
-  auto num_args = args.size();
-
-  c_args_ptr = new uint64_t[num_args];
-
-  // do compaction
-  for (size_t i = 0; i < num_args; i++) {
-    const auto &argument = args[i];
-
-    // not implemented yet
-    assert(argument.tag != EXT_ALLOC_LIST_TAG);
-
-    if (argument.tag == EXT_LIST_TAG) {
-      c_args_ptr[i] = reinterpret_cast<uint64_t>(argument.arg_raw.arg_vec_p);
-    } else {
-      c_args_ptr[i] = argument.arg_raw.arg_num;
-    }
-  }
-
-  return c_args_ptr;
-}
-
-inline std::vector<uint8_t> get_riscv_from_snippet(OpCode op) {
-  AsmSnippet snip;
-
-  switch (op) {
-  case ALLOCATE_OP:
-    snip = ALLOCATE_SNIP;
-    break;
-
-  case DEALLOCATE_OP:
-    snip = DEALLOCATE_SNIP;
-    break;
-
-  default:
-    LOG(FATAL) << "No Snippet for Op " << op_names[op];
-  }
-
-  return get_riscv(snip);
-}
-
 std::optional<uintptr_t> bif_from_id(GlobalFunctionIdentifier id,
                                      const AtomChunk &atom_chunk) {
 
@@ -161,62 +111,67 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     add_riscv_instr(create_branch_not_equal(6, 7, 0));
   };
 
+  const auto add_setup_args_code =
+      [&add_riscv_instr, &code_chunk](std::initializer_list<uint64_t> args) {
+        auto arg_arr = new uint64_t[args.size()];
+        std::copy(args.begin(), args.end(), arg_arr);
+
+        auto &compacted = code_chunk.compacted_arg_p_array;
+
+        auto index = compacted.size();
+        compacted.push_back(arg_arr);
+
+        // load the pointer at index'th value in the argument array (pointer
+        // to this in s2=x18) to the s3=x19 register
+        add_riscv_instr(create_load_doubleword(19, 18, index * 8));
+      };
+
+  auto add_call_biff = [&](std::span<Argument> bif_args, uint64_t fail_label,
+                           Argument dest_reg, uint64_t bif_num,
+                           size_t instr_index) {
+    for (size_t i = 0; i < bif_args.size(); i++) {
+      // load into a0, ..., aN
+      add_riscv_instrs(create_load_appropriate(bif_args[i], 10 + i));
+    }
+
+    const auto func_id = code_chunk.import_table_chunk->imports[bif_num];
+    const auto result = bif_from_id(func_id, *code_chunk.atom_chunk);
+
+    if (!result) {
+      throw std::logic_error(
+          std::format("BIF '{}' was called, but is not implemented", bif_num));
+    }
+
+    add_setup_args_code({*result});
+    add_code(get_riscv(BIF_SNIP));
+
+    if (fail_label) {
+      reserve_branch_label(fail_label);
+      // i.e. if a1 is not 0, then branch
+      add_riscv_instr(create_branch_not_equal(11, 0, 0));
+    }
+
+    // store a0 in dest_reg
+    add_riscv_instrs(create_store_appropriate(dest_reg, 10));
+  };
+
   // main loop
   for (size_t instr_index = code_sec.start; instr_index < code_sec.end;
        instr_index++) {
-
-    const auto add_setup_args_code = [&add_riscv_instr, &instr_index,
-                                      &code_chunk]() {
-      // load the pointer at index'th value in the argument array (pointer to
-      // this in s2=x18) to the s3=x19 register
-      add_riscv_instr(create_load_doubleword(19, 18, instr_index * 8));
-      get_compact_and_cache_instr_args(code_chunk, instr_index);
-    };
-
-    auto add_call_biff = [&](std::span<Argument> bif_args, uint64_t fail_label,
-                             Argument dest_reg, uint64_t bif_num,
-                             size_t instr_index) {
-      add_setup_args_code();
-
-      for (size_t i = 0; i < bif_args.size(); i++) {
-        // load into a0, ..., aN
-        add_riscv_instrs(create_load_appropriate(bif_args[i], 10 + i));
-      }
-
-      // load into t0 the appropriate argument, based on BIFs
-
-      const auto func_id = code_chunk.import_table_chunk->imports[bif_num];
-      const auto result = bif_from_id(func_id, *code_chunk.atom_chunk);
-
-      if (!result) {
-        throw std::logic_error(std::format(
-            "BIF '{}' was called, but is not implemented", bif_num));
-      }
-
-      code_chunk.set_external_jump_loc(bif_num, *result);
-      code_chunk.compacted_arg_p_array[instr_index][0] = *result;
-
-      add_code(get_riscv(BIF_SNIP));
-
-      if (fail_label) {
-        reserve_branch_label(fail_label);
-        // i.e. if a1 is not 0, then branch
-        add_riscv_instr(create_branch_not_equal(11, 0, 0));
-      }
-
-      // store a0 in dest_reg
-      add_riscv_instrs(create_store_appropriate(dest_reg, 10));
-    };
 
     const auto &instr = code_chunk.instructions[instr_index];
 
     switch (instr.op_code) {
     case DEBUG_EXECUTE_ARBITRARY: {
-      [[maybe_unused]]
-      auto flag_pos = instr.arguments[0];
+      auto function_pointer = instr.arguments[0];
+      auto flag_pos = instr.arguments[1];
+
+      assert(function_pointer.tag == LITERAL_TAG);
       assert(flag_pos.tag == LITERAL_TAG);
 
-      add_setup_args_code();
+      add_setup_args_code(
+          {function_pointer.arg_raw.arg_num, flag_pos.arg_raw.arg_num});
+
       add_code(get_riscv(DEBUG_EXECUTE_ARIBITRARY_SNIP));
       break;
     }
@@ -258,6 +213,24 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       break;
     }
 
+    case ALLOCATE_OP: {
+      auto alloc_amount = instr.arguments[0];
+      assert(alloc_amount.tag == LITERAL_TAG);
+
+      add_setup_args_code({alloc_amount.arg_raw.arg_num});
+      add_code(get_riscv(ALLOCATE_SNIP));
+      break;
+    }
+
+    case DEALLOCATE_OP: {
+      auto alloc_amount = instr.arguments[0];
+      assert(alloc_amount.tag == LITERAL_TAG);
+
+      add_setup_args_code({alloc_amount.arg_raw.arg_num});
+      add_code(get_riscv(DEALLOCATE_SNIP));
+      break;
+    }
+
     case INIT_YREGS_OP: {
       // extended list
       auto yregs = instr.arguments[0];
@@ -284,8 +257,6 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     }
 
     case CALL_OP: {
-      add_setup_args_code();
-
       [[maybe_unused]]
       auto arity = instr.arguments[0];
       assert(arity.tag == LITERAL_TAG);
@@ -294,13 +265,14 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto label = instr.arguments[1];
       assert(label.tag == LABEL_TAG);
 
+      add_setup_args_code({label.arg_raw.arg_num});
+
       // check reductions and maybe yield
       add_code(get_riscv(CALL_SNIP));
       break;
     }
 
     case CALL_LAST_OP: {
-      add_setup_args_code();
 
       auto arity = instr.arguments[0];
       assert(arity.tag == LITERAL_TAG);
@@ -310,6 +282,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
       auto deallocate = instr.arguments[2];
       assert(deallocate.tag == LITERAL_TAG);
+
+      add_setup_args_code({label.arg_raw.arg_num, deallocate.arg_raw.arg_num});
 
       // check reductions and maybe yield
       add_code(get_riscv(CALL_LAST_SNIP));
@@ -368,8 +342,6 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     }
 
     case CALL_EXT_OP: {
-      add_setup_args_code();
-
       auto arity = instr.arguments[0];
       assert(arity.tag == LITERAL_TAG);
 
@@ -391,7 +363,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto result = bif_from_id(func_id, *code_chunk.atom_chunk);
 
       if (result) {
-        code_chunk.set_external_jump_loc(index, *result);
+        add_setup_args_code({*result});
         add_code(get_riscv(CALL_EXT_BIF_SNIP));
       } else {
         // external call which is either not implemented or user defined
@@ -404,12 +376,10 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     // code is pretty much a duplicate of the above
     // TODO deduplicate once you've implemented external module calling
     case CALL_EXT_ONLY_OP: {
-      add_setup_args_code();
 
       auto arity = instr.arguments[0];
       assert(arity.tag == LITERAL_TAG);
 
-      // only 8 argument register!
       assert(arity.arg_raw.arg_num < 8);
 
       for (size_t i = 0; i < arity.arg_raw.arg_num; i++) {
@@ -427,7 +397,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto result = bif_from_id(func_id, *code_chunk.atom_chunk);
 
       if (result) {
-        code_chunk.set_external_jump_loc(index, *result);
+        add_setup_args_code({*result});
         add_code(get_riscv(CALL_EXT_BIF_SNIP));
         add_code(get_riscv(RETURN_SNIP));
       } else {
@@ -450,7 +420,10 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     }
 
     case WAIT_OP: {
-      add_setup_args_code();
+      auto label = instr.arguments[0];
+      assert(label.tag == LABEL_TAG);
+
+      add_setup_args_code({label.arg_raw.arg_num});
       add_code(get_riscv(WAIT_SNIP));
       break;
     }
@@ -496,9 +469,6 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     }
 
     case GET_LIST_OP: {
-      add_setup_args_code();
-      add_code(get_riscv(LOAD_1_ARG_SNIP));
-
       // load the register pointed at in t0
       add_riscv_instrs(create_load_appropriate(instr.arguments[0], 5));
 
@@ -511,12 +481,12 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     }
 
     case GET_TUPLE_ELEMENT_OP: {
-      add_setup_args_code();
-
       auto source = instr.arguments[0];
       auto element = instr.arguments[1];
       assert(element.tag == LITERAL_TAG);
       auto destination = instr.arguments[2];
+
+      add_setup_args_code({element.arg_raw.arg_num});
 
       // load source into t0
       add_riscv_instrs(create_load_appropriate(source, 5));
@@ -527,8 +497,6 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     }
 
     case MAKE_FUN3_OP: {
-      add_setup_args_code();
-
       auto index = instr.arguments[0];
       assert(index.tag == LITERAL_TAG);
 
@@ -538,6 +506,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto freeze_list_val = freeze_list.arg_raw.arg_vec_p;
 
       auto num_free = freeze_list_val->size();
+
+      add_setup_args_code({index.arg_raw.arg_num});
 
       // now we alloc heap space and store index
       // store num spots to allocate in t0
@@ -590,7 +560,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       assert(arity.tag == LITERAL_TAG);
 
       // setup args
-      add_setup_args_code();
+      add_setup_args_code({arity.arg_raw.arg_num});
 
       // load soucre into t1
       add_riscv_instrs(create_load_appropriate(source, 6));
@@ -606,11 +576,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     }
 
     default: {
-      add_setup_args_code();
-
-      // get translated code
-      auto result = get_riscv_from_snippet(instr.op_code);
-      add_code(result);
+      throw std::logic_error(std::format("Opcode {} not implemented yet",
+                                         op_names[instr.op_code]));
     }
     }
   }

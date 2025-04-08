@@ -151,7 +151,7 @@ struct CodeChunk {
   LabelTable label_table;
   LabelOffsetTable label_offsets;
 
-  uint64_t **compacted_arg_p_array;
+  std::vector<uint64_t *> compacted_arg_p_array;
   const uint8_t *volatile *label_jump_locations;
   const uint8_t **compiled_functions;
 
