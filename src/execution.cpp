@@ -230,10 +230,18 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
       add_code(get_riscv(INIT_YREGS_SNIP));
 
+      constexpr uint8_t t0 = 5;
+      constexpr uint8_t t1 = 6;
+      constexpr uint8_t s1 = 9;
+
+      add_riscv_instr(create_load_doubleword(t1, s1, STOP * 8));
       for (const auto &reg_to_save : *yregs_val) {
         assert(reg_to_save.tag == Y_REGISTER_TAG);
-        add_riscv_instrs(create_store_appropriate(reg_to_save, 5));
-      }
+
+        const auto y_reg_num = reg_to_save.arg_raw.arg_num;
+
+        add_riscv_instr(create_store_doubleword(t1, t0, (y_reg_num + 1) * 8));
+      };
 
       break;
     }
