@@ -36,6 +36,7 @@ void update_code_chunk_registers(CodeChunk *code_chunk) {
   // should not clobber s6, s10 since we are updating it for the
   // following parts of the program.
 
+  // by sheer luck this works
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wuninitialized"
 

@@ -70,7 +70,7 @@ inline std::vector<uint8_t> get_riscv_from_snippet(OpCode op) {
   return get_riscv(snip);
 }
 
-std::optional<ext_func> bif_from_id(GlobalFunctionIdentifier id,
+std::optional<uintptr_t> bif_from_id(GlobalFunctionIdentifier id,
                                     const AtomChunk &atom_chunk) {
 
   auto &atoms = atom_chunk.atoms;
@@ -121,6 +121,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
         LinkRequest{.branch_instr_location = curr_offset, .label = label});
   };
 
+  // test lambdas
   auto test_stack_type = [&](Instruction instr, AsmSnippet stack_check) {
     auto label = instr.arguments[0];
     assert(label.tag == LABEL_TAG);
@@ -163,13 +164,13 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
   for (size_t instr_index = code_sec.start; instr_index < code_sec.end;
        instr_index++) {
 
-    auto add_setup_args_code = [&add_riscv_instr, &instr_index]() {
+    const auto add_setup_args_code = [&add_riscv_instr, &instr_index,
+                                      &code_chunk]() {
       // load the pointer at index'th value in the argument array (pointer to
       // this in s2=x18) to the s3=x19 register
       add_riscv_instr(create_load_doubleword(19, 18, instr_index * 8));
+      get_compact_and_cache_instr_args(code_chunk, instr_index);
     };
-
-    get_compact_and_cache_instr_args(code_chunk, instr_index);
 
     const auto &instr = code_chunk.instructions[instr_index];
 
@@ -279,12 +280,25 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       break;
     }
 
+    case BIF0_OP: {
+      // TODO
+      break;
+    }
+
     case CALL_EXT_OP: {
       add_setup_args_code();
 
-      [[maybe_unused]]
       auto arity = instr.arguments[0];
       assert(arity.tag == LITERAL_TAG);
+
+      // only 8 argument register!
+      assert(arity.arg_raw.arg_num < 8);
+
+      for (size_t i = 0; i < arity.arg_raw.arg_num; i++) {
+        // s5 (x21) has the x_registers
+        // we load them into a0, ..., an
+        add_riscv_instr(create_load_x_reg(10 + i, 0, 21));
+      }
 
       auto destination = instr.arguments[1];
       assert(destination.tag == LITERAL_TAG);
@@ -310,9 +324,17 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     case CALL_EXT_ONLY_OP: {
       add_setup_args_code();
 
-      [[maybe_unused]]
       auto arity = instr.arguments[0];
       assert(arity.tag == LITERAL_TAG);
+
+      // only 8 argument register!
+      assert(arity.arg_raw.arg_num < 8);
+
+      for (size_t i = 0; i < arity.arg_raw.arg_num; i++) {
+        // s5 (x21) has the x_registers
+        // we load them into a0, ..., an
+        add_riscv_instr(create_load_x_reg(10 + i, 0, 21));
+      }
 
       auto destination = instr.arguments[1];
       assert(destination.tag == LITERAL_TAG);
@@ -324,14 +346,15 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
       if (result) {
         code_chunk.set_external_jump_loc(index, *result);
-        add_code(get_riscv(CALL_EXT_ONLY_BIF_SNIP));
+        add_code(get_riscv(CALL_EXT_BIF_SNIP));
+        add_code(get_riscv(RETURN_SNIP));
       } else {
         // external call which is either not implemented or user defined
-        throw std::logic_error("Bif not yet defined (call_ext_only)");
+        // if external then what?
+        throw std::logic_error("Bif not yet defined");
       }
-
       break;
-    }
+}
 
     case RETURN_OP: {
       // load code pointer and jump

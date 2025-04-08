@@ -3,13 +3,23 @@
 #include "external_term.hpp"
 #include "pcb.hpp"
 
+/* The functions here define the BIFs
+ *
+ * They must take trivial types as arguments. Pointers, uint64_t, for example.
+ * If they are going to return they return an uint64_t
+ *
+ * If they have an issue they return but they set the value in the register
+ * s9 to 1.
+ */
 
-void add(ErlTerm *x_regs, CodeChunk *code_chunk_p) {
-  x_regs[0] = 100;
-}
+uint64_t add() { return 100; }
 
-void spawn_1(ErlTerm *x_regs, CodeChunk *code_chunk_p) {
-  auto fun = x_regs[0];
+uint64_t spawn_1(uint64_t fun_raw) {
+
+  auto fun = ErlTerm(fun_raw);
+  auto code_chunk_p =
+      emulator_main.scheduler.executing_process->get_shared<CODE_CHUNK_P>();
+
   assert(fun.getTagType() == BOXED_T);
   assert(fun.getBoxedType() == FUN_T);
 
@@ -35,8 +45,7 @@ void spawn_1(ErlTerm *x_regs, CodeChunk *code_chunk_p) {
   auto func_arity = func_id.arity - func_id.num_free;
   auto num_free = func_id.num_free;
 
-  // copy func arguments
-  std::copy(x_regs, x_regs + func_arity, new_x_reg);
+  assert(func_arity == 0);
 
   // copy frozen variales
   std::copy(header_ptr + 2, header_ptr + 2 + num_free, new_x_reg + func_arity);
@@ -45,5 +54,5 @@ void spawn_1(ErlTerm *x_regs, CodeChunk *code_chunk_p) {
   emulator_main.scheduler.runnable.insert(pcb);
 
   // prepare return value
-  x_regs[0] = make_pid(pcb);
+  return make_pid(pcb);
 }

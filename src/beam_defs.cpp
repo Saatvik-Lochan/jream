@@ -2,6 +2,7 @@
 #include "op_arity.hpp"
 #include "precompiled.hpp"
 #include <algorithm>
+#include <cstdint>
 #include <glog/logging.h>
 #include <stdexcept>
 
@@ -88,7 +89,7 @@ void CodeChunk::set_external_jump_loc(uint64_t index,
   loc.label = label;
 }
 
-void CodeChunk::set_external_jump_loc(uint64_t index, ext_func ext_func) {
+void CodeChunk::set_external_jump_loc(uint64_t index, uintptr_t ext_func) {
   if (!external_jump_locations) {
     throw std::logic_error(
         "Can't set an external jump location before exports are allocated");

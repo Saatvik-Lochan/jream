@@ -601,6 +601,7 @@ TEST(RISCV, Spawn) {
   };
 
   pcb->get_shared<XREG_ARRAY>()[0] = make_boxed(fun);
+  emulator_main.scheduler.executing_process = pcb;
 
   // when
   resume_process(pcb);

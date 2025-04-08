@@ -129,11 +129,9 @@ using LabelOffsetTable = std::unordered_map<uint64_t, size_t>;
 
 struct CodeChunk;
 
-typedef void (*ext_func)(ErlTerm *x_reg_array, CodeChunk *code_chunk_p);
-
 // we're making some assumptions on the layout of memory here
 union ExtJump {
-  ext_func func;
+  uintptr_t func;
   struct {
     CodeChunk *code_chunk;
     uint64_t label;
@@ -167,7 +165,7 @@ struct CodeChunk {
             uint32_t label_count);
 
   void set_external_jump_loc(uint64_t index, CodeChunk *, uint64_t label);
-  void set_external_jump_loc(uint64_t index, ext_func);
+  void set_external_jump_loc(uint64_t index, uintptr_t);
 
   void log(const AtomChunk &atom_chunk);
 };

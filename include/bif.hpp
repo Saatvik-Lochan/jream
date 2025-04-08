@@ -1,17 +1,20 @@
 #ifndef BIF
 #define BIF
 
-#include "beam_defs.hpp"
-#include "external_term.hpp"
+#include <cstdint>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
-void spawn_1(ErlTerm *, CodeChunk *);
-void add(ErlTerm *, CodeChunk *);
+uint64_t spawn_1(uint64_t fun_raw);
+uint64_t add();
 
-const inline std::unordered_map<std::string, ext_func> name_bif_map = {
-    std::make_pair("erlang:test/0", add),  // not a real bif
-    std::make_pair("erlang:spawn/1", spawn_1),
+#define MAP(Name, Function)                                                    \
+  std::make_pair(Name, reinterpret_cast<uintptr_t>(Function))
+
+const inline std::unordered_map<std::string, uintptr_t> name_bif_map = {
+    MAP("erlang:test/0", add),
+    MAP("erlang:spawn/1", spawn_1)
 };
 
 #endif
