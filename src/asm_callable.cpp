@@ -2,6 +2,7 @@
 #include "execution.hpp"
 #include "external_term.hpp"
 #include "pcb.hpp"
+#include <compare>
 #include <iostream>
 
 void print_int(uint64_t a) { std::cout << a << std::endl; }
@@ -63,6 +64,15 @@ void send_message(ErlTerm *xregs) {
   process->queue_message(msg);
 
   emulator_main.scheduler.signal(process);
+}
+
+uint64_t compare(uint64_t term1, uint64_t term2) {
+  auto result = ErlTerm(term1) <=> ErlTerm(term2);
+
+  if (result == std::strong_ordering::less) return -1;
+  if (result == std::strong_ordering::greater) return 1;
+
+  return 0;
 }
 
 void free_msg(Message *msg) { delete msg; }

@@ -13,6 +13,7 @@ const uint8_t *get_or_compile_label(CodeChunk *code_chunk, uint64_t func_index);
 void update_code_chunk_registers(CodeChunk *code_chunk);
 void free_msg(Message *);
 void send_message(ErlTerm *);
+uint64_t compare(uint64_t term1, uint64_t term2);
 
 #define CAST(Func) reinterpret_cast<std::uintptr_t>(&Func)
 
@@ -27,6 +28,7 @@ inline std::uintptr_t all_funs[] = {
     CAST(update_code_chunk_registers), // m_asm: SET_NEW_CODE_CHUNK
     CAST(free_msg),                    // m_asm: FREE_MSG
     CAST(send_message),                // m_asm: SEND_MSG
+    CAST(compare),                     // m_asm: COMPARE
 };
 
 #endif

@@ -29,6 +29,7 @@ enum AsmSnippet {
   LOAD_1_ARG_SNIP, // assembly/build/load_1_arg.S
   BADMATCH_SNIP, // assembly/build/badmatch.S
   CALL_LAST_SNIP, // assembly/build/call_last.S
+  DO_COMP_SNIP, // assembly/build/do_comp.S
   LOAD_3_ARGS_SNIP, // assembly/build/load_3_args.S
   STORE_DOUBLEWORD_TEST_SNIP, // assembly/build/store_doubleword_test.S
   TEARDOWN_SNIP, // assembly/build/teardown.S

@@ -1220,6 +1220,121 @@ TEST(RISCV, TestIsNilFalse) {
   ASSERT_TRUE(b);
 }
 
+void do_compare_test(OpCode opcode, ErlTerm arg1, ErlTerm arg2,
+                     bool should_jump) {
+  bool a = false;
+  bool b = false;
+
+  auto instructions =
+      get_test_instrs(Instruction{opcode,
+                                  {
+                                      get_tag(LABEL_TAG, 1),
+                                      get_tag(X_REGISTER_TAG, 1),
+                                      get_tag(X_REGISTER_TAG, 2),
+                                  }},
+                      &a, &b);
+
+  CodeChunk code_chunk(std::move(instructions), 1, 2);
+  auto pcb = create_process(code_chunk, 0);
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  xregs[1] = arg1;
+  xregs[2] = arg2;
+
+  // when
+  resume_process(pcb);
+
+  // then
+  if (should_jump) {
+    ASSERT_FALSE(a);
+    ASSERT_TRUE(b);
+  } else {
+    ASSERT_TRUE(a);
+    ASSERT_FALSE(b);
+  }
+}
+
+TEST(RISCV, CompDiffTypesGT) {
+  auto arg1 = erl_list_from_vec({make_small_int(1)}, get_nil_term());
+  auto arg2 = make_small_int(4000);
+
+  auto should_ge_jump = false;
+  do_compare_test(IS_GE_OP, arg1, arg2, should_ge_jump);
+  do_compare_test(IS_LT_OP, arg1, arg2, !should_ge_jump);
+}
+
+TEST(RISCV, CompDiffTypesLT) {
+  auto arg1 = make_small_int(4000);
+  auto arg2 = erl_list_from_vec({make_small_int(1)}, get_nil_term());
+
+  auto should_ge_jump = true;
+  do_compare_test(IS_GE_OP, arg1, arg2, should_ge_jump);
+  do_compare_test(IS_LT_OP, arg1, arg2, !should_ge_jump);
+}
+
+TEST(RISCV, CompListGTLen) {
+  auto arg1 =
+      erl_list_from_vec({make_small_int(1), make_small_int(2)}, get_nil_term());
+  auto arg2 = erl_list_from_vec(
+      {make_small_int(1), make_small_int(2), make_small_int(3)},
+      get_nil_term());
+
+  auto should_ge_jump = false;
+  do_compare_test(IS_GE_OP, arg1, arg2, should_ge_jump);
+  do_compare_test(IS_LT_OP, arg1, arg2, !should_ge_jump);
+}
+
+TEST(RISCV, CompListGTValue) {
+  auto arg1 = erl_list_from_vec({make_small_int(2)}, get_nil_term());
+  auto arg2 =
+      erl_list_from_vec({make_small_int(1), make_small_int(2)}, get_nil_term());
+
+  auto should_ge_jump = false;
+  do_compare_test(IS_GE_OP, arg1, arg2, should_ge_jump);
+  do_compare_test(IS_LT_OP, arg1, arg2, !should_ge_jump);
+}
+
+TEST(RISCV, CompTupleGTLen) {
+  ErlTerm heap1[] = {2 << 6, make_small_int(1), make_small_int(2)};
+  ErlTerm heap2[] = {1 << 6, make_small_int(1)};
+
+  auto arg1 = make_boxed(heap1);
+  auto arg2 = make_boxed(heap2);
+
+  auto should_ge_jump = false;
+  do_compare_test(IS_GE_OP, arg1, arg2, should_ge_jump);
+  do_compare_test(IS_LT_OP, arg1, arg2, !should_ge_jump);
+}
+
+TEST(RISCV, CompTupleGTValue) {
+  ErlTerm heap1[] = {1 << 6, make_small_int(2)};
+  ErlTerm heap2[] = {2 << 6, make_small_int(1), make_small_int(2)};
+
+  auto arg1 = make_boxed(heap1);
+  auto arg2 = make_boxed(heap2);
+
+  auto should_ge_jump = false;
+  do_compare_test(IS_GE_OP, arg1, arg2, should_ge_jump);
+  do_compare_test(IS_LT_OP, arg1, arg2, !should_ge_jump);
+}
+
+TEST(RISCV, CompIntEq) {
+  auto arg1 = make_small_int(4);
+  auto arg2 = make_small_int(4);
+
+  auto should_ge_jump = false;
+  do_compare_test(IS_GE_OP, arg1, arg2, should_ge_jump);
+  do_compare_test(IS_LT_OP, arg1, arg2, !should_ge_jump);
+}
+
+TEST(RISCV, CompIntLT) {
+  auto arg1 = make_small_int(2);
+  auto arg2 = make_small_int(4);
+
+  auto should_ge_jump = true;
+  do_compare_test(IS_GE_OP, arg1, arg2, should_ge_jump);
+  do_compare_test(IS_LT_OP, arg1, arg2, !should_ge_jump);
+}
+
 int main(int argc, char **argv) {
   setup_logging(argv[0]);
   testing::InitGoogleTest(&argc, argv);
@@ -1228,8 +1343,7 @@ int main(int argc, char **argv) {
 
 TEST(RISCV, Badmatch) {
   std::vector<Instruction> instructions = {
-    Instruction{BADMATCH_OP, {get_tag(Y_REGISTER_TAG, 0)}}
-  };
+      Instruction{BADMATCH_OP, {get_tag(Y_REGISTER_TAG, 0)}}};
   wrap_in_function(instructions);
 
   CodeChunk code_chunk(std::move(instructions), 1, 1);

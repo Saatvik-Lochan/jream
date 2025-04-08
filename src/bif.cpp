@@ -33,8 +33,7 @@ BIFReturn spawn_1(uint64_t fun_raw) {
   auto code_chunk_p =
       emulator_main.scheduler.executing_process->get_shared<CODE_CHUNK_P>();
 
-  assert(fun.getTagType() == BOXED_T);
-  assert(fun.getBoxedType() == FUN_T);
+  assert(fun.getErlMajorType() == FUN_ET);
 
   auto header_ptr = fun.as_ptr();
   auto header = *header_ptr;
@@ -42,7 +41,7 @@ BIFReturn spawn_1(uint64_t fun_raw) {
   auto index = header_ptr[1];
   auto &functions = code_chunk_p->function_table_chunk->functions;
 
-  assert(index < functions.size());
+  assert(index.term < functions.size());
   auto func_id = functions[index];
 
   // +1 for the index ptr

@@ -11,63 +11,6 @@
 #include <type_traits>
 #include <vector>
 
-TagType ErlTerm::getTagType() {
-  const uint8_t tag = term & 0b11;
-
-  switch (tag) {
-  case 0b00:
-    return HEADER_T;
-  case 0b01:
-    return LIST_T;
-  case 0b10:
-    return BOXED_T;
-  case 0b11: {
-    const uint8_t immediate_tag = (tag >> 2) & 0b11;
-
-    switch (immediate_tag) {
-    case 0b00:
-      return PID_T;
-    case 0b01:
-      return PORT_T;
-    case 0b11:
-      return SMALL_INT_T;
-    case 0b10: {
-      const uint8_t immediate2_tag = (tag >> 4) & 0b11;
-
-      switch (immediate2_tag) {
-      case 0b00:
-        return ATOM_T;
-      case 0b01:
-        return CATCH_T;
-      case 0b10:
-        throw std::domain_error("unknown term");
-      case 0b11:
-        return NIL_T;
-      }
-    }
-    }
-  }
-  default:
-    throw std::logic_error("invalid switch case");
-  }
-}
-
-BoxedType ErlTerm::getBoxedType() {
-  assert(getTagType() == BOXED_T);
-
-  ErlTerm header = *as_ptr();
-  auto tag = (header >> 2) & 0b1111;
-
-  switch (tag) {
-  case 0b0000:
-    return ARITYVAL_T;
-  case 0b0101:
-    return FUN_T;
-  default:
-    throw std::domain_error("Boxed type not yet supported");
-  }
-}
-
 std::string ErlTerm::raw_display() { return std::format("{:b}", term); }
 
 std::string ErlTerm::display() {
@@ -274,3 +217,9 @@ ErlTerm deepcopy(ErlTerm e, ErlTerm *&to_loc) {
 ErlTerm make_boxed(ErlTerm *ptr) {
   return (reinterpret_cast<uint64_t>(ptr) & TAGGING_MASK) + 0b10;
 } 
+
+ErlTerm make_small_int(uint64_t num) {
+  assert (((num << 4) >> 4) == num);
+
+  return ErlTerm((num << 4) + 0b1111);
+}

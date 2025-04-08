@@ -111,6 +111,28 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     add_riscv_instr(create_branch_not_equal(6, 7, 0));
   };
 
+  auto add_comparison = [&](Instruction instr, uint8_t branch_funct3) {
+    auto label = instr.arguments[0];
+    assert(label.tag == LABEL_TAG);
+
+    auto label_val = label.arg_raw.arg_num;
+
+    auto arg1 = instr.arguments[1];
+    auto arg2 = instr.arguments[2];
+
+    // load into a0, a1
+    add_riscv_instrs(create_load_appropriate(arg1, 10));
+    add_riscv_instrs(create_load_appropriate(arg2, 11));
+
+    add_code(get_riscv(DO_COMP_SNIP));
+
+    reserve_branch_label(label_val);
+
+    // branch based of if return is lt/ge/ne/eq 0
+    add_riscv_instr(
+        create_B_type_instruction(0b1100011, branch_funct3, 10, 0, 0));
+  };
+
   const auto add_setup_args_code =
       [&add_riscv_instr, &code_chunk](std::initializer_list<uint64_t> args) {
         auto arg_arr = new uint64_t[args.size()];
@@ -537,6 +559,18 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       // the value in t1 (i.e. the heap pointer before this)
       add_riscv_instrs(create_store_appropriate(instr.arguments[1], 6));
 
+      break;
+    }
+
+    case IS_GE_OP: {
+      // funct3 for lt, since we branch when ge
+      add_comparison(instr, 0x4);
+      break;
+    }
+
+    case IS_LT_OP: {
+      // funct3 for ge, since we branch when ge
+      add_comparison(instr, 0x5);
       break;
     }
 
