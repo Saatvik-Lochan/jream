@@ -316,8 +316,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
       if (result) {
         code_chunk.set_external_jump_loc(index, *result);
-        add_code(get_riscv(CALL_EXT_BIF_SNIP));
-        add_code(get_riscv(RETURN_SNIP)); // basically return once done
+        add_code(get_riscv(CALL_EXT_ONLY_BIF_SNIP));
       } else {
         // external call which is either not implemented or user defined
         throw std::logic_error("Bif not yet defined (call_ext_only)");
