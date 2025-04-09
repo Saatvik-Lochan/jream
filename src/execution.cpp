@@ -21,7 +21,7 @@
 #include "precompiled.hpp"
 #include "riscv_gen.hpp"
 
-std::optional<uintptr_t> bif_from_id(GlobalFunctionIdentifier id,
+std::optional<uintptr_t> bif_from_id(ExternalFunctionId id,
                                      const AtomChunk &atom_chunk) {
 
   auto &atoms = atom_chunk.atoms;
@@ -704,27 +704,20 @@ ErlReturnCode resume_process(ProcessControlBlock *pcb) {
   return setup_and_go_label(pcb, pcb->get_shared<RESUME_LABEL>());
 }
 
-ProcessControlBlock *create_process_entry_label(CodeChunk &code_chunk,
-                                                uint64_t label) {
+ProcessControlBlock *create_process(EntryPoint entry_point) {
   ProcessControlBlock *pcb = new ProcessControlBlock;
 
   // TODO initialise all shared code
-  pcb->set_shared<CODE_CHUNK_P>(&code_chunk);
+  pcb->set_shared<CODE_CHUNK_P>(entry_point.code_chunk);
   pcb->set_shared<XREG_ARRAY>(new ErlTerm[1001]);
 
-  pcb->set_shared<RESUME_LABEL>(label);
+  pcb->set_shared<RESUME_LABEL>(entry_point.label);
 
   auto head = pcb->get_address<MBOX_HEAD>();
   pcb->set_shared<MBOX_TAIL>(head);
   pcb->set_shared<MBOX_SAVE>(head);
 
   return pcb;
-}
-
-ProcessControlBlock *create_process(CodeChunk &code_chunk,
-                                    uint64_t func_index) {
-  auto label_num = code_chunk.func_label_table[func_index];
-  return create_process_entry_label(code_chunk, label_num);
 }
 
 ProcessControlBlock *Scheduler::pick_next() {
@@ -751,47 +744,17 @@ bool Scheduler::signal(ProcessControlBlock *process) {
   return true;
 }
 
-// TODO this can actually just go in the compilation step, I
-// anyway need to find the bif_from_id there, so I might as well fill in the
-// relevant thing...
-void init_ext_jump(BeamSrc *file) {
-  const auto &imports = file->import_table_chunk.imports;
+EntryPoint Emulator::get_entry_point(GlobalFunctionId function_id) {
+  auto beam_src = beam_sources[function_id.module];
+  auto export_id = beam_src->get_external_id(function_id);
 
-  // allocate imports
-  auto import_num = imports.size();
-  auto ext_jumps = new ExtJump[import_num];
-
-  for (size_t i = 0; i < import_num; i++) {
-    const auto func_id = imports[i];
-
-    auto result = bif_from_id(func_id, file->atom_chunk);
-
-    if (result) {
-      ext_jumps[i].func = *result;
-    }
-  }
-
-  file->code_chunk.external_jump_locations = ext_jumps;
+  return EntryPoint{.code_chunk = &beam_src->code_chunk, .label = export_id.label };
 }
 
-void create_emulator(std::vector<BeamSrc *> files) {
-  Emulator out;
 
-  // set imports/exports
-  for (auto file_p : files) {
-    file_p->code_chunk.import_table_chunk = &file_p->import_table_chunk;
-    file_p->code_chunk.function_table_chunk = &file_p->function_table_chunk;
-    file_p->code_chunk.atom_chunk = &file_p->atom_chunk;
-  }
-}
+void Emulator::run(GlobalFunctionId initial_func) {
 
-void run_emulator(Emulator emulator, CodeChunk &code_chunk,
-                  uint64_t func_index) {
-
-  auto &scheduler = emulator.scheduler;
-
-  auto process = create_process(code_chunk, func_index);
-  scheduler.waiting.insert(process);
+  auto &scheduler = emulator_main.scheduler;
 
   while (auto to_run = scheduler.pick_next()) {
     resume_process(to_run);

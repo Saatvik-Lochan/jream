@@ -54,12 +54,14 @@ struct Instruction {
   std::vector<Argument> arguments;
 };
 
-struct GlobalFunctionIdentifier {
-  uint32_t module; // indexes to the appropriate atom in the atom table
+struct ExternalFunctionId {
+  // indexes to the appropriate atom in the atom table
+  uint32_t module;
   uint32_t function_name;
+
   uint32_t arity;
 
-  bool operator==(const GlobalFunctionIdentifier &other) const = default;
+  bool operator==(const ExternalFunctionId &other) const = default;
 };
 
 struct AnonymousFunctionId {
@@ -81,8 +83,16 @@ struct ExportFunctionId {
   bool operator==(const ExportFunctionId &other) const = default;
 };
 
-template <> struct std::hash<GlobalFunctionIdentifier> {
-  size_t operator()(const GlobalFunctionIdentifier &id) const {
+struct GlobalFunctionId {
+  std::string module;
+  std::string function_name;
+  uint32_t arity;
+
+  bool operator==(const GlobalFunctionId &other) const = default;
+};
+
+template <> struct std::hash<ExternalFunctionId> {
+  size_t operator()(const ExternalFunctionId &id) const {
     size_t h1 = std::hash<uint64_t>{}(id.module);
     size_t h2 = std::hash<uint64_t>{}(id.function_name);
     size_t h3 = std::hash<uint64_t>{}(id.arity);
@@ -122,9 +132,9 @@ struct FunctionTableChunk {
 };
 
 struct ImportTableChunk {
-  std::vector<GlobalFunctionIdentifier> imports;
+  std::vector<ExternalFunctionId> imports;
 
-  ImportTableChunk(std::vector<GlobalFunctionIdentifier> imports)
+  ImportTableChunk(std::vector<ExternalFunctionId> imports)
       : imports(std::move(imports)) {}
 
   void log(const AtomChunk &atom_chunk);
@@ -132,6 +142,7 @@ struct ImportTableChunk {
 
 struct ExportTableChunk {
   std::vector<ExportFunctionId> exports;
+  std::unordered_map<std::string, ExportFunctionId> get_export;
 
   ExportTableChunk(std::vector<ExportFunctionId> exports)
       : exports(std::move(exports)) {}
@@ -147,12 +158,12 @@ using LabelOffsetTable = std::unordered_map<uint64_t, size_t>;
 struct CodeChunk;
 
 // we're making some assumptions on the layout of memory here
-struct ExtJump {
+struct EntryPoint {
   CodeChunk *code_chunk;
   uint64_t label;
 };
 
-static_assert(sizeof(ExtJump) == 16,
+static_assert(sizeof(EntryPoint) == 16,
               "ExtJump must be 16 bytes so that we can index into it");
 
 struct CodeChunk {
@@ -169,7 +180,7 @@ struct CodeChunk {
   const uint8_t *volatile *label_jump_locations;
   const uint8_t **compiled_functions;
 
-  volatile ExtJump *external_jump_locations = nullptr;
+  volatile EntryPoint *external_jump_locations = nullptr;
 
   AtomChunk *atom_chunk;
   ImportTableChunk *import_table_chunk;
@@ -192,6 +203,9 @@ struct LiteralChunk {
 };
 
 struct BeamSrc {
+
+  std::string module;
+
   AtomChunk atom_chunk;
   CodeChunk code_chunk;
   LiteralChunk literal_chunk;
@@ -199,25 +213,36 @@ struct BeamSrc {
   ExportTableChunk export_table_chunk;
   FunctionTableChunk function_table_chunk;
 
-  BeamSrc(AtomChunk atom_chunk, CodeChunk code_chunk,
-          LiteralChunk literal_chunk, ImportTableChunk import_table_chunk,
-          ExportTableChunk export_table_chunk,
-          FunctionTableChunk function_table_chunk)
-      : atom_chunk(std::move(atom_chunk)), code_chunk(std::move(code_chunk)),
-        literal_chunk(std::move(literal_chunk)),
-        import_table_chunk(std::move(import_table_chunk)),
-        export_table_chunk(std::move(export_table_chunk)),
-        function_table_chunk(std::move(function_table_chunk)) {
+  BeamSrc(AtomChunk atom_chunk_, CodeChunk code_chunk_,
+          LiteralChunk literal_chunk_, ImportTableChunk import_table_chunk_,
+          ExportTableChunk export_table_chunk_,
+          FunctionTableChunk function_table_chunk_)
+      : atom_chunk(std::move(atom_chunk_)), code_chunk(std::move(code_chunk_)),
+        literal_chunk(std::move(literal_chunk_)),
+        import_table_chunk(std::move(import_table_chunk_)),
+        export_table_chunk(std::move(export_table_chunk_)),
+        function_table_chunk(std::move(function_table_chunk_)) {
 
-    this->code_chunk.import_table_chunk = &this->import_table_chunk;
-    this->code_chunk.function_table_chunk = &this->function_table_chunk;
-    this->code_chunk.atom_chunk = &this->atom_chunk;
+    // set module
+    module = atom_chunk.atoms[1];
 
-    this->code_chunk.external_jump_locations =
-        new ExtJump[import_table_chunk.imports.size()];
+    // link BeamSrc
+    code_chunk.import_table_chunk = &import_table_chunk;
+    code_chunk.function_table_chunk = &function_table_chunk;
+    code_chunk.atom_chunk = &atom_chunk;
+
+    code_chunk.external_jump_locations =
+        new EntryPoint[import_table_chunk.imports.size()];
+
+    // link Export chunk
+    for (auto exp : export_table_chunk.exports) {
+      auto func_name = atom_chunk.atoms[exp.function_name];
+      export_table_chunk.get_export[func_name] = exp;
+    }
   }
 
   void log();
+  ExportFunctionId get_external_id(GlobalFunctionId id);
 };
 
 #endif

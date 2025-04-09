@@ -166,7 +166,7 @@ void CodeChunk::log(const AtomChunk &atom_chunk) {
 
 void LiteralChunk::log() { LOG(INFO) << "Literal Chunk"; }
 
-std::string get_func_id_name(GlobalFunctionIdentifier func_id,
+std::string get_func_id_name(ExternalFunctionId func_id,
                              const AtomChunk &atom_chunk) {
   auto &atoms = atom_chunk.atoms;
   return std::format("{}:{}/{}", atoms[func_id.module],
@@ -220,4 +220,10 @@ void BeamSrc::log() {
   export_table_chunk.log(atom_chunk);
   function_table_chunk.log(atom_chunk);
   literal_chunk.log();
+}
+
+ExportFunctionId BeamSrc::get_external_id(GlobalFunctionId global) {
+  assert(module == global.module);
+
+  return export_table_chunk.get_export[global.function_name];
 }

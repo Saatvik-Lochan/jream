@@ -423,17 +423,17 @@ LiteralChunk parse_literal_chunk(std::ifstream &stream,
   return LiteralChunk(std::move(terms));
 }
 
-std::vector<GlobalFunctionIdentifier>
+std::vector<ExternalFunctionId>
 read_function_identifiers(std::ifstream &stream) {
   uint32_t func_id_count = read_big_endian(stream);
-  std::vector<GlobalFunctionIdentifier> func_ids;
+  std::vector<ExternalFunctionId> func_ids;
 
   for (uint32_t i = 0; i < func_id_count; i++) {
     uint32_t module_name = read_big_endian(stream);
     uint32_t function_name = read_big_endian(stream);
     uint32_t arity = read_big_endian(stream);
 
-    func_ids.push_back(GlobalFunctionIdentifier{
+    func_ids.push_back(ExternalFunctionId{
         .module = module_name, .function_name = function_name, .arity = arity});
   }
 

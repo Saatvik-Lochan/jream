@@ -8,7 +8,6 @@
 #include <cstdint>
 #include <gtest/gtest.h>
 #include <iterator>
-#include <optional>
 
 TEST(ErlTerm, ErlListFromVecAndBack) {
   std::vector<ErlTerm> initial_vec = {0, 1, 2, 3, 4, 5};
@@ -104,6 +103,14 @@ CodeChunk create_code_chunk(std::vector<Instruction> instructions) {
   return CodeChunk(instructions, 0, 0);
 }
 
+ProcessControlBlock *get_process(CodeChunk *code_chunk) {
+  return create_process({.code_chunk = code_chunk, .label = 0});
+}
+
+ProcessControlBlock *get_process(CodeChunk &code_chunk) {
+  return create_process({.code_chunk = &code_chunk, .label = 0});
+}
+
 Argument get_lit(uint64_t arg) {
   return Argument{LITERAL_TAG, {.arg_num = arg}};
 }
@@ -159,7 +166,7 @@ TEST(JIT, SetupAndTeardown) {
   wrap_in_function(instructions);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
 
   resume_process(pcb);
 
@@ -178,7 +185,7 @@ TEST(RISCV, Move) {
   wrap_in_function(instructions);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
 
   xregs[0] = 25;
@@ -204,7 +211,7 @@ TEST(RISCV, Swap) {
   wrap_in_function(instructions);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
 
   xregs[0] = 25;
@@ -228,7 +235,7 @@ TEST(RISCV, Allocate) {
   ErlTerm e[5];
   uint8_t code[20];
 
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
   pcb->set_shared<STOP>(e + 4);
 
   auto code_ptr = code + 5; // arbitrary
@@ -258,7 +265,7 @@ TEST(RISCV, AllocateAndDeallocate) {
 
   ErlTerm e[5];
 
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
   pcb->set_shared<STOP>(e);
 
   // when
@@ -282,7 +289,7 @@ TEST(RISCV, TestGetTupleElement) {
   wrap_in_function(instructions);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
 
   // tuple of arity 3, elements (0, 1, 2)
@@ -308,7 +315,7 @@ TEST(RISCV, GetList) {
   wrap_in_function(instructions);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
 
   ErlTerm xreg[1001];
   pcb->set_shared<XREG_ARRAY>(xreg);
@@ -336,7 +343,7 @@ TEST(RISCV, PutList) {
   wrap_in_function(instructions);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
 
   ErlTerm heap[2];
@@ -374,7 +381,7 @@ TEST(RISCV, MakeFun) {
   wrap_in_function(instructions);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
   ErlTerm heap[5];
   ErlTerm xregs[5];
 
@@ -441,7 +448,7 @@ TEST(RISCV, CallStandard) {
   // given
   bool called = false;
   auto code_chunk = getCallCodeChunk(&called);
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
 
   ErlTerm e[5];
   pcb->set_shared<STOP>(e + 4);
@@ -462,7 +469,7 @@ TEST(RISCV, CallNoReductions) {
   // given
   bool called = false;
   auto code_chunk = getCallCodeChunk(&called);
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
 
   ErlTerm e[5];
   pcb->set_shared<STOP>(e + 4);
@@ -487,9 +494,10 @@ BeamSrc get_beam_file(CodeChunk c, AtomChunk a, ImportTableChunk i,
   LiteralChunk l(terms);
 
   FunctionTableChunk f(anons);
+  ExportTableChunk e({});
 
   return BeamSrc(std::move(a), std::move(c), std::move(l), std::move(i),
-                 std::move(f));
+                 std::move(e), std::move(f));
 }
 
 BeamSrc
@@ -502,8 +510,8 @@ get_file_with_import(std::string module_name, std::string function_name,
 
   AtomChunk a(std::vector<std::string>({"dummy", module_name, function_name}));
 
-  std::vector<GlobalFunctionIdentifier> imports = {GlobalFunctionIdentifier{
-      .module = 1, .function_name = 2, .arity = arity}};
+  std::vector<ExternalFunctionId> imports = {
+      ExternalFunctionId{.module = 1, .function_name = 2, .arity = arity}};
 
   ImportTableChunk i(imports);
 
@@ -533,7 +541,7 @@ TEST(RISCV, CallExtBif) {
   auto file = get_file_with_import("erlang", "test", arity, std::nullopt,
                                    std::move(instructions));
 
-  auto pcb = create_process(file.code_chunk, 0);
+  auto pcb = get_process(file.code_chunk);
 
   pcb->get_shared<XREG_ARRAY>()[0] = 0;
 
@@ -561,7 +569,7 @@ TEST(RISCV, CallExtOnlyBif) {
   auto file = get_file_with_import("erlang", "test", arity, std::nullopt,
                                    std::move(instructions));
 
-  auto pcb = create_process(file.code_chunk, 0);
+  auto pcb = get_process(file.code_chunk);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
   xregs[0] = 0;
 
@@ -586,7 +594,7 @@ TEST(RISCV, Bif0) {
   auto file = get_file_with_import("erlang", "test", 0, std::nullopt,
                                    std::move(instructions));
 
-  auto pcb = create_process(file.code_chunk, 0);
+  auto pcb = get_process(file.code_chunk);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
   xregs[2] = 0;
 
@@ -620,7 +628,7 @@ TEST(RISCV, GCBif1) {
   auto file = get_file_with_import("erlang", "test", 1, std::nullopt,
                                    std::move(instructions));
 
-  auto pcb = create_process(file.code_chunk, 0);
+  auto pcb = get_process(file.code_chunk);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
   xregs[3] = 35;
 
@@ -657,7 +665,7 @@ TEST(RISCV, GCBif2) {
   auto file = get_file_with_import("erlang", "test", 2, std::nullopt,
                                    std::move(instructions));
 
-  auto pcb = create_process(file.code_chunk, 0);
+  auto pcb = get_process(file.code_chunk);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
   xregs[1] = 25;
   xregs[3] = 37;
@@ -695,7 +703,7 @@ TEST(RISCV, GCBif2Fail) {
   auto file = get_file_with_import("erlang", "test_fail", 2, std::nullopt,
                                    std::move(instructions));
 
-  auto pcb = create_process(file.code_chunk, 0);
+  auto pcb = get_process(file.code_chunk);
 
   // when
   resume_process(pcb);
@@ -727,7 +735,7 @@ TEST(RISCV, Spawn) {
 
   auto file = get_file_with_import("erlang", "spawn", arity, lambdas,
                                    std::move(instructions));
-  auto pcb = create_process(file.code_chunk, 0);
+  auto pcb = get_process(file.code_chunk);
 
   auto header = 0b100010100;
   auto index = 0;
@@ -779,7 +787,7 @@ TEST(RISCV, LoopRecEmptyMbox) {
   wrap_in_function(instructions, 0);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
 
   // when
   resume_process(pcb);
@@ -797,7 +805,7 @@ TEST(RISCV, LoopRec) {
   wrap_in_function(instructions, 0);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
 
   Message new_msg(10);
   pcb->queue_message(&new_msg);
@@ -819,7 +827,7 @@ TEST(RISCV, RemoveLastMessage) {
   wrap_in_function(instructions, 0);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
 
   auto new_msg = new Message(10);
   pcb->queue_message(new_msg);
@@ -842,7 +850,7 @@ TEST(RISCV, Remove) {
   wrap_in_function(instructions, 0);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
 
   auto msg_one = new Message(10);
   auto msg_two = new Message(20);
@@ -873,7 +881,7 @@ TEST(RISCV, Wait) {
   wrap_in_function(instructions);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
 
   // when
   auto result = resume_process(pcb);
@@ -888,10 +896,10 @@ TEST(RISCV, Send) {
   wrap_in_function(instructions);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
   auto xreg = pcb->get_shared<XREG_ARRAY>();
 
-  auto other_pcb = create_process(code_chunk, 0);
+  auto other_pcb = get_process(code_chunk);
   emulator_main.scheduler.waiting.insert(other_pcb);
 
   std::vector<ErlTerm> list = {0, 1, 2, 3, 4};
@@ -945,7 +953,7 @@ ProcessControlBlock *setup_is_tuple(bool *a, bool *b) {
 
   auto code_chunk = new CodeChunk(std::move(instructions), 1, 2);
 
-  return create_process(*code_chunk, 0);
+  return get_process(code_chunk);
 }
 
 TEST(RISCV, IsTupleOp) {
@@ -1016,7 +1024,7 @@ TEST(RISCV, InitYRegs) {
   wrap_in_function(instructions);
 
   CodeChunk code_chunk(std::move(instructions), 1, 1);
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
 
   ErlTerm stack[4];
   pcb->set_shared<STOP>(stack + 4);
@@ -1060,7 +1068,7 @@ CodeChunk getCallLastCodeChunk(bool *flag) {
 TEST(RISCV, CallLast) {
   bool flag = false;
   auto code_chunk = getCallLastCodeChunk(&flag);
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
 
   ErlTerm stack[4];
   pcb->set_shared<STOP>(stack + 4);
@@ -1085,7 +1093,7 @@ TEST(RISCV, TestArityTrue) {
                       &a, &b);
 
   CodeChunk code_chunk(std::move(instructions), 1, 2);
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
   ErlTerm heap[] = {3 << 6, 1, 2, 3}; // arity 3
@@ -1110,7 +1118,7 @@ TEST(RISCV, TestArityFalse) {
                       &a, &b);
 
   CodeChunk code_chunk(std::move(instructions), 1, 2);
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
   ErlTerm heap[] = {4 << 6, 1, 2, 3, 4}; // arity 4
@@ -1135,7 +1143,7 @@ TEST(RISCV, TestIsNonEmptyListTrue) {
                       &a, &b);
 
   CodeChunk code_chunk(std::move(instructions), 1, 2);
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
   xregs[0] = erl_list_from_vec({1, 2, 3}, get_nil_term());
@@ -1159,7 +1167,7 @@ TEST(RISCV, TestIsNonEmptyListFalse) {
                       &a, &b);
 
   CodeChunk code_chunk(std::move(instructions), 1, 2);
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
   xregs[0] = get_nil_term();
@@ -1183,7 +1191,7 @@ TEST(RISCV, TestIsNilTrue) {
                       &a, &b);
 
   CodeChunk code_chunk(std::move(instructions), 1, 2);
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
   xregs[0] = get_nil_term();
@@ -1207,7 +1215,7 @@ TEST(RISCV, TestIsNilFalse) {
                       &a, &b);
 
   CodeChunk code_chunk(std::move(instructions), 1, 2);
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
   xregs[0] = erl_list_from_vec({1, 2, 3}, get_nil_term());
@@ -1235,7 +1243,7 @@ void do_compare_test(OpCode opcode, ErlTerm arg1, ErlTerm arg2,
                       &a, &b);
 
   CodeChunk code_chunk(std::move(instructions), 1, 2);
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
   xregs[1] = arg1;
   xregs[2] = arg2;
@@ -1347,7 +1355,7 @@ TEST(RISCV, Badmatch) {
   wrap_in_function(instructions);
 
   CodeChunk code_chunk(std::move(instructions), 1, 1);
-  auto pcb = create_process(code_chunk, 0);
+  auto pcb = get_process(code_chunk);
 
   // then
   auto result = resume_process(pcb);

@@ -1,10 +1,12 @@
 #ifndef EXECUTION_H
 #define EXECUTION_H
 
+#include "beam_defs.hpp"
 #include "pcb.hpp"
 #include <cassert>
 #include <cstdint>
 #include <type_traits>
+#include <unordered_map>
 #include <unordered_set>
 
 // must match with meta_assembly_compile
@@ -22,6 +24,11 @@ struct Scheduler {
 
 struct Emulator {
   Scheduler scheduler;
+  std::unordered_map<std::string, BeamSrc *> beam_sources;
+
+  void register_beam_files(std::vector<BeamSrc *> files);
+  void run(GlobalFunctionId id);
+  EntryPoint get_entry_point(GlobalFunctionId);
 };
 
 inline Emulator emulator_main;
@@ -34,12 +41,8 @@ void run_code_section(CodeChunk &code_chunk, const CodeSection code_sec,
                       ProcessControlBlock *pcb);
 uint8_t *compile_erlang_func(CodeChunk &code_chunk, uint64_t func_index);
 
-ProcessControlBlock *create_process(CodeChunk &code_chunk, uint64_t func_index);
-ProcessControlBlock *create_process_entry_label(CodeChunk &code_chunk,
-                                                uint64_t label);
+ProcessControlBlock *create_process(EntryPoint entry_point);
 
 ErlReturnCode resume_process(ProcessControlBlock *pcb);
-
-void create_emulator(std::vector<BeamSrc *> files);
 
 #endif
