@@ -34,5 +34,5 @@ ErlTerm *ProcessControlBlock::allocate_tuple(size_t size) {
   auto heap_slots = allocate_heap(size + 1);
   heap_slots[0] = size << 6;
 
-  return heap_slots + 1;
+  return heap_slots;
 }

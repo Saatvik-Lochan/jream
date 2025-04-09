@@ -98,10 +98,10 @@ BIFReturn list_split(uint64_t first_size_raw, uint64_t list_raw) {
   auto pcb = get_pcb();
 
   auto tuple = pcb->allocate_tuple(2);
-  tuple[0] = list_raw;
-  
+  tuple[1] = list_raw;
+
   // just point to the tuple
-  auto curr = tuple;
+  auto curr = tuple + 1;
   size_t count = 0;
 
   while (count++ < first_size.term) {
@@ -111,10 +111,9 @@ BIFReturn list_split(uint64_t first_size_raw, uint64_t list_raw) {
 
     curr = curr->as_ptr() + 1;
   }
-  
-  tuple[1] = *curr;
-  *curr = get_nil_term();
 
+  tuple[2] = *curr;
+  *curr = get_nil_term();
 
   return make_boxed(tuple);
 }

@@ -24,7 +24,7 @@ TEST(ErlTerm, ErlListFromVecAndBackEmpty) {
   std::vector<ErlTerm> initial_vec = {};
   auto list = erl_list_from_vec(initial_vec, get_nil_term());
   auto transformed_vec = vec_from_erl_list(list);
-
+ 
   ASSERT_NE(&initial_vec, &transformed_vec);
   ASSERT_EQ(initial_vec, transformed_vec);
 }
@@ -1473,18 +1473,24 @@ TEST(BuiltInFunction, ListsSplitEdgeCase) {
   emulator_main.scheduler.pick_next();
 
   // when
-  list_split(split_loc, list);
+  auto result = list_split(split_loc, list);
 
   // then
-  auto htop = pcb.get_shared<HTOP>();
-  ASSERT_EQ(htop, heap + 3);
-  ASSERT_EQ(heap[0], 2 << 6);
+  ErlTerm res_term(result.a0);
 
-  auto first_list = vec_from_erl_list(heap[1]);
+  ASSERT_EQ(res_term.getErlMajorType(), TUPLE_ET);
+
+  auto tuple_loc = res_term.as_ptr();
+
+  auto htop = pcb.get_shared<HTOP>();
+  ASSERT_EQ(htop, tuple_loc + 3);
+  ASSERT_EQ(tuple_loc[0], 2 << 6);
+
+  auto first_list = vec_from_erl_list(tuple_loc[1]);
   std::vector<ErlTerm> expected_first = {1, 2, 3, 4};
   ASSERT_EQ(first_list, expected_first);
 
-  auto second_list = vec_from_erl_list(heap[2]);
+  auto second_list = vec_from_erl_list(tuple_loc[2]);
   std::vector<ErlTerm> expected_second = {};
   ASSERT_EQ(second_list, expected_second);
 }
