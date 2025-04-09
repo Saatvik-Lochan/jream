@@ -77,26 +77,16 @@ CodeChunk::CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
   }
 }
 
-void CodeChunk::set_external_jump_loc(uint64_t index,
-                                           CodeChunk *code_chunk_p,
-                                           uint64_t label) {
+void CodeChunk::set_external_jump_loc(uint64_t index, CodeChunk *code_chunk_p,
+                                      uint64_t label) {
   if (!external_jump_locations) {
     throw std::logic_error(
         "Can't set an external jump location before exports are allocated");
   }
 
-  auto &loc = external_jump_locations[index].ext_id;
+  auto &loc = external_jump_locations[index];
   loc.code_chunk = code_chunk_p;
   loc.label = label;
-}
-
-void CodeChunk::set_external_jump_loc(uint64_t index, uintptr_t ext_func) {
-  if (!external_jump_locations) {
-    throw std::logic_error(
-        "Can't set an external jump location before exports are allocated");
-  }
-
-  external_jump_locations[index].func = ext_func;
 }
 
 std::string get_argument_string(Argument arg, const AtomChunk &atom_chunk) {
@@ -191,6 +181,21 @@ void ImportTableChunk::log(const AtomChunk &atom_chunk) {
   }
 }
 
+std::string get_func_id_name(ExportFunctionId func_id,
+                             const AtomChunk &atom_chunk) {
+  auto &atoms = atom_chunk.atoms;
+  return std::format("{} - label {}, arity {}", atoms[func_id.function_name],
+                     func_id.label, func_id.arity);
+}
+
+void ExportTableChunk::log(const AtomChunk &atom_chunk) {
+  LOG(INFO) << "Export Table Chunk";
+  for (size_t i = 0; i < exports.size(); i++) {
+    LOG(INFO) << "    " << i << ": "
+              << get_func_id_name(exports[i], atom_chunk);
+  }
+}
+
 std::string get_func_id_name(AnonymousFunctionId func_id,
                              const AtomChunk &atom_chunk) {
   auto &atoms = atom_chunk.atoms;
@@ -212,6 +217,7 @@ void BeamSrc::log() {
   atom_chunk.log();
   code_chunk.log(atom_chunk);
   import_table_chunk.log(atom_chunk);
+  export_table_chunk.log(atom_chunk);
   function_table_chunk.log(atom_chunk);
   literal_chunk.log();
 }

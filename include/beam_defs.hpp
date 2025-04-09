@@ -73,6 +73,14 @@ struct AnonymousFunctionId {
   bool operator==(const AnonymousFunctionId &other) const = default;
 };
 
+struct ExportFunctionId {
+  uint32_t function_name;
+  uint32_t arity;
+  uint32_t label;
+
+  bool operator==(const ExportFunctionId &other) const = default;
+};
+
 template <> struct std::hash<GlobalFunctionIdentifier> {
   size_t operator()(const GlobalFunctionIdentifier &id) const {
     size_t h1 = std::hash<uint64_t>{}(id.module);
@@ -122,6 +130,15 @@ struct ImportTableChunk {
   void log(const AtomChunk &atom_chunk);
 };
 
+struct ExportTableChunk {
+  std::vector<ExportFunctionId> exports;
+
+  ExportTableChunk(std::vector<ExportFunctionId> exports)
+      : exports(std::move(exports)) {}
+
+  void log(const AtomChunk &atom_chunk);
+};
+
 using FunctionLabelTable = uint64_t *;
 using LabelTable = std::vector<uint64_t>;
 using LabelFunctionTable = std::vector<uint64_t>;
@@ -130,12 +147,9 @@ using LabelOffsetTable = std::unordered_map<uint64_t, size_t>;
 struct CodeChunk;
 
 // we're making some assumptions on the layout of memory here
-union ExtJump {
-  uintptr_t func;
-  struct {
-    CodeChunk *code_chunk;
-    uint64_t label;
-  } ext_id;
+struct ExtJump {
+  CodeChunk *code_chunk;
+  uint64_t label;
 };
 
 static_assert(sizeof(ExtJump) == 16,
@@ -165,7 +179,6 @@ struct CodeChunk {
             uint32_t label_count = 0); // label count helps but not necessary
 
   void set_external_jump_loc(uint64_t index, CodeChunk *, uint64_t label);
-  void set_external_jump_loc(uint64_t index, uintptr_t);
 
   void log(const AtomChunk &atom_chunk);
 };
@@ -183,21 +196,25 @@ struct BeamSrc {
   CodeChunk code_chunk;
   LiteralChunk literal_chunk;
   ImportTableChunk import_table_chunk;
+  ExportTableChunk export_table_chunk;
   FunctionTableChunk function_table_chunk;
 
   BeamSrc(AtomChunk atom_chunk, CodeChunk code_chunk,
           LiteralChunk literal_chunk, ImportTableChunk import_table_chunk,
+          ExportTableChunk export_table_chunk,
           FunctionTableChunk function_table_chunk)
       : atom_chunk(std::move(atom_chunk)), code_chunk(std::move(code_chunk)),
         literal_chunk(std::move(literal_chunk)),
         import_table_chunk(std::move(import_table_chunk)),
+        export_table_chunk(std::move(export_table_chunk)),
         function_table_chunk(std::move(function_table_chunk)) {
 
     this->code_chunk.import_table_chunk = &this->import_table_chunk;
     this->code_chunk.function_table_chunk = &this->function_table_chunk;
     this->code_chunk.atom_chunk = &this->atom_chunk;
 
-    this->code_chunk.external_jump_locations = new ExtJump[import_table_chunk.imports.size()];
+    this->code_chunk.external_jump_locations =
+        new ExtJump[import_table_chunk.imports.size()];
   }
 
   void log();

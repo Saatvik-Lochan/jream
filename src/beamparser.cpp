@@ -466,10 +466,37 @@ std::vector<AnonymousFunctionId> read_local_function_id(std::ifstream &stream) {
   return func_ids;
 }
 
+std::vector<ExportFunctionId> read_export_function_ids(std::ifstream &stream) {
+  uint32_t export_count = read_big_endian(stream);
+  std::vector<ExportFunctionId> export_func_ids;
+
+  LOG(INFO) << "  anonymous func count: " << export_count;
+
+  for (uint32_t i = 0; i < export_count; i++) {
+    uint32_t function_name = read_big_endian(stream);
+    uint32_t arity = read_big_endian(stream);
+    uint32_t label = read_big_endian(stream);
+
+    export_func_ids.push_back(ExportFunctionId{
+        .function_name = function_name,
+        .arity = arity,
+        .label = label,
+    });
+  }
+
+  return export_func_ids;
+}
+
 ImportTableChunk parse_import_table_chunk(std::ifstream &stream) {
 
   auto imports = read_function_identifiers(stream);
   return ImportTableChunk(imports);
+}
+
+ExportTableChunk parse_export_table_chunk(std::ifstream &stream) {
+
+  auto exports = read_export_function_ids(stream);
+  return ExportTableChunk(exports);
 }
 
 FunctionTableChunk parse_function_table_chunk(std::ifstream &stream) {
@@ -495,6 +522,7 @@ BeamSrc read_chunks(const std::string &filename) {
   auto code_chunk = std::optional<CodeChunk>();
   auto literal_chunk = std::optional<LiteralChunk>();
   auto import_table_chunk = std::optional<ImportTableChunk>();
+  auto export_table_chunk = std::optional<ExportTableChunk>();
   auto function_table_chunk = std::optional<FunctionTableChunk>();
 
   while (input.peek() != EOF) {
@@ -527,6 +555,8 @@ BeamSrc read_chunks(const std::string &filename) {
       literal_chunk = parse_literal_chunk(input, raw_size);
     } else if (module_name == "ImpT") {
       import_table_chunk = parse_import_table_chunk(input);
+    } else if (module_name == "ExpT") {
+      export_table_chunk = parse_export_table_chunk(input);
     } else if (module_name == "FunT") {
       function_table_chunk = parse_function_table_chunk(input);
     }
@@ -538,5 +568,5 @@ BeamSrc read_chunks(const std::string &filename) {
   }
 
   return BeamSrc(*atom_chunk, *code_chunk, *literal_chunk, *import_table_chunk,
-                  *function_table_chunk);
+                 *export_table_chunk, *function_table_chunk);
 }
