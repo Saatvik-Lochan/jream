@@ -50,6 +50,11 @@ struct __attribute__((aligned(16))) ProcessControlBlock {
   }
 
   void queue_message(Message *msg);
+  ErlTerm *allocate_heap(size_t size);
+
+  // allocates a tuple on the heap and returns a pointer to the word
+  // after the header
+  ErlTerm *allocate_tuple(size_t size);
 };
 
 constexpr uint64_t PID_TAGGING_MASK = ~0UL << 4;

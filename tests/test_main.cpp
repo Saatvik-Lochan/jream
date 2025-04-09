@@ -1,4 +1,5 @@
 #include "../include/beam_defs.hpp"
+#include "../include/bif.hpp"
 #include "../include/execution.hpp"
 #include "../include/external_term.hpp"
 #include "../include/generated/instr_code.hpp"
@@ -780,7 +781,9 @@ TEST(RISCV, Spawn) {
   };
 
   pcb->get_shared<XREG_ARRAY>()[0] = make_boxed(fun);
-  emulator_main.scheduler.executing_process = pcb;
+
+  emulator_main.scheduler.runnable.insert(pcb);
+  emulator_main.scheduler.pick_next();
 
   // when
   resume_process(pcb);
@@ -1375,12 +1378,6 @@ TEST(RISCV, CompIntLT) {
   do_compare_test(IS_LT_OP, arg1, arg2, !should_ge_jump);
 }
 
-int main(int argc, char **argv) {
-  setup_logging(argv[0]);
-  testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
-
 TEST(RISCV, Badmatch) {
   std::vector<Instruction> instructions = {
       Instruction{BADMATCH_OP, {get_tag(Y_REGISTER_TAG, 0)}}};
@@ -1394,4 +1391,39 @@ TEST(RISCV, Badmatch) {
 
   // then
   ASSERT_EQ(result, ERROR);
+}
+
+TEST(BuiltInFunction, ListsSplit) {
+  auto split_loc = make_small_int(3);
+  auto list = erl_list_from_vec({1, 2, 3, 4, 5}, get_nil_term());
+
+  ProcessControlBlock pcb;
+  ErlTerm heap[3];
+  pcb.set_shared<HTOP>(heap);
+  pcb.set_shared<STOP>(heap + 3);
+
+  emulator_main.scheduler.runnable.insert(&pcb);
+  emulator_main.scheduler.pick_next();
+
+  // when
+  list_split(split_loc, list);
+
+  // then
+  auto htop = pcb.get_shared<HTOP>();
+  ASSERT_EQ(htop, heap + 3);
+  ASSERT_EQ(heap[0], 2 << 6);
+
+  auto first_list = vec_from_erl_list(heap[1]);
+  std::vector<ErlTerm> expected_first = {1, 2, 3};
+  ASSERT_EQ(first_list, expected_first);
+
+  auto second_list = vec_from_erl_list(heap[2]);
+  std::vector<ErlTerm> expected_second = {4, 5};
+  ASSERT_EQ(second_list, expected_second);
+}
+
+int main(int argc, char **argv) {
+  setup_logging(argv[0]);
+  testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
 }

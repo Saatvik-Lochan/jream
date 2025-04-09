@@ -331,6 +331,7 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
   LOG(INFO) << std::format("label count: {}", label_count) << std::endl;
 
   const uint32_t function_count = read_big_endian(stream);
+  LOG(INFO) << std::format("function count: {}", function_count) << std::endl;
 
   // skip till subsize amount forward
   stream.seekg(chunk_start + static_cast<std::streamoff>(sub_size));

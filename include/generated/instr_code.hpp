@@ -43,6 +43,7 @@ enum AsmSnippet {
   CALL_EXT_SNIP, // assembly/build/call_ext.S
   DEBUG_EXECUTE_ARIBITRARY_SNIP, // assembly/build/debug_execute_aribitrary.S
   COMPILE_STUB_SNIP, // assembly/build/compile_stub.S
+  CALL_ONLY_SNIP, // assembly/build/call_only.S
 };
 
 std::vector<uint8_t> get_riscv(AsmSnippet snippet);

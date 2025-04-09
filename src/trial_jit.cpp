@@ -6,6 +6,8 @@ int main(int argc, char *argv[]) {
   setup_logging(argv[0]);
 
   auto beamfile = read_chunks(argv[1]);
+  beamfile.log();
+
   emulator_main.register_beam_sources({&beamfile});
 
   GlobalFunctionId start_function = {

@@ -16,10 +16,15 @@ struct Scheduler {
   std::unordered_set<ProcessControlBlock *> runnable;
   std::unordered_set<ProcessControlBlock *> waiting;
 
-  ProcessControlBlock *executing_process = nullptr;
-
   ProcessControlBlock *pick_next();
   bool signal(ProcessControlBlock *process);
+
+  ProcessControlBlock *get_current_process() {
+    return executing_process;
+  }
+
+private:
+  ProcessControlBlock *executing_process = nullptr;
 };
 
 struct Emulator {

@@ -2,6 +2,11 @@
 #include "execution.hpp"
 #include "external_term.hpp"
 #include "pcb.hpp"
+#include <cassert>
+
+ProcessControlBlock *get_pcb() {
+  return emulator_main.scheduler.get_current_process();
+}
 
 /* The functions here define the BIFs
  *
@@ -15,23 +20,16 @@
 
 BIFReturn ret100() { return 100; }
 
-BIFReturn mul10(uint64_t a) {
-  return a * 10;
-}
+BIFReturn mul10(uint64_t a) { return a * 10; }
 
-BIFReturn add(uint64_t a, uint64_t b) {
-  return a + b;
-}
+BIFReturn add(uint64_t a, uint64_t b) { return a + b; }
 
-BIFReturn test_fail(uint64_t a, uint64_t b) {
-  return fail();
-}
+BIFReturn test_fail(uint64_t a, uint64_t b) { return fail(); }
 
 BIFReturn spawn_1(uint64_t fun_raw) {
 
   auto fun = ErlTerm(fun_raw);
-  auto code_chunk_p =
-      emulator_main.scheduler.executing_process->get_shared<CODE_CHUNK_P>();
+  auto code_chunk_p = get_pcb()->get_shared<CODE_CHUNK_P>();
 
   assert(fun.getErlMajorType() == FUN_ET);
 
@@ -64,5 +62,60 @@ BIFReturn spawn_1(uint64_t fun_raw) {
   emulator_main.scheduler.runnable.insert(pcb);
 
   // prepare return value
-  return make_pid(pcb).term;
+  return make_pid(pcb);
+}
+
+BIFReturn length(uint64_t list_raw) {
+  ErlList list(list_raw);
+
+  uint64_t count = 0;
+
+  for (auto e : list) {
+    count++;
+  }
+
+  return make_small_int(count);
+}
+
+BIFReturn self() {
+  auto pcb = get_pcb();
+  return make_pid(pcb);
+}
+
+BIFReturn erl_div(uint64_t a, uint64_t b) {
+  assert(ErlTerm(a).getTagType() == SMALL_INT_T);
+  assert(ErlTerm(b).getTagType() == SMALL_INT_T);
+
+  return make_small_int(a >> 4 / b >> 4);
+}
+
+BIFReturn list_split(uint64_t first_size_raw, uint64_t list_raw) {
+  assert(ErlTerm(first_size_raw).getTagType() == SMALL_INT_T);
+  assert(ErlTerm(list_raw).getErlMajorType() == LIST_ET);
+
+  ErlTerm first_size = first_size_raw >> 4;
+
+  auto pcb = get_pcb();
+
+  auto tuple = pcb->allocate_tuple(2);
+  tuple[0] = list_raw;
+  
+  // just point to the tuple
+  auto curr = tuple;
+  size_t count = 0;
+
+  while (count++ < first_size.term) {
+    if (curr->getTagType() != LIST_T) {
+      return fail();
+    }
+
+    curr = curr->as_ptr() + 1;
+  }
+  
+  auto next_head = curr->as_ptr();
+  *curr = get_nil_term();
+
+  tuple[1] = (reinterpret_cast<uint64_t>(next_head) & TAGGING_MASK) + 0b01;
+
+  return make_boxed(tuple);
 }

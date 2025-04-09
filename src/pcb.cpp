@@ -17,3 +17,22 @@ void ProcessControlBlock::queue_message(Message *msg) {
   set_shared<MBOX_TAIL>(msg->get_next_address());
 }
 
+ErlTerm *ProcessControlBlock::allocate_heap(size_t size) {
+  const auto heap = get_shared<HTOP>();
+  const auto new_top = heap + size;
+
+  assert(new_top <= get_shared<STOP>());
+
+  set_shared<HTOP>(new_top);
+
+  return heap;
+}
+
+ErlTerm *ProcessControlBlock::allocate_tuple(size_t size) {
+  assert((size << 6) >> 6 == size);
+
+  auto heap_slots = allocate_heap(size + 1);
+  heap_slots[0] = size << 6;
+
+  return heap_slots + 1;
+}

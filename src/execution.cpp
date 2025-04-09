@@ -15,6 +15,7 @@
 #include "beam_defs.hpp"
 #include "bif.hpp"
 #include "execution.hpp"
+#include "external_term.hpp"
 #include "generated/instr_code.hpp"
 #include "op_arity.hpp"
 #include "pcb.hpp"
@@ -100,6 +101,12 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
   };
 
   auto add_load_appropriate = [&](Argument arg, uint8_t dest_reg) {
+    auto add_literal = [&](ErlTerm lit) {
+      add_setup_args_code({lit});
+      // ld dest_reg, 0(s3)
+      add_riscv_instr(create_load_doubleword(dest_reg, 19, 0));
+    };
+
     switch (arg.tag) {
     case X_REGISTER_TAG: {
       // assume s5 is the x array register
@@ -111,13 +118,19 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_riscv_instrs(create_load_y_reg(dest_reg, arg.arg_raw.arg_num, 9));
       break;
     }
+    case INTEGER_TAG: {
+      auto val = arg.arg_raw.arg_num;
+      auto small_int = make_small_int(val);
+
+      add_literal(small_int);
+      break;
+    }
     case EXT_LITERAL_TAG: {
       const auto &literals = code_chunk.literal_chunk->literals;
       auto to_copy = literals[arg.arg_raw.arg_num];
 
-      add_setup_args_code({to_copy});
-      // ld dest_reg, 0(s3)
-      add_riscv_instr(create_load_doubleword(dest_reg, 19, 0));
+      add_literal(to_copy);
+
       break;
     }
     default:
@@ -289,6 +302,11 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       break;
     }
 
+    case TEST_HEAP_OP: {
+      // just ignore it for now, till we do GC
+      break;
+    }
+
     case ALLOCATE_OP: {
       auto alloc_amount = instr.arguments[0];
       assert(alloc_amount.tag == LITERAL_TAG);
@@ -337,7 +355,6 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto arity = instr.arguments[0];
       assert(arity.tag == LITERAL_TAG);
 
-      [[maybe_unused]]
       auto label = instr.arguments[1];
       assert(label.tag == LABEL_TAG);
 
@@ -345,6 +362,20 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
       // check reductions and maybe yield
       add_code(get_riscv(CALL_SNIP));
+      break;
+    }
+
+    case CALL_ONLY_OP: {
+      [[maybe_unused]]
+      auto arity = instr.arguments[0];
+      assert(arity.tag == LITERAL_TAG);
+
+      auto label = instr.arguments[1];
+      assert(label.tag == LABEL_TAG);
+
+      add_setup_args_code({label.arg_raw.arg_num});
+
+      add_code(get_riscv(CALL_ONLY_SNIP));
       break;
     }
 
@@ -444,7 +475,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       } else {
         // external call which is either not implemented or user defined
         // if external then what?
-        throw std::logic_error("Bif not yet defined");
+        throw std::logic_error(std::format("Bif '{}' not yet defined", index));
       }
       break;
     }
@@ -479,7 +510,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       } else {
         // external call which is either not implemented or user defined
         // if external then what?
-        throw std::logic_error("Bif not yet defined");
+        throw std::logic_error(std::format("Bif '{}' not yet defined", index));
       }
       break;
     }
@@ -763,13 +794,23 @@ ProcessControlBlock *create_process(EntryPoint entry_point) {
 
   // TODO initialise all shared code
   pcb->set_shared<CODE_CHUNK_P>(entry_point.code_chunk);
-  pcb->set_shared<XREG_ARRAY>(new ErlTerm[1001]);
-
   pcb->set_shared<RESUME_LABEL>(entry_point.label);
 
+  // allocate space
+  pcb->set_shared<XREG_ARRAY>(new ErlTerm[1001]);
+
+  const auto HEAP_SIZE = 1000;
+  auto heap = new ErlTerm[HEAP_SIZE];
+  pcb->set_shared<HTOP>(heap);
+  pcb->set_shared<STOP>(heap + HEAP_SIZE - 1);
+
+  // message passing
   auto head = pcb->get_address<MBOX_HEAD>();
   pcb->set_shared<MBOX_TAIL>(head);
   pcb->set_shared<MBOX_SAVE>(head);
+
+  // calls
+  pcb->set_shared<REDUCTIONS>(entry_point.label);
 
   return pcb;
 }
@@ -782,7 +823,10 @@ ProcessControlBlock *Scheduler::pick_next() {
   }
 
   auto value = runnable.extract(chosen_it);
-  return value.value();
+  auto pcb = value.value();
+
+  executing_process = pcb;
+  return pcb;
 }
 
 bool Scheduler::signal(ProcessControlBlock *process) {
@@ -831,7 +875,6 @@ void Emulator::run(GlobalFunctionId initial_func) {
   scheduler.runnable.insert(pcb);
 
   while (auto to_run = scheduler.pick_next()) {
-    scheduler.executing_process = to_run;
     auto result = resume_process(to_run);
 
     switch (result) {
