@@ -56,6 +56,14 @@ struct ErlTerm {
     return reinterpret_cast<ErlTerm *>(this->term & TAGGING_MASK);
   }
 
+  inline ErlTerm *list_ptr_or_null() const {
+    if (getTagType() != LIST_T) {
+      return nullptr;
+    }
+
+    return as_ptr();
+  }
+
   inline auto operator<=>(const ErlTerm &other) const;
 
   std::string display();
@@ -67,7 +75,7 @@ static_assert(std::is_standard_layout_v<ErlTerm>);
 static_assert(sizeof(ErlTerm) == 8);
 
 ErlTerm erl_list_from_vec(std::vector<ErlTerm> terms, ErlTerm end);
-ErlTerm get_nil_term();
+inline constexpr uint64_t get_nil_term() { return 0b111011; }
 ErlTerm deepcopy(ErlTerm e, ErlTerm *&to_loc);
 std::vector<ErlTerm> vec_from_erl_list(ErlTerm e, bool include_end = false);
 
@@ -80,15 +88,14 @@ private:
   ErlTerm end;
 
 public:
-  explicit ErlListIterator(ErlTerm p) : curr_node_ptr(p.as_ptr()) {};
+  explicit ErlListIterator(ErlTerm p) : curr_node_ptr(p.list_ptr_or_null()) {};
   explicit ErlListIterator(ErlTerm *ptr) : curr_node_ptr(ptr) {};
 
   ErlTerm operator*() const { return *(curr_node_ptr); }
   ErlListIterator &operator++() {
     // ++ must not be called after it goes out of bounds
     end = *(curr_node_ptr + 1);
-    bool next_node_is_cons = (end & 0b11) == 0b01;
-    curr_node_ptr = next_node_is_cons ? end.as_ptr() : nullptr;
+    curr_node_ptr = end.list_ptr_or_null();
 
     return *this;
   }
@@ -114,7 +121,9 @@ private:
   ErlTerm head;
 
 public:
-  explicit ErlList(ErlTerm e) : head(e) {};
+  explicit ErlList(ErlTerm e) : head(e) {
+    assert(e.getErlMajorType() == LIST_ET);
+  };
 
   inline ErlListIterator begin() { return ErlListIterator(head); }
   inline ErlListIterator end() { return ErlListIterator(nullptr); }

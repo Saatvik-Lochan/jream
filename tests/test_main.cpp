@@ -20,6 +20,15 @@ TEST(ErlTerm, ErlListFromVecAndBack) {
   ASSERT_EQ(initial_vec, transformed_vec);
 }
 
+TEST(ErlTerm, ErlListFromVecAndBackEmpty) {
+  std::vector<ErlTerm> initial_vec = {};
+  auto list = erl_list_from_vec(initial_vec, get_nil_term());
+  auto transformed_vec = vec_from_erl_list(list);
+
+  ASSERT_NE(&initial_vec, &transformed_vec);
+  ASSERT_EQ(initial_vec, transformed_vec);
+}
+
 TEST(ErlTerm, DeepcopyList) {
   // given
   std::vector<ErlTerm> vec = {1, 2, 3, 4, 5};
@@ -584,6 +593,35 @@ TEST(RISCV, CallExtBif) {
   // then
   auto x_reg = pcb->get_shared<XREG_ARRAY>();
   ASSERT_EQ(x_reg[0], 100); // this is what the test bif does
+}
+
+TEST(RISCV, CallExtBif2Args) {
+  uint64_t arity = 2;
+
+  // don't need alloc/dealloc if it is a bif
+  std::vector<Instruction> instructions = {
+      Instruction{CALL_EXT_OP,
+                  {
+                      Argument{LITERAL_TAG, {.arg_num = arity}},
+                      Argument{LITERAL_TAG, {.arg_num = 0}} // import index
+                  }},
+  };
+
+  wrap_in_function(instructions);
+  auto file = get_file_with_import("erlang", "test", arity, std::nullopt,
+                                   std::move(instructions));
+
+  auto pcb = get_process(file.code_chunk);
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+
+  xregs[0] = 12;
+  xregs[1] = 134;
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_EQ(xregs[0], 12 + 134); 
 }
 
 TEST(RISCV, CallExtOnlyBif) {
@@ -1420,6 +1458,48 @@ TEST(BuiltInFunction, ListsSplit) {
   auto second_list = vec_from_erl_list(heap[2]);
   std::vector<ErlTerm> expected_second = {4, 5};
   ASSERT_EQ(second_list, expected_second);
+}
+
+TEST(BuiltInFunction, ListsSplitEdgeCase) {
+  auto split_loc = make_small_int(4);
+  auto list = erl_list_from_vec({1, 2, 3, 4}, get_nil_term());
+
+  ProcessControlBlock pcb;
+  ErlTerm heap[3];
+  pcb.set_shared<HTOP>(heap);
+  pcb.set_shared<STOP>(heap + 3);
+
+  emulator_main.scheduler.runnable.insert(&pcb);
+  emulator_main.scheduler.pick_next();
+
+  // when
+  list_split(split_loc, list);
+
+  // then
+  auto htop = pcb.get_shared<HTOP>();
+  ASSERT_EQ(htop, heap + 3);
+  ASSERT_EQ(heap[0], 2 << 6);
+
+  auto first_list = vec_from_erl_list(heap[1]);
+  std::vector<ErlTerm> expected_first = {1, 2, 3, 4};
+  ASSERT_EQ(first_list, expected_first);
+
+  auto second_list = vec_from_erl_list(heap[2]);
+  std::vector<ErlTerm> expected_second = {};
+  ASSERT_EQ(second_list, expected_second);
+}
+
+TEST(BuiltInFunction, ErlDiv) {
+  auto a = make_small_int(25);
+  auto b = make_small_int(4);
+
+  // when
+  auto result = erl_div(a, b);
+
+  // then
+  ASSERT_EQ(result.a0 >> 4, 6);
+  ASSERT_EQ(ErlTerm(result.a0).getTagType(), SMALL_INT_T);
+  ASSERT_EQ(result.a1, 0);
 }
 
 int main(int argc, char **argv) {

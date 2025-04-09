@@ -86,7 +86,7 @@ BIFReturn erl_div(uint64_t a, uint64_t b) {
   assert(ErlTerm(a).getTagType() == SMALL_INT_T);
   assert(ErlTerm(b).getTagType() == SMALL_INT_T);
 
-  return make_small_int(a >> 4 / b >> 4);
+  return make_small_int((a >> 4) / (b >> 4));
 }
 
 BIFReturn list_split(uint64_t first_size_raw, uint64_t list_raw) {
@@ -112,10 +112,9 @@ BIFReturn list_split(uint64_t first_size_raw, uint64_t list_raw) {
     curr = curr->as_ptr() + 1;
   }
   
-  auto next_head = curr->as_ptr();
+  tuple[1] = *curr;
   *curr = get_nil_term();
 
-  tuple[1] = (reinterpret_cast<uint64_t>(next_head) & TAGGING_MASK) + 0b01;
 
   return make_boxed(tuple);
 }

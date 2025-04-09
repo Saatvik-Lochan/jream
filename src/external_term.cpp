@@ -139,8 +139,6 @@ std::pair<ErlTerm, uint8_t *> ErlTerm::from_binary(uint8_t *data,
   }
 }
 
-ErlTerm get_nil_term() { return 0b111011; }
-
 ErlTerm erl_list_from_vec(std::vector<ErlTerm> terms, ErlTerm end) {
   ErlListBuilder builder;
 

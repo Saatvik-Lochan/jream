@@ -458,7 +458,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       for (size_t i = 0; i < arity.arg_raw.arg_num; i++) {
         // s5 (x21) has the x_registers
         // we load them into a0, ..., an
-        add_riscv_instr(create_load_x_reg(10 + i, 0, 21));
+        add_riscv_instr(create_load_x_reg(10 + i, i, 21));
       }
 
       auto destination = instr.arguments[1];
@@ -492,7 +492,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       for (size_t i = 0; i < arity.arg_raw.arg_num; i++) {
         // s5 (x21) has the x_registers
         // we load them into a0, ..., an
-        add_riscv_instr(create_load_x_reg(10 + i, 0, 21));
+        add_riscv_instr(create_load_x_reg(10 + i, i, 21));
       }
 
       auto destination = instr.arguments[1];
@@ -879,7 +879,7 @@ void Emulator::run(GlobalFunctionId initial_func) {
 
     switch (result) {
     case ERROR: {
-      throw std::logic_error("Internal pcb finished with an error");
+      throw std::logic_error("Internal process finished with an error");
     }
     case FINISH: {
       break;
