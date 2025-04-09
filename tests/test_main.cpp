@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <gtest/gtest.h>
 #include <iterator>
+#include <optional>
 
 TEST(ErlTerm, ErlListFromVecAndBack) {
   std::vector<ErlTerm> initial_vec = {0, 1, 2, 3, 4, 5};
@@ -135,6 +136,27 @@ void wrap_in_function(std::vector<Instruction> &instructions,
   }
 }
 
+struct BeamFileConstructor {
+  CodeChunk c;
+  std::optional<AtomChunk> a = std::nullopt;
+  std::optional<ImportTableChunk> i = std::nullopt;
+  std::optional<ExportTableChunk> e = std::nullopt;
+  std::optional<LiteralChunk> l = std::nullopt;
+  std::optional<FunctionTableChunk> f = std::nullopt;
+};
+
+BeamSrc get_beam_file(BeamFileConstructor b) {
+
+  AtomChunk a_({});
+  ImportTableChunk i_({});
+  ExportTableChunk e_({});
+  LiteralChunk l_({});
+  FunctionTableChunk f_({});
+
+  return BeamSrc(b.a ? *b.a : a_, b.c, b.l ? *b.l : l_, b.i ? *b.i : i_,
+                 b.e ? *b.e : e_, b.f ? *b.f : f_);
+}
+
 void set_flag(bool *address) { *address = true; }
 
 Instruction set_flag_instr(bool *flag) {
@@ -197,6 +219,32 @@ TEST(RISCV, Move) {
   // then
   ASSERT_EQ(xregs[0], 25);
   ASSERT_EQ(xregs[1], 25);
+}
+
+TEST(RISCV, MoveLiteral) {
+  std::vector<Instruction> instructions = {
+      Instruction{MOVE_OP,
+                  {
+                      get_tag(EXT_LITERAL_TAG, 0), // source
+                      get_tag(X_REGISTER_TAG, 1)   // destination
+                  }}};
+
+  wrap_in_function(instructions);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
+  AtomChunk atom_chunk({"dummy", "module"});
+
+  LiteralChunk literals({57});
+
+  auto file = get_beam_file(
+      BeamFileConstructor{.c = code_chunk, .a = atom_chunk, .l = literals});
+  auto pcb = get_process(file.code_chunk);
+
+  // when
+  resume_process(pcb);
+
+  // then
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  ASSERT_EQ(xregs[1], 57);
 }
 
 TEST(RISCV, Swap) {
@@ -488,23 +536,10 @@ TEST(RISCV, CallNoReductions) {
   ASSERT_EQ(resume_label, 2); // resume at label 2
 }
 
-BeamSrc get_beam_file(CodeChunk c, AtomChunk a, ImportTableChunk i,
-                      std::vector<AnonymousFunctionId> anons) {
-  std::vector<ErlTerm> terms;
-  LiteralChunk l(terms);
-
-  FunctionTableChunk f(anons);
-  ExportTableChunk e({});
-
-  return BeamSrc(std::move(a), std::move(c), std::move(l), std::move(i),
-                 std::move(e), std::move(f));
-}
-
-BeamSrc
-get_file_with_import(std::string module_name, std::string function_name,
-                     uint32_t arity,
-                     std::optional<std::vector<AnonymousFunctionId>> anons,
-                     std::vector<Instruction> instructions) {
+BeamSrc get_file_with_import(std::string module_name, std::string function_name,
+                             uint32_t arity,
+                             std::optional<FunctionTableChunk> f,
+                             std::vector<Instruction> instructions) {
 
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
@@ -515,13 +550,10 @@ get_file_with_import(std::string module_name, std::string function_name,
 
   ImportTableChunk i(imports);
 
-  if (!anons) {
-    anons = std::vector<AnonymousFunctionId>();
-  }
-
-  auto file =
-      get_beam_file(std::move(code_chunk), std::move(a), std::move(i), *anons);
-
+  auto file = get_beam_file(BeamFileConstructor{.c = std::move(code_chunk),
+                                                .a = std::move(a),
+                                                .i = std::move(i),
+                                                .f = std::move(f)});
   return file;
 }
 

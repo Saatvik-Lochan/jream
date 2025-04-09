@@ -57,6 +57,75 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
         std::for_each(code.begin(), code.end(), add_riscv_instr);
       };
 
+  // add setup arguments to the list for when needed
+  const auto add_setup_args_code =
+      [&add_riscv_instr, &code_chunk](std::initializer_list<uint64_t> args) {
+        auto arg_arr = new uint64_t[args.size()];
+        std::copy(args.begin(), args.end(), arg_arr);
+
+        auto &compacted = code_chunk.compacted_arg_p_array;
+        auto &next_free = code_chunk.compacted_arr_next_free;
+
+        if (next_free >= 256) {
+          throw std::logic_error(
+              "Can not have this many instructions requesting space");
+        }
+
+        compacted[next_free] = arg_arr;
+
+        // load the pointer at index'th value in the argument array (pointer
+        // to this in s2=x18) to the s3=x19 register
+        add_riscv_instr(create_load_doubleword(19, 18, next_free * 8));
+
+        next_free++;
+      };
+
+  // create load/store appropriate
+  const auto add_store_appropriate = [&](Argument arg, uint8_t src_reg) {
+    switch (arg.tag) {
+    case X_REGISTER_TAG: {
+      // assume s5 is the x array register
+      add_riscv_instr(create_store_x_reg(src_reg, arg.arg_raw.arg_num, 21));
+      break;
+    }
+    case Y_REGISTER_TAG: {
+      // assumes s1 points to the pcb
+      add_riscv_instrs(create_store_y_reg(src_reg, arg.arg_raw.arg_num, 9));
+      break;
+    }
+    default:
+      throw std::logic_error(
+          std::format("Cannot store at this tag", TagToString(arg.tag)));
+    }
+  };
+
+  auto add_load_appropriate = [&](Argument arg, uint8_t dest_reg) {
+    switch (arg.tag) {
+    case X_REGISTER_TAG: {
+      // assume s5 is the x array register
+      add_riscv_instr(create_load_x_reg(dest_reg, arg.arg_raw.arg_num, 21));
+      break;
+    }
+    case Y_REGISTER_TAG: {
+      // assumes s1 points to the pcb
+      add_riscv_instrs(create_load_y_reg(dest_reg, arg.arg_raw.arg_num, 9));
+      break;
+    }
+    case EXT_LITERAL_TAG: {
+      const auto &literals = code_chunk.literal_chunk->literals;
+      auto to_copy = literals[arg.arg_raw.arg_num];
+
+      add_setup_args_code({to_copy});
+      // ld dest_reg, 0(s3)
+      add_riscv_instr(create_load_doubleword(dest_reg, 19, 0));
+      break;
+    }
+    default:
+      throw std::logic_error(
+          std::format("Cannot load the tag {}", TagToString(arg.tag)));
+    }
+  };
+
   // reserve a spot which will need to be filled
   struct LinkRequest {
     ssize_t branch_instr_location;
@@ -82,7 +151,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     auto source = instr.arguments[1];
 
     // load into t0
-    add_riscv_instrs(create_load_appropriate(source, 5));
+    add_load_appropriate(source, 5);
     add_code(get_riscv(stack_check));
 
     reserve_branch_label(label_val);
@@ -99,7 +168,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     auto source = instr.arguments[1];
 
     // load into t0
-    add_riscv_instrs(create_load_appropriate(source, 5));
+    add_load_appropriate(source, 5);
     add_code(get_riscv(stack_check));
 
     reserve_branch_label(label_val);
@@ -121,8 +190,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     auto arg2 = instr.arguments[2];
 
     // load into a0, a1
-    add_riscv_instrs(create_load_appropriate(arg1, 10));
-    add_riscv_instrs(create_load_appropriate(arg2, 11));
+    add_load_appropriate(arg1, 10);
+    add_load_appropriate(arg2, 11);
 
     add_code(get_riscv(DO_COMP_SNIP));
 
@@ -133,27 +202,12 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
         create_B_type_instruction(0b1100011, branch_funct3, 10, 0, 0));
   };
 
-  const auto add_setup_args_code =
-      [&add_riscv_instr, &code_chunk](std::initializer_list<uint64_t> args) {
-        auto arg_arr = new uint64_t[args.size()];
-        std::copy(args.begin(), args.end(), arg_arr);
-
-        auto &compacted = code_chunk.compacted_arg_p_array;
-
-        auto index = compacted.size();
-        compacted.push_back(arg_arr);
-
-        // load the pointer at index'th value in the argument array (pointer
-        // to this in s2=x18) to the s3=x19 register
-        add_riscv_instr(create_load_doubleword(19, 18, index * 8));
-      };
-
   auto add_call_biff = [&](std::span<Argument> bif_args, uint64_t fail_label,
                            Argument dest_reg, uint64_t bif_num,
                            size_t instr_index) {
     for (size_t i = 0; i < bif_args.size(); i++) {
       // load into a0, ..., aN
-      add_riscv_instrs(create_load_appropriate(bif_args[i], 10 + i));
+      add_load_appropriate(bif_args[i], 10 + i);
     }
 
     const auto func_id = code_chunk.import_table_chunk->imports[bif_num];
@@ -174,7 +228,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     }
 
     // store a0 in dest_reg
-    add_riscv_instrs(create_store_appropriate(dest_reg, 10));
+    add_store_appropriate(dest_reg, 10);
   };
 
   // main loop
@@ -216,8 +270,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto source = instr.arguments[0];
       auto destination = instr.arguments[1];
 
-      add_riscv_instrs(create_load_appropriate(source, 5));
-      add_riscv_instrs(create_store_appropriate(destination, 5));
+      add_load_appropriate(source, 5);
+      add_store_appropriate(destination, 5);
 
       break;
     }
@@ -226,11 +280,11 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto reg1 = instr.arguments[0];
       auto reg2 = instr.arguments[1];
 
-      add_riscv_instrs(create_load_appropriate(reg1, 5));
-      add_riscv_instrs(create_load_appropriate(reg2, 6));
+      add_load_appropriate(reg1, 5);
+      add_load_appropriate(reg2, 6);
 
-      add_riscv_instrs(create_store_appropriate(reg1, 6));
-      add_riscv_instrs(create_store_appropriate(reg2, 5));
+      add_store_appropriate(reg1, 6);
+      add_store_appropriate(reg2, 5);
 
       break;
     }
@@ -476,7 +530,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto destination = instr.arguments[1];
 
       // save t2
-      add_riscv_instrs(create_store_appropriate(destination, 7));
+      add_store_appropriate(destination, 7);
       break;
     }
 
@@ -486,25 +540,25 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto destination = instr.arguments[2];
 
       // head goes in t1, tail goes in t2
-      add_riscv_instrs(create_load_appropriate(head, 5));
-      add_riscv_instrs(create_load_appropriate(tail, 6));
+      add_load_appropriate(head, 5);
+      add_load_appropriate(tail, 6);
 
       add_code(get_riscv(PUT_LIST_SNIP));
 
-      add_riscv_instrs(create_store_appropriate(destination, 5));
+      add_store_appropriate(destination, 5);
 
       break;
     }
 
     case GET_LIST_OP: {
       // load the register pointed at in t0
-      add_riscv_instrs(create_load_appropriate(instr.arguments[0], 5));
+      add_load_appropriate(instr.arguments[0], 5);
 
       add_code(get_riscv(GET_LIST_SNIP));
 
       // store from t1 and t2
-      add_riscv_instrs(create_store_appropriate(instr.arguments[1], 6));
-      add_riscv_instrs(create_store_appropriate(instr.arguments[2], 7));
+      add_store_appropriate(instr.arguments[1], 6);
+      add_store_appropriate(instr.arguments[2], 7);
       break;
     }
 
@@ -517,10 +571,10 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_setup_args_code({element.arg_raw.arg_num});
 
       // load source into t0
-      add_riscv_instrs(create_load_appropriate(source, 5));
+      add_load_appropriate(source, 5);
       add_code(get_riscv(GET_TUPLE_ELEMENT_SNIP));
 
-      add_riscv_instrs(create_store_appropriate(destination, 5));
+      add_store_appropriate(destination, 5);
       break;
     }
 
@@ -547,7 +601,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
       for (const auto &reg_to_save : *freeze_list_val) {
         // load reg to t0
-        add_riscv_instrs(create_load_appropriate(reg_to_save, 5));
+        add_load_appropriate(reg_to_save, 5);
 
         // t1 has the heap pointer
         // sd t0, pos(t1)
@@ -557,7 +611,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       }
 
       // the value in t1 (i.e. the heap pointer before this)
-      add_riscv_instrs(create_store_appropriate(instr.arguments[1], 6));
+      add_store_appropriate(instr.arguments[1], 6);
 
       break;
     }
@@ -603,7 +657,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_setup_args_code({arity.arg_raw.arg_num});
 
       // load soucre into t1
-      add_riscv_instrs(create_load_appropriate(source, 6));
+      add_load_appropriate(source, 6);
       add_code(get_riscv(TEST_ARITY_SNIP));
 
       auto label_val = label.arg_raw.arg_num;
@@ -744,19 +798,57 @@ bool Scheduler::signal(ProcessControlBlock *process) {
   return true;
 }
 
-EntryPoint Emulator::get_entry_point(GlobalFunctionId function_id) {
-  auto beam_src = beam_sources[function_id.module];
-  auto export_id = beam_src->get_external_id(function_id);
-
-  return EntryPoint{.code_chunk = &beam_src->code_chunk, .label = export_id.label };
+void Emulator::register_beam_sources(std::vector<BeamSrc *> sources) {
+  for (auto source_p : sources) {
+    beam_sources[source_p->module] = source_p;
+  }
 }
 
+EntryPoint Emulator::get_entry_point(GlobalFunctionId function_id) {
+
+  auto id_it = beam_sources.find(function_id.module);
+
+  if (id_it == beam_sources.end()) {
+    throw std::logic_error(std::format(
+        "Could not find module '{}' in beam sources", function_id.module));
+  }
+
+  auto beam_src = id_it->second;
+  auto export_id = beam_src->get_external_id(function_id);
+
+  return EntryPoint{.code_chunk = &beam_src->code_chunk,
+                    .label = export_id.label};
+}
 
 void Emulator::run(GlobalFunctionId initial_func) {
 
+  assert(initial_func.arity == 0);
+
+  auto initial_entry_point = get_entry_point(initial_func);
+  auto pcb = create_process(initial_entry_point);
+
   auto &scheduler = emulator_main.scheduler;
+  scheduler.runnable.insert(pcb);
 
   while (auto to_run = scheduler.pick_next()) {
-    resume_process(to_run);
+    scheduler.executing_process = to_run;
+    auto result = resume_process(to_run);
+
+    switch (result) {
+    case ERROR: {
+      throw std::logic_error("Internal pcb finished with an error");
+    }
+    case FINISH: {
+      break;
+    }
+    case YIELD: {
+      scheduler.runnable.insert(to_run);
+      break;
+    }
+    case WAIT: {
+      scheduler.waiting.insert(to_run);
+      break;
+    }
+    }
   }
 }

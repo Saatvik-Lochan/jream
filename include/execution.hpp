@@ -26,7 +26,7 @@ struct Emulator {
   Scheduler scheduler;
   std::unordered_map<std::string, BeamSrc *> beam_sources;
 
-  void register_beam_files(std::vector<BeamSrc *> files);
+  void register_beam_sources(std::vector<BeamSrc *>);
   void run(GlobalFunctionId id);
   EntryPoint get_entry_point(GlobalFunctionId);
 };

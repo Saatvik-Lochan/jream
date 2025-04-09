@@ -142,12 +142,20 @@ struct ImportTableChunk {
 
 struct ExportTableChunk {
   std::vector<ExportFunctionId> exports;
-  std::unordered_map<std::string, ExportFunctionId> get_export;
+  std::unordered_map<std::string, ExportFunctionId> func_to_export;
 
   ExportTableChunk(std::vector<ExportFunctionId> exports)
       : exports(std::move(exports)) {}
 
   void log(const AtomChunk &atom_chunk);
+};
+
+struct LiteralChunk {
+  std::vector<ErlTerm> literals;
+
+  LiteralChunk(std::vector<ErlTerm> literals) : literals(std::move(literals)) {}
+
+  void log();
 };
 
 using FunctionLabelTable = uint64_t *;
@@ -176,7 +184,12 @@ struct CodeChunk {
   LabelTable label_table;
   LabelOffsetTable label_offsets;
 
-  std::vector<uint64_t *> compacted_arg_p_array;
+  // reserve space for 256, we cannot have this pointer move/reallocate!
+  // 256 * 8 = 2048 which is the maximum addressable range of a 12 bit 
+  // immediate
+  uint64_t *compacted_arg_p_array[256];
+  uint64_t compacted_arr_next_free = 0;
+
   const uint8_t *volatile *label_jump_locations;
   const uint8_t **compiled_functions;
 
@@ -185,6 +198,7 @@ struct CodeChunk {
   AtomChunk *atom_chunk;
   ImportTableChunk *import_table_chunk;
   FunctionTableChunk *function_table_chunk;
+  LiteralChunk *literal_chunk;
 
   CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
             uint32_t label_count = 0); // label count helps but not necessary
@@ -192,14 +206,6 @@ struct CodeChunk {
   void set_external_jump_loc(uint64_t index, CodeChunk *, uint64_t label);
 
   void log(const AtomChunk &atom_chunk);
-};
-
-struct LiteralChunk {
-  std::vector<ErlTerm> literals;
-
-  LiteralChunk(std::vector<ErlTerm> literals) : literals(std::move(literals)) {}
-
-  void log();
 };
 
 struct BeamSrc {
@@ -224,12 +230,14 @@ struct BeamSrc {
         function_table_chunk(std::move(function_table_chunk_)) {
 
     // set module
+    assert(atom_chunk.atoms.size() > 1);
     module = atom_chunk.atoms[1];
 
     // link BeamSrc
     code_chunk.import_table_chunk = &import_table_chunk;
     code_chunk.function_table_chunk = &function_table_chunk;
     code_chunk.atom_chunk = &atom_chunk;
+    code_chunk.literal_chunk = &literal_chunk;
 
     code_chunk.external_jump_locations =
         new EntryPoint[import_table_chunk.imports.size()];
@@ -237,7 +245,7 @@ struct BeamSrc {
     // link Export chunk
     for (auto exp : export_table_chunk.exports) {
       auto func_name = atom_chunk.atoms[exp.function_name];
-      export_table_chunk.get_export[func_name] = exp;
+      export_table_chunk.func_to_export[func_name] = exp;
     }
   }
 

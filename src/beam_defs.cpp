@@ -24,10 +24,6 @@ CodeChunk::CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
   const auto len = instructions.size();
   assert(len != 0);
 
-  // reserve vector space to give it a pointer val
-  // rough guess is len instructions
-  compacted_arg_p_array.reserve(len);
-
   // create function and label table
   func_label_table = new uint64_t[function_count];
 
@@ -225,5 +221,14 @@ void BeamSrc::log() {
 ExportFunctionId BeamSrc::get_external_id(GlobalFunctionId global) {
   assert(module == global.module);
 
-  return export_table_chunk.get_export[global.function_name];
+  const auto &map = export_table_chunk.func_to_export;
+  auto id_it = map.find(global.function_name);
+
+  if (id_it == map.end()) {
+    throw std::logic_error(
+        std::format("Could not find function '{}' in module '{}'",
+                    global.function_name, module));
+  }
+
+  return id_it->second;
 }

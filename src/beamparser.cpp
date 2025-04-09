@@ -1,4 +1,3 @@
-#include <functional>
 #include <glog/logging.h>
 
 #include "beam_defs.hpp"
