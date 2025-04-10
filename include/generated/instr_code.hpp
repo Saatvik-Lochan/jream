@@ -6,6 +6,7 @@
 #include <vector>
 
 enum AsmSnippet {
+  IS_TAGGED_TUPLE_1_SNIP, // assembly/build/is_tagged_tuple_1.S
   DEALLOCATE_SNIP, // assembly/build/deallocate.S
   ENTER_FUNC_SNIP, // assembly/build/enter_func.S
   GOTO_LABEL_SNIP, // assembly/build/goto_label.S
@@ -15,6 +16,7 @@ enum AsmSnippet {
   LOG_OP_SNIP, // assembly/build/log_op.S
   LOOP_REC_1_SNIP, // assembly/build/loop_rec_1.S
   TEMP_SNIP, // assembly/build/temp.S
+  IS_TAGGED_TUPLE_4_SNIP, // assembly/build/is_tagged_tuple_4.S
   IS_NIL_SNIP, // assembly/build/is_nil.S
   MAKE_FUN3_SNIP, // assembly/build/make_fun3.S
   IS_TUPLE_1_SNIP, // assembly/build/is_tuple_1.S
@@ -25,6 +27,7 @@ enum AsmSnippet {
   TEST_ARITY_SNIP, // assembly/build/test_arity.S
   ALLOCATE_SNIP, // assembly/build/allocate.S
   SEND_SNIP, // assembly/build/send.S
+  IS_TAGGED_TUPLE_3_SNIP, // assembly/build/is_tagged_tuple_3.S
   CALL_SNIP, // assembly/build/call.S
   GET_TUPLE_ELEMENT_SNIP, // assembly/build/get_tuple_element.S
   LOAD_1_ARG_SNIP, // assembly/build/load_1_arg.S
@@ -34,6 +37,7 @@ enum AsmSnippet {
   LOAD_3_ARGS_SNIP, // assembly/build/load_3_args.S
   STORE_DOUBLEWORD_TEST_SNIP, // assembly/build/store_doubleword_test.S
   TEARDOWN_SNIP, // assembly/build/teardown.S
+  IS_TAGGED_TUPLE_2_SNIP, // assembly/build/is_tagged_tuple_2.S
   REMOVE_SNIP, // assembly/build/remove.S
   IS_TUPLE_2_SNIP, // assembly/build/is_tuple_2.S
   LOOP_REC_2_SNIP, // assembly/build/loop_rec_2.S

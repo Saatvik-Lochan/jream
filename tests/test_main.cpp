@@ -6,6 +6,7 @@
 #include "../include/riscv_gen.hpp"
 #include "../include/setup_logging.hpp"
 #include <cassert>
+#include <cmath>
 #include <cstdint>
 #include <gtest/gtest.h>
 #include <iterator>
@@ -61,9 +62,68 @@ TEST(ErlTerm, DeepcopyList) {
   ASSERT_EQ(start, new_list_area + 10);
 }
 
+ErlTerm try_parse(std::string term) {
+
+  ProcessControlBlock pcb;
+  emulator_main.scheduler.runnable.insert(&pcb);
+  emulator_main.scheduler.pick_next();
+
+  ErlTerm heap[100];
+  pcb.set_shared<HTOP>(heap);
+  pcb.set_shared<STOP>(heap + 100);
+
+  // when
+  return parse_term(term);
+}
+
+TEST(ErlTerm, ParseList) {
+  std::string test = "[1, 2, 3, 4, 5].";
+
+  // when
+  auto result = try_parse(test);
+
+  // then
+  auto vec = vec_from_erl_list(result);
+  std::vector<ErlTerm> expected_vec = {1, 2, 3, 4, 5};
+
+  for (auto &val : expected_vec) {
+    val = make_small_int(val);
+  }
+
+  ASSERT_EQ(vec, expected_vec);
+}
+
+TEST(ErlTerm, ParseMix) {
+  std::string test = "{1, [2, 3], 4}.";
+
+  // when
+  auto result = try_parse(test);
+
+  // then
+  ASSERT_EQ(result.getErlMajorType(), TUPLE_ET);
+
+  auto ptr = result.as_ptr();
+
+  ASSERT_EQ(ptr[1], make_small_int(1));
+
+  auto list = ptr[2];
+  ASSERT_EQ(list.getErlMajorType(), LIST_ET);
+
+  std::vector<ErlTerm> expected_vec = {2, 3};
+  for (auto &v : expected_vec) {
+    v = make_small_int(v);
+  }
+
+  auto received_vec = vec_from_erl_list(list);
+
+  ASSERT_EQ(received_vec, expected_vec);
+
+  ASSERT_EQ(ptr[3], make_small_int(4));
+}
+
 TEST(ErlTerm, DeepcopyTuple) {
   // given
-  ErlTerm heap[] = { 3 << 6, 1, 2, 3 };
+  ErlTerm heap[] = {3 << 6, 1, 2, 3};
   auto tuple = make_boxed(heap);
 
   ErlTerm new_heap[4];
@@ -1124,8 +1184,39 @@ TEST(RISCV, IsTupleOpWrongBoxed) {
   ASSERT_TRUE(b);
 }
 
-TEST(RISCV, InitYRegs) {
+ProcessControlBlock *setup_is_tagged_tuple(bool *a, bool *b) {
+  auto instructions = get_test_instrs(
+      Instruction{
+          IS_TAGGED_TUPLE_OP,
+          {Argument{LABEL_TAG, {.arg_num = 2}},
+           Argument{X_REGISTER_TAG, {.arg_num = 0}},
+           Argument{LITERAL_TAG, {.arg_num = 2}}, // arity
+           Argument{ATOM_TAG, {.arg_num = 3}}},  
+      },
+      a, b);
 
+  auto code_chunk = new CodeChunk(std::move(instructions), 1, 2);
+
+  return get_process(code_chunk);
+}
+
+TEST(RISCV, IsTaggedTuple) {
+  bool a, b;
+  auto pcb = setup_is_tagged_tuple(&a, &b);
+
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  ErlTerm heap[] = { 2 << 6, make_atom(3), 2 };
+  xregs[0] = make_boxed(heap);
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_TRUE(a);
+  ASSERT_TRUE(a);
+}
+
+TEST(RISCV, InitYRegs) {
   std::vector<Argument> arguments = {
       Argument{Y_REGISTER_TAG, {.arg_num = 0}},
       Argument{Y_REGISTER_TAG, {.arg_num = 1}},

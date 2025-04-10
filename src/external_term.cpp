@@ -1,9 +1,10 @@
 #include <glog/logging.h>
 
-#include "bif.hpp"
 #include "exceptions.hpp"
+#include "execution.hpp"
 #include "external_term.hpp"
 #include "int_from_bytes.hpp"
+#include "pcb.hpp"
 #include <cassert>
 #include <cstdint>
 #include <format>
@@ -148,7 +149,7 @@ ErlTerm erl_list_from_vec(std::vector<ErlTerm> terms, ErlTerm end) {
   }
 
   builder.set_end(end);
-  return builder.get_head();
+  return builder.get_list();
 }
 
 std::vector<ErlTerm> vec_from_erl_list(ErlTerm e, bool include_end) {
@@ -208,7 +209,7 @@ ErlTerm deepcopy(ErlTerm e, ErlTerm *&to_loc, ErlTerm *max_alloc) {
 
     builder.set_end(it.get_end());
 
-    return builder.get_head();
+    return builder.get_list();
   }
   default: {
     throw std::logic_error(
@@ -219,10 +220,124 @@ ErlTerm deepcopy(ErlTerm e, ErlTerm *&to_loc, ErlTerm *max_alloc) {
 
 ErlTerm make_boxed(ErlTerm *ptr) {
   return (reinterpret_cast<uint64_t>(ptr) & TAGGING_MASK) + 0b10;
-} 
+}
 
 ErlTerm make_small_int(uint64_t num) {
-  assert (((num << 4) >> 4) == num);
+  assert(((num << 4) >> 4) == num);
 
   return ErlTerm((num << 4) + 0b1111);
+}
+
+ErlTerm make_atom(uint64_t index) {
+  assert(((index << 4) >> 4) == index);
+
+  return ErlTerm((index << 4) + 0b1011);
+}
+
+bool is_num(char c) { return 48 <= c && c < 58; }
+
+ErlTerm parse_term(const std::string &term, size_t &from,
+                   ProcessControlBlock *pcb);
+
+ErlTerm parse_int(const std::string &term, size_t &from,
+                  ProcessControlBlock *pcb) {
+
+  auto num = 0;
+
+  char curr;
+
+  for (; is_num(curr = term[from]); from++) {
+    num *= 10;
+    num += curr - 48;
+  }
+
+  return make_small_int(num);
+}
+
+template <char start, char end>
+std::vector<ErlTerm> collect(const std::string &term, size_t &from,
+                             ProcessControlBlock *pcb) {
+  std::vector<ErlTerm> terms;
+
+  while (term[from] != end) {
+    switch (term[from]) {
+    case start:
+    case ',': {
+      from++;
+      terms.push_back(parse_term(term, from, pcb));
+      break;
+    }
+    case ' ': {
+      from++;
+      break;
+    }
+    default: {
+      throw std::logic_error("Invalid");
+    }
+    }
+  }
+
+  from++;
+  return terms;
+}
+
+ErlTerm parse_erl_list(const std::string &term, size_t &from,
+                       ProcessControlBlock *pcb) {
+
+  auto terms = collect<'[', ']'>(term, from, pcb);
+
+  ErlListBuilder builder;
+
+  auto curr = pcb->allocate_heap(terms.size() * 2);
+
+  for (auto term : terms) {
+    builder.add_term(term, curr);
+    curr += 2;
+  }
+
+  builder.set_end(get_nil_term());
+  return builder.get_list();
+}
+
+ErlTerm parse_tuple(const std::string &term, size_t &from,
+                    ProcessControlBlock *pcb) {
+
+  auto terms = collect<'{', '}'>(term, from, pcb);
+
+  auto alloced = pcb->allocate_tuple(terms.size());
+  for (size_t i = 0; i < terms.size(); i++) {
+    alloced[i + 1] = terms[i];
+  }
+
+  return make_boxed(alloced);
+}
+
+ErlTerm parse_term(const std::string &term, size_t &from,
+                   ProcessControlBlock *pcb) {
+
+  while (true) {
+    switch (term[from]) {
+    case '{':
+      return parse_tuple(term, from, pcb);
+    case '[':
+      return parse_erl_list(term, from, pcb);
+    case ' ': {
+      from++;
+      break;
+    }
+    default: {
+      if (is_num(term[from])) {
+        return parse_int(term, from, pcb);
+      } else {
+        throw std::logic_error("Unexpected type when parsing");
+      }
+    }
+    }
+  }
+}
+
+ErlTerm parse_term(const std::string &term) {
+  auto pcb = emulator_main.scheduler.get_current_process();
+  size_t count = 0;
+  return parse_term(term, count, pcb);
 }

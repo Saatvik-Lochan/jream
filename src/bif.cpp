@@ -3,7 +3,10 @@
 #include "external_term.hpp"
 #include "pcb.hpp"
 #include <cassert>
+#include <fstream>
 #include <glog/logging.h>
+#include <iostream>
+#include <stdexcept>
 
 ProcessControlBlock *get_pcb() {
   return emulator_main.scheduler.get_current_process();
@@ -115,4 +118,56 @@ BIFReturn list_split(uint64_t first_size_raw, uint64_t list_raw) {
   *curr = get_nil_term();
 
   return make_boxed(tuple);
+}
+
+BIFReturn file_consult(uint64_t file_name_raw) {
+  assert(ErlTerm(file_name_raw).getErlMajorType() == LIST_ET);
+  ErlList file_list(file_name_raw);
+
+  std::string file_name;
+
+  for (auto c : file_list) {
+    file_name.push_back(c.term >> 4);
+  }
+
+  std::ifstream file(file_name,
+                     std::ios::in | std::ios::binary | std::ios::ate);
+
+  auto pcb = get_pcb();
+  auto tuple = pcb->allocate_tuple(2);
+
+  if (!file) {
+    tuple[1] = emulator_main.get_atom_current("error");
+    tuple[2] = get_nil_term();
+
+    return make_boxed(tuple);
+  }
+
+  std::streamsize size = file.tellg();
+  file.seekg(0, std::ios::beg);
+
+  // prealloc and then read
+  std::string buffer(size, '\0');
+  file.read(&buffer[0], size);
+
+  auto result = parse_term(buffer);
+
+  tuple[1] = emulator_main.get_atom_current("ok");
+  tuple[2] = result;
+
+  return make_boxed(tuple);
+}
+
+// TODO make general
+BIFReturn io_write(uint64_t term) {
+  assert(ErlTerm(term).getErlMajorType() == LIST_ET);
+
+  ErlList e(term);
+  std::cout << "result: ";
+  for (auto i : e) {
+    std::cout << (i.term >> 4) << " ";
+  }
+  std::cout << "\n";
+
+  return 0;
 }

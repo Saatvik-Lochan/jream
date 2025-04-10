@@ -1,7 +1,6 @@
 #ifndef BIF
 #define BIF
 
-#include "execution.hpp"
 #include "external_term.hpp"
 #include <cstdint>
 #include <string>
@@ -35,6 +34,9 @@ BIFReturn self();
 BIFReturn erl_div(uint64_t a, uint64_t b);
 BIFReturn list_split(uint64_t first_size_raw, uint64_t list_raw);
 
+BIFReturn file_consult(uint64_t file_name);
+BIFReturn io_write(uint64_t term);
+
 #define MAP(Name, Function)                                                    \
   std::make_pair(Name, reinterpret_cast<uintptr_t>(Function))
 
@@ -49,6 +51,9 @@ const inline std::unordered_map<std::string, uintptr_t> name_bif_map = {
     MAP("erlang:length/1", length),
     MAP("erlang:self/0", self),
     MAP("erlang:div/2", erl_div),
+
+    MAP("file:consult/1", erl_div),
+    MAP("io:write/1", erl_div),
 
     MAP("lists:split/2", list_split),
 };

@@ -81,6 +81,7 @@ std::vector<ErlTerm> vec_from_erl_list(ErlTerm e, bool include_end = false);
 
 ErlTerm make_boxed(ErlTerm *);
 ErlTerm make_small_int(uint64_t num);
+ErlTerm make_atom(uint64_t index);
 
 class ErlListIterator {
 private:
@@ -145,7 +146,7 @@ public:
 
   inline void set_end(ErlTerm e) { tail->term = e; }
 
-  inline ErlTerm get_head() { return head; }
+  inline ErlTerm get_list() { return head; }
 };
 
 TagType ErlTerm::getTagType() const {
@@ -306,5 +307,7 @@ inline auto ErlTerm::operator<=>(const ErlTerm &other) const {
   }
   }
 }
+
+ErlTerm parse_term(const std::string &term);
 
 #endif

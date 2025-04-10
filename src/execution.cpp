@@ -172,6 +172,17 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     add_riscv_instr(create_branch_not_equal(6, 7, 0));
   };
 
+  auto add_branches_after = [&](uint64_t label,
+                                std::initializer_list<AsmSnippet> snips) {
+    for (auto snip : snips) {
+
+      add_code(get_riscv(snip));
+
+      reserve_branch_label(label);
+      add_riscv_instr(create_branch_not_equal(6, 7, 0));
+    }
+  };
+
   auto test_heap_type = [&](Instruction instr, AsmSnippet stack_check,
                             AsmSnippet heap_check) {
     auto label = instr.arguments[0];
@@ -679,6 +690,28 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       break;
     }
 
+    case IS_TAGGED_TUPLE_OP: {
+      auto label = instr.arguments[0];
+      assert(label.tag == LABEL_TAG);
+
+      auto source = instr.arguments[1];
+
+      auto arity = instr.arguments[2];
+      assert(arity.tag == LITERAL_TAG);
+
+      auto atom = instr.arguments[3];
+      assert(atom.tag == ATOM_TAG);
+
+      add_setup_args_code(
+          {arity.arg_raw.arg_num, make_atom(atom.arg_raw.arg_num)});
+
+      add_load_appropriate(source, 5);
+      add_branches_after(label.arg_raw.arg_num,
+                         {IS_TAGGED_TUPLE_1_SNIP, IS_TAGGED_TUPLE_2_SNIP,
+                          IS_TAGGED_TUPLE_3_SNIP, IS_TAGGED_TUPLE_4_SNIP});
+      break;
+    }
+
     case IS_NONEMPTY_LIST_OP: {
       test_stack_type(instr, IS_NONEMPTY_LIST_SNIP);
       break;
@@ -899,6 +932,14 @@ std::string queue_string(const std::unordered_set<ProcessControlBlock *> q) {
 
   out += "}";
   return out;
+}
+
+ErlTerm Emulator::get_atom_current(std::string atom_name) {
+  auto pcb = emulator_main.scheduler.get_current_process();
+  auto index =
+      pcb->get_shared<CODE_CHUNK_P>()->atom_chunk->atom_index[atom_name];
+
+  return make_atom(index);
 }
 
 ErlTerm Emulator::run(GlobalFunctionId initial_func) {

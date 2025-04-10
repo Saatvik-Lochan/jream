@@ -12,4 +12,4 @@
   andi t1, t1, 0b111111
   li t2, 0b000000
 
-  # branch equal t1, t2
+  # branch not equal t1, t2

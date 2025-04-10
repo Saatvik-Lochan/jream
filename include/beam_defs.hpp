@@ -116,8 +116,14 @@ template <> struct std::hash<CodeSection> {
 
 struct AtomChunk {
   std::vector<std::string> atoms;
+  std::unordered_map<std::string, uint64_t> atom_index;
 
-  AtomChunk(std::vector<std::string> atoms) : atoms(std::move(atoms)) {}
+  AtomChunk(std::vector<std::string> atoms) : atoms(std::move(atoms)) {
+    uint64_t count = 0;
+    for (auto atom: atoms) {
+      atom_index[atom] = count++;
+    }
+  }
 
   void log();
 };

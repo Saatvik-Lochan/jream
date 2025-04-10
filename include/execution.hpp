@@ -34,6 +34,7 @@ struct Emulator {
   void register_beam_sources(std::vector<BeamSrc *>);
   ErlTerm run(GlobalFunctionId id);
   EntryPoint get_entry_point(GlobalFunctionId);
+  ErlTerm get_atom_current(std::string atom_name);
 };
 
 inline Emulator emulator_main;
