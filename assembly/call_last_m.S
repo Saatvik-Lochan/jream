@@ -4,6 +4,9 @@
   slli t1, t0, 3
 
   load_shared t2, STOP
+  ld t3, 0(t2)
+  store_shared t3, CODE_POINTER
+
   add t0, t1, t2
   store_shared t0, STOP
 
@@ -23,8 +26,10 @@
   store_shared t0, REDUCTIONS
 
   slli a2, a1, 3
-  add a2, a2, s6
-  ld t1, 0(a2)
+
+  # must be s9, implicit argument to compile stub
+  add s9, a2, s6
+  ld t1, 0(s9)
 
   # don't save code pointer
 

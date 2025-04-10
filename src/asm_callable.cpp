@@ -1,8 +1,10 @@
 #include "asm_callable.hpp"
 #include "execution.hpp"
 #include "external_term.hpp"
+#include "op_arity.hpp"
 #include "pcb.hpp"
 #include <compare>
+#include <glog/logging.h>
 #include <iostream>
 
 void print_int(uint64_t a) { std::cout << a << std::endl; }
@@ -11,8 +13,10 @@ const uint8_t *get_or_compile_label(CodeChunk *code_chunk, uint64_t label) {
   uint64_t func_index = code_chunk->label_func_table[label];
 
   auto &compiled_code = code_chunk->compiled_functions[func_index];
+  LOG(INFO) << "\tcompiling label: " << label;
 
   if (compiled_code == nullptr) {
+    LOG(INFO) << "\tcompiling function: " << func_index;
     compiled_code = compile_erlang_func(*code_chunk, func_index);
   }
 
@@ -78,3 +82,6 @@ uint64_t compare(uint64_t term1, uint64_t term2) {
 }
 
 void free_msg(Message *msg) { delete msg; }
+
+void print_op_name(uint64_t op_code) { LOG(INFO) << op_names[op_code]; }
+void print_line(uint64_t line_num) { LOG(INFO) << "line num: " << line_num; }

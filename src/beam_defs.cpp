@@ -16,6 +16,9 @@ CodeChunk::CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
   std::fill(label_jump_locations, label_jump_locations + label_count + 1,
             PreCompiled::compile_stub);
 
+  // allocate label offset table
+  label_offsets = new size_t[label_count + 1];
+
   // set all functions as not compiled
   compiled_functions = new const uint8_t *[function_count];
   std::fill(compiled_functions, compiled_functions + function_count, nullptr);
@@ -52,15 +55,22 @@ CodeChunk::CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
       auto arity = args[2];
       assert(arity.tag == LITERAL_TAG);
 
-      auto &label_instr = instructions.at(i + 1);
+      auto label_index = i - 2;
+      assert(0 <= label_index);
+
+      auto &label_instr = instructions.at(label_index);
+
       if (label_instr.op_code != LABEL_OP) {
-        throw std::logic_error("No label appears after a func_info op");
+        throw std::logic_error("No label appears 2 before a func_info op");
       }
 
       auto label_num = label_instr.arguments.at(0).arg_raw.arg_num;
 
       assert(current_funcs < function_count);
       func_label_table[current_funcs] = label_num;
+
+      // overwrite (it will be set to previous function)
+      label_func_table[label_num] = current_funcs;
 
       current_funcs++;
     }

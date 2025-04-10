@@ -14,6 +14,7 @@ void update_code_chunk_registers(CodeChunk *code_chunk);
 void free_msg(Message *);
 void send_message(ErlTerm *);
 uint64_t compare(uint64_t term1, uint64_t term2);
+void print_op_name(uint64_t op_code);
 
 #define CAST(Func) reinterpret_cast<std::uintptr_t>(&Func)
 
@@ -29,6 +30,7 @@ inline std::uintptr_t all_funs[] = {
     CAST(free_msg),                    // m_asm: FREE_MSG
     CAST(send_message),                // m_asm: SEND_MSG
     CAST(compare),                     // m_asm: COMPARE
+    CAST(print_op_name),               // m_asm: PRINT_OP_NAME
 };
 
 #endif

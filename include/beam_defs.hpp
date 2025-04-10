@@ -161,7 +161,7 @@ struct LiteralChunk {
 using FunctionLabelTable = uint64_t *;
 using LabelTable = std::vector<uint64_t>;
 using LabelFunctionTable = std::vector<uint64_t>;
-using LabelOffsetTable = std::unordered_map<uint64_t, size_t>;
+using LabelOffsetTable = size_t *;
 
 struct CodeChunk;
 
@@ -185,7 +185,7 @@ struct CodeChunk {
   LabelOffsetTable label_offsets;
 
   // reserve space for 256, we cannot have this pointer move/reallocate!
-  // 256 * 8 = 2048 which is the maximum addressable range of a 12 bit 
+  // 256 * 8 = 2048 which is the maximum addressable range of a 12 bit
   // immediate
   uint64_t *compacted_arg_p_array[256];
   uint64_t compacted_arr_next_free = 0;
@@ -201,7 +201,7 @@ struct CodeChunk {
   LiteralChunk *literal_chunk;
 
   CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
-            uint32_t label_count = 0); // label count helps but not necessary
+            uint32_t label_count);
 
   void set_external_jump_loc(uint64_t index, CodeChunk *, uint64_t label);
 

@@ -3,6 +3,9 @@
 # stub
   load_arg a1, 0
 
+  la t0, 2f # load pc relative address at the end
+  store_shared t0, CODE_POINTER
+
 # check reductions - maybe yields
   load_shared t0, REDUCTIONS
   bnez t0, 1f
@@ -14,11 +17,10 @@
   store_shared t0, REDUCTIONS
 
   slli a2, a1, 3
-  add a2, a2, s6
-  ld t1, 0(a2)
 
-  la t0, 2f # load pc relative address at the end
-  store_shared t0, CODE_POINTER
+  # must be s9 so we can save it here
+  add s9, a2, s6
+  ld t1, 0(s9)
 
   jr t1
 2:

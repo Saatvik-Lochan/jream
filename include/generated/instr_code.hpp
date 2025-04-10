@@ -12,11 +12,13 @@ enum AsmSnippet {
   CALL_EXT_BIF_SNIP, // assembly/build/call_ext_bif.S
   BIF_SNIP, // assembly/build/bif.S
   INIT_YREGS_SNIP, // assembly/build/init_yregs.S
+  LOG_OP_SNIP, // assembly/build/log_op.S
   LOOP_REC_1_SNIP, // assembly/build/loop_rec_1.S
   TEMP_SNIP, // assembly/build/temp.S
   IS_NIL_SNIP, // assembly/build/is_nil.S
   MAKE_FUN3_SNIP, // assembly/build/make_fun3.S
   IS_TUPLE_1_SNIP, // assembly/build/is_tuple_1.S
+  TAG_BOXED_T1_SNIP, // assembly/build/tag_boxed_t1.S
   RETURN_SNIP, // assembly/build/return.S
   IS_NONEMPTY_LIST_SNIP, // assembly/build/is_nonempty_list.S
   WAIT_SNIP, // assembly/build/wait.S
@@ -24,7 +26,6 @@ enum AsmSnippet {
   ALLOCATE_SNIP, // assembly/build/allocate.S
   SEND_SNIP, // assembly/build/send.S
   CALL_SNIP, // assembly/build/call.S
-  CALL_FINISH_SNIP, // assembly/build/call_finish.S
   GET_TUPLE_ELEMENT_SNIP, // assembly/build/get_tuple_element.S
   LOAD_1_ARG_SNIP, // assembly/build/load_1_arg.S
   BADMATCH_SNIP, // assembly/build/badmatch.S
@@ -35,7 +36,6 @@ enum AsmSnippet {
   TEARDOWN_SNIP, // assembly/build/teardown.S
   REMOVE_SNIP, // assembly/build/remove.S
   IS_TUPLE_2_SNIP, // assembly/build/is_tuple_2.S
-  CALL_SETUP_SNIP, // assembly/build/call_setup.S
   LOOP_REC_2_SNIP, // assembly/build/loop_rec_2.S
   SETUP_SNIP, // assembly/build/setup.S
   GET_LIST_SNIP, // assembly/build/get_list.S

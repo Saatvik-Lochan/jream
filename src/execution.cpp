@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <optional>
 #include <stdexcept>
+#include <string>
 #include <strings.h>
 #include <sys/mman.h>
 #include <unordered_map>
@@ -42,7 +43,7 @@ std::optional<uintptr_t> bif_from_id(ExternalFunctionId id,
 inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
                                                    CodeSection code_sec) {
   std::vector<uint8_t> compiled;
-  std::unordered_map<uint64_t, size_t> label_offsets;
+  auto &label_offsets = code_chunk.label_offsets;
 
   // convenience lambdas
   auto add_code = [&compiled](const std::vector<uint8_t> &code) {
@@ -244,13 +245,22 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     add_store_appropriate(dest_reg, 10);
   };
 
+  std::unordered_set<uint64_t> local_labels;
+
   // main loop
   for (size_t instr_index = code_sec.start; instr_index < code_sec.end;
        instr_index++) {
 
     const auto &instr = code_chunk.instructions[instr_index];
 
+#ifndef NDEBUG
+    // log the op that is executing
+    add_riscv_instr(create_add_immediate(10, 0, instr.op_code));
+    add_code(get_riscv(LOG_OP_SNIP));
+#endif
+
     switch (instr.op_code) {
+
     case DEBUG_EXECUTE_ARBITRARY: {
       auto function_pointer = instr.arguments[0];
       auto flag_pos = instr.arguments[1];
@@ -264,18 +274,21 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_code(get_riscv(DEBUG_EXECUTE_ARIBITRARY_SNIP));
       break;
     }
+
     case LABEL_OP: {
       auto label_arg = instr.arguments[0];
       assert(label_arg.tag == LITERAL_TAG);
-      label_offsets[label_arg.arg_raw.arg_num] = compiled.size();
+
+      auto label_val = label_arg.arg_raw.arg_num;
+
+      label_offsets[label_val] = compiled.size();
+      local_labels.insert(label_val);
       break;
     }
 
-    case LINE_OP: { // ignore, debug info
-      break;
-    }
-
-    case FUNC_INFO_OP: { // could assert on function identifier
+    case LINE_OP: // ignore, debug info
+    case FUNC_INFO_OP:
+    case INT_CODE_END_OP: {
       break;
     }
 
@@ -392,7 +405,6 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
       add_setup_args_code({label.arg_raw.arg_num, deallocate.arg_raw.arg_num});
 
-      // check reductions and maybe yield
       add_code(get_riscv(CALL_LAST_SNIP));
       break;
     }
@@ -641,6 +653,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
         position += 8;
       }
 
+      add_code(get_riscv(TAG_BOXED_T1_SNIP));
+
       // the value in t1 (i.e. the heap pointer before this)
       add_store_appropriate(instr.arguments[1], 6);
 
@@ -714,7 +728,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     auto as_riscv_instr = reinterpret_cast<RISCV_Instruction *>(data_loc);
 
     // check if label is inside function scope
-    assert(label_offsets.contains(request.label));
+    assert(local_labels.contains(request.label));
 
     ssize_t label_val = label_offsets[request.label];
     int16_t offset = label_val - index;
@@ -786,15 +800,17 @@ ErlReturnCode setup_and_go_label(ProcessControlBlock *pcb, uint64_t label_num) {
 }
 
 ErlReturnCode resume_process(ProcessControlBlock *pcb) {
+  LOG(INFO) << "\tresuming at label: " << pcb->get_shared<RESUME_LABEL>();
   return setup_and_go_label(pcb, pcb->get_shared<RESUME_LABEL>());
 }
 
 ProcessControlBlock *create_process(EntryPoint entry_point) {
   ProcessControlBlock *pcb = new ProcessControlBlock;
 
-  // TODO initialise all shared code
   pcb->set_shared<CODE_CHUNK_P>(entry_point.code_chunk);
   pcb->set_shared<RESUME_LABEL>(entry_point.label);
+  pcb->set_shared<REDUCTIONS>(1);
+  pcb->set_shared<CODE_POINTER>(PreCompiled::teardown_code);
 
   // allocate space
   pcb->set_shared<XREG_ARRAY>(new ErlTerm[1001]);
@@ -809,9 +825,6 @@ ProcessControlBlock *create_process(EntryPoint entry_point) {
   pcb->set_shared<MBOX_TAIL>(head);
   pcb->set_shared<MBOX_SAVE>(head);
 
-  // calls
-  pcb->set_shared<REDUCTIONS>(entry_point.label);
-
   return pcb;
 }
 
@@ -824,6 +837,8 @@ ProcessControlBlock *Scheduler::pick_next() {
 
   auto value = runnable.extract(chosen_it);
   auto pcb = value.value();
+
+  pcb->set_shared<REDUCTIONS>(5);
 
   executing_process = pcb;
   return pcb;
@@ -864,6 +879,23 @@ EntryPoint Emulator::get_entry_point(GlobalFunctionId function_id) {
                     .label = export_id.label};
 }
 
+std::string queue_string(const std::unordered_set<ProcessControlBlock *> q) {
+  std::string out = "{";
+
+  if (q.empty()) {
+    return "{}";
+  }
+
+  for (auto ele : q) {
+    out += std::format("{:p}, ", static_cast<void *>(ele));
+  }
+
+  out.erase(out.size() - 2);
+
+  out += "}";
+  return out;
+}
+
 void Emulator::run(GlobalFunctionId initial_func) {
 
   assert(initial_func.arity == 0);
@@ -874,7 +906,11 @@ void Emulator::run(GlobalFunctionId initial_func) {
   auto &scheduler = emulator_main.scheduler;
   scheduler.runnable.insert(pcb);
 
+  auto count = 1;
+
   while (auto to_run = scheduler.pick_next()) {
+    LOG(INFO) << "Now executing: " << to_run;
+
     auto result = resume_process(to_run);
 
     switch (result) {
@@ -882,16 +918,23 @@ void Emulator::run(GlobalFunctionId initial_func) {
       throw std::logic_error("Internal process finished with an error");
     }
     case FINISH: {
+      LOG(INFO) << "A process finished: " << to_run;
       break;
     }
     case YIELD: {
+      LOG(INFO) << "A process yielded: " << to_run;
       scheduler.runnable.insert(to_run);
       break;
     }
     case WAIT: {
+      LOG(INFO) << "A process is waiting: " << to_run;
       scheduler.waiting.insert(to_run);
       break;
     }
     }
+
+    LOG(INFO) << "After " << count++ << ":";
+    LOG(INFO) << "\twaiting: " << queue_string(scheduler.waiting);
+    LOG(INFO) << "\trunnable: " << queue_string(scheduler.runnable);
   }
 }

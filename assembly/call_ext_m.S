@@ -7,6 +7,9 @@
   # mv new code_chunk_p into a0 here! 
 call_cxx_fun SET_NEW_CODE_CHUNK
 
+  la t0, 3f # load pc relative address at the end
+  store_shared t0, CODE_POINTER
+
 # check reductions - maybe yields
   load_shared t0, REDUCTIONS
   bnez t0, 1f
@@ -18,12 +21,8 @@ call_cxx_fun SET_NEW_CODE_CHUNK
   store_shared t0, REDUCTIONS
 
   slli a2, a4, 3
-  add a2, a2, s6
-  ld t1, 0(a2)
-
-  la t0, 3f # load pc relative address at the end
-  store_shared t0, CODE_POINTER
-
+  add s9, a2, s6
+  ld t1, 0(s9)
   jr t1
 
 2: 

@@ -14,7 +14,9 @@
   store_shared t0, REDUCTIONS
 
   slli a2, a1, 3
-  add a2, a2, s6
-  ld t1, 0(a2)
+
+  # must be s9 because of compile stub
+  add s9, a2, s6
+  ld t1, 0(s9)
 
   jr t1

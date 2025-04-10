@@ -168,9 +168,11 @@ uint64_t parse_argument_number(std::ifstream &stream, uint8_t tag_byte) {
 
     } else {
 
-      // TODO check bit ordering
-      uint64_t value =
-          static_cast<uint64_t>(tag_byte & 0b11100000) << 3 & read_byte(stream);
+      uint64_t value = tag_byte;
+      value &= (0b111 << 5); // only use top 3 bits
+      value <<= 3;
+      value |= read_byte(stream);
+
       return value;
     }
   } else {

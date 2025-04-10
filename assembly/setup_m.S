@@ -34,9 +34,6 @@ mv s9, a4 # temp to save it
 # a0, s1 are implicit arguments
 call_cxx_fun SET_NEW_CODE_CHUNK
 
-# go to teardown if trying to return back here
-store_shared s7, CODE_POINTER
-
 # move back as argument to compile stub
 mv a1, s9
 

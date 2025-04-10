@@ -24,7 +24,7 @@ TEST(ErlTerm, ErlListFromVecAndBackEmpty) {
   std::vector<ErlTerm> initial_vec = {};
   auto list = erl_list_from_vec(initial_vec, get_nil_term());
   auto transformed_vec = vec_from_erl_list(list);
- 
+
   ASSERT_NE(&initial_vec, &transformed_vec);
   ASSERT_EQ(initial_vec, transformed_vec);
 }
@@ -59,6 +59,24 @@ TEST(ErlTerm, DeepcopyList) {
   ASSERT_EQ(it_i, initial_list.end());
   ASSERT_EQ(it_c, copy_list.end());
   ASSERT_EQ(start, new_list_area + 10);
+}
+
+TEST(ErlTerm, DeepcopyTuple) {
+  // given
+  ErlTerm heap[] = { 3 << 6, 1, 2, 3 };
+  auto tuple = make_boxed(heap);
+
+  ErlTerm new_heap[4];
+  ErlTerm *start = new_heap;
+
+  // when
+  auto copy = deepcopy(tuple, start);
+
+  // assert elements equal, but in different locations
+  ASSERT_NE(tuple, copy);
+  for (int i = 0; i < 4; i++) {
+    ASSERT_EQ(heap[i], new_heap[i]);
+  }
 }
 
 TEST(Assembly, CreateLoadDoubleWord) {
@@ -115,11 +133,11 @@ CodeChunk create_code_chunk(std::vector<Instruction> instructions) {
 }
 
 ProcessControlBlock *get_process(CodeChunk *code_chunk) {
-  return create_process({.code_chunk = code_chunk, .label = 0});
+  return create_process({.code_chunk = code_chunk, .label = 1});
 }
 
 ProcessControlBlock *get_process(CodeChunk &code_chunk) {
-  return create_process({.code_chunk = &code_chunk, .label = 0});
+  return create_process({.code_chunk = &code_chunk, .label = 1});
 }
 
 Argument get_lit(uint64_t arg) {
@@ -131,11 +149,13 @@ Argument get_tag(Tag tag, uint64_t num) {
 }
 
 void wrap_in_function(std::vector<Instruction> &instructions,
-                      uint64_t label = 0, bool include_return = true) {
+                      uint64_t label = 1, bool include_return = true) {
   auto start = {
+      Instruction{LABEL_OP, {get_lit(label)}},
+      Instruction{LINE_OP, {get_lit(0)}},
       Instruction{FUNC_INFO_OP, // I don't actually parse the arguments
                   {get_tag(ATOM_TAG, 0), get_tag(ATOM_TAG, 0), get_lit(0)}},
-      Instruction{LABEL_OP, {get_lit(label)}}};
+  };
 
   auto end = Instruction{RETURN_OP, {}};
 
@@ -231,6 +251,30 @@ TEST(RISCV, Move) {
   ASSERT_EQ(xregs[1], 25);
 }
 
+TEST(RISCV, MoveYRegs) {
+  // only testing with X register for now
+  std::vector<Instruction> instructions = {
+      Instruction{MOVE_OP,
+                  {
+                      get_tag(Y_REGISTER_TAG, 0), // source
+                      get_tag(Y_REGISTER_TAG, 1)  // destination
+                  }}};
+
+  wrap_in_function(instructions);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
+
+  auto pcb = get_process(code_chunk);
+  ErlTerm stack[] = {0, 12, 34};
+  pcb->set_shared<STOP>(stack);
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_EQ(stack[1], 12); // y0
+  ASSERT_EQ(stack[2], 12); // y1
+}
+
 TEST(RISCV, MoveLiteral) {
   std::vector<Instruction> instructions = {
       Instruction{MOVE_OP,
@@ -291,13 +335,9 @@ TEST(RISCV, Allocate) {
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
   ErlTerm e[5];
-  uint8_t code[20];
 
   auto pcb = get_process(code_chunk);
   pcb->set_shared<STOP>(e + 4);
-
-  auto code_ptr = code + 5; // arbitrary
-  pcb->set_shared<CODE_POINTER>(code_ptr);
 
   // when
   resume_process(pcb);
@@ -455,17 +495,20 @@ TEST(RISCV, MakeFun) {
   // when
   resume_process(pcb);
 
-  const auto &header = heap[0];
-  const auto &index = heap[1];
-  const auto &x1_val = heap[2];
-  const auto &x2_val = heap[3];
+  const auto result = xregs[0].as_ptr();
+
+  const auto &header = result[0];
+  const auto &index = result[1];
+  const auto &x1_val = result[2];
+  const auto &x2_val = result[3];
 
   ASSERT_EQ(header & 0b111111, 0b010100); // header tag
   ASSERT_EQ(header >> 6, 3);              // the header size is correct
   ASSERT_EQ(index, used_index);
   ASSERT_EQ(x1_val, x1_start_val);
   ASSERT_EQ(x2_val, x2_start_val);
-  ASSERT_EQ(xregs[0].as_ptr(), &header);
+
+  ASSERT_EQ(xregs[0].getErlMajorType(), FUN_ET);
 }
 
 CodeChunk getCallCodeChunk(bool *flag) {
@@ -621,7 +664,7 @@ TEST(RISCV, CallExtBif2Args) {
   resume_process(pcb);
 
   // then
-  ASSERT_EQ(xregs[0], 12 + 134); 
+  ASSERT_EQ(xregs[0], 12 + 134);
 }
 
 TEST(RISCV, CallExtOnlyBif) {
@@ -636,7 +679,7 @@ TEST(RISCV, CallExtOnlyBif) {
                   }},
   };
 
-  wrap_in_function(instructions, 0, false); // don't use return!
+  wrap_in_function(instructions, 1, false); // don't use return!
   auto file = get_file_with_import("erlang", "test", arity, std::nullopt,
                                    std::move(instructions));
 
@@ -661,7 +704,7 @@ TEST(RISCV, Bif0) {
                    Argument{X_REGISTER_TAG, {.arg_num = 2}}}},
   };
 
-  wrap_in_function(instructions, 0);
+  wrap_in_function(instructions);
   auto file = get_file_with_import("erlang", "test", 0, std::nullopt,
                                    std::move(instructions));
 
@@ -683,7 +726,7 @@ TEST(RISCV, GCBif1) {
   std::vector<Instruction> instructions = {
       Instruction{GC_BIF1_OP,
                   {
-                      get_tag(LABEL_TAG, 1),   // fail label
+                      get_tag(LABEL_TAG, 2),   // fail label
                       get_tag(LITERAL_TAG, 0), // Live X regs (not used till gc)
                       get_tag(LITERAL_TAG, 0), // bif_num (import index)
                       get_tag(X_REGISTER_TAG, 3), // arg_1
@@ -691,11 +734,11 @@ TEST(RISCV, GCBif1) {
                   }},
       set_flag_instr(&a),
       Instruction{RETURN_OP},
-      Instruction{LABEL_OP, {get_lit(1)}},
+      Instruction{LABEL_OP, {get_lit(2)}},
       set_flag_instr(&b),
   };
 
-  wrap_in_function(instructions, 0);
+  wrap_in_function(instructions);
   auto file = get_file_with_import("erlang", "test", 1, std::nullopt,
                                    std::move(instructions));
 
@@ -719,7 +762,7 @@ TEST(RISCV, GCBif2) {
   std::vector<Instruction> instructions = {
       Instruction{GC_BIF2_OP,
                   {
-                      get_tag(LABEL_TAG, 1),   // fail label
+                      get_tag(LABEL_TAG, 2),   // fail label
                       get_tag(LITERAL_TAG, 0), // Live X regs (not used till gc)
                       get_tag(LITERAL_TAG, 0), // bif_num (import index)
                       get_tag(X_REGISTER_TAG, 1), // arg_1
@@ -728,11 +771,11 @@ TEST(RISCV, GCBif2) {
                   }},
       set_flag_instr(&a),
       Instruction{RETURN_OP},
-      Instruction{LABEL_OP, {get_lit(1)}},
+      Instruction{LABEL_OP, {get_lit(2)}},
       set_flag_instr(&b),
   };
 
-  wrap_in_function(instructions, 0);
+  wrap_in_function(instructions);
   auto file = get_file_with_import("erlang", "test", 2, std::nullopt,
                                    std::move(instructions));
 
@@ -757,7 +800,7 @@ TEST(RISCV, GCBif2Fail) {
   std::vector<Instruction> instructions = {
       Instruction{GC_BIF2_OP,
                   {
-                      get_tag(LABEL_TAG, 1),   // fail label
+                      get_tag(LABEL_TAG, 2),   // fail label
                       get_tag(LITERAL_TAG, 0), // Live X regs (not used till gc)
                       get_tag(LITERAL_TAG, 0), // bif_num (import index)
                       get_tag(X_REGISTER_TAG, 1), // arg_1
@@ -766,11 +809,11 @@ TEST(RISCV, GCBif2Fail) {
                   }},
       set_flag_instr(&a),
       Instruction{RETURN_OP},
-      Instruction{LABEL_OP, {get_lit(1)}},
+      Instruction{LABEL_OP, {get_lit(2)}},
       set_flag_instr(&b),
   };
 
-  wrap_in_function(instructions, 0);
+  wrap_in_function(instructions);
   auto file = get_file_with_import("erlang", "test_fail", 2, std::nullopt,
                                    std::move(instructions));
 
@@ -844,7 +887,6 @@ std::vector<Instruction> get_loop_rec_instructions(bool *a, bool *b) {
       Instruction{LOOP_REC_OP,
                   {Argument{LABEL_TAG, {.arg_num = 2}},
                    Argument{X_REGISTER_TAG, {.arg_num = 0}}}},
-      Instruction{LABEL_OP, {Argument{LITERAL_TAG, {.arg_num = 1}}}},
       set_flag_instr(a),
       Instruction{RETURN_OP, {}},
       Instruction{LABEL_OP, {Argument{LITERAL_TAG, {.arg_num = 2}}}},
@@ -857,7 +899,7 @@ TEST(RISCV, LoopRecEmptyMbox) {
   bool flag_b = false;
 
   auto instructions = get_loop_rec_instructions(&flag_a, &flag_b);
-  wrap_in_function(instructions, 0);
+  wrap_in_function(instructions);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
   auto pcb = get_process(code_chunk);
@@ -875,7 +917,7 @@ TEST(RISCV, LoopRec) {
   bool flag_b = false;
 
   auto instructions = get_loop_rec_instructions(&flag_a, &flag_b);
-  wrap_in_function(instructions, 0);
+  wrap_in_function(instructions);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
   auto pcb = get_process(code_chunk);
@@ -897,7 +939,7 @@ TEST(RISCV, LoopRec) {
 TEST(RISCV, RemoveLastMessage) {
   std::vector<Instruction> instructions = {Instruction{REMOVE_MESSAGE_OP, {}}};
 
-  wrap_in_function(instructions, 0);
+  wrap_in_function(instructions);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
   auto pcb = get_process(code_chunk);
@@ -920,7 +962,7 @@ TEST(RISCV, RemoveLastMessage) {
 TEST(RISCV, Remove) {
   std::vector<Instruction> instructions = {Instruction{REMOVE_MESSAGE_OP, {}}};
 
-  wrap_in_function(instructions, 0);
+  wrap_in_function(instructions);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
   auto pcb = get_process(code_chunk);
@@ -1008,11 +1050,11 @@ std::vector<Instruction> get_test_instrs(Instruction instr, bool *a, bool *b) {
       instr,
       set_flag_instr(a),
       Instruction{RETURN_OP, {}},
-      Instruction{LABEL_OP, {Argument{LITERAL_TAG, {.arg_num = 1}}}},
+      Instruction{LABEL_OP, {Argument{LITERAL_TAG, {.arg_num = 2}}}},
       set_flag_instr(b),
   };
 
-  wrap_in_function(out, 0);
+  wrap_in_function(out);
 
   return out;
 }
@@ -1020,7 +1062,7 @@ std::vector<Instruction> get_test_instrs(Instruction instr, bool *a, bool *b) {
 ProcessControlBlock *setup_is_tuple(bool *a, bool *b) {
   auto instructions =
       get_test_instrs(Instruction{IS_TUPLE_OP,
-                                  {Argument{LABEL_TAG, {.arg_num = 1}},
+                                  {Argument{LABEL_TAG, {.arg_num = 2}},
                                    Argument{X_REGISTER_TAG, {.arg_num = 0}}}},
                       a, b);
 
@@ -1161,7 +1203,7 @@ TEST(RISCV, TestArityTrue) {
 
   auto instructions =
       get_test_instrs(Instruction{TEST_ARITY_OP,
-                                  {get_tag(LABEL_TAG, 1),
+                                  {get_tag(LABEL_TAG, 2),
                                    get_tag(X_REGISTER_TAG, 0), get_lit(3)}},
                       &a, &b);
 
@@ -1186,7 +1228,7 @@ TEST(RISCV, TestArityFalse) {
 
   auto instructions =
       get_test_instrs(Instruction{TEST_ARITY_OP,
-                                  {get_tag(LABEL_TAG, 1),
+                                  {get_tag(LABEL_TAG, 2),
                                    get_tag(X_REGISTER_TAG, 0), get_lit(3)}},
                       &a, &b);
 
@@ -1211,7 +1253,7 @@ TEST(RISCV, TestIsNonEmptyListTrue) {
 
   auto instructions =
       get_test_instrs(Instruction{IS_NONEMPTY_LIST_OP,
-                                  {get_tag(LABEL_TAG, 1),
+                                  {get_tag(LABEL_TAG, 2),
                                    get_tag(X_REGISTER_TAG, 0), get_lit(3)}},
                       &a, &b);
 
@@ -1235,7 +1277,7 @@ TEST(RISCV, TestIsNonEmptyListFalse) {
 
   auto instructions =
       get_test_instrs(Instruction{IS_NONEMPTY_LIST_OP,
-                                  {get_tag(LABEL_TAG, 1),
+                                  {get_tag(LABEL_TAG, 2),
                                    get_tag(X_REGISTER_TAG, 0), get_lit(3)}},
                       &a, &b);
 
@@ -1259,7 +1301,7 @@ TEST(RISCV, TestIsNilTrue) {
 
   auto instructions =
       get_test_instrs(Instruction{IS_NIL_OP,
-                                  {get_tag(LABEL_TAG, 1),
+                                  {get_tag(LABEL_TAG, 2),
                                    get_tag(X_REGISTER_TAG, 0), get_lit(3)}},
                       &a, &b);
 
@@ -1283,7 +1325,7 @@ TEST(RISCV, TestIsNilFalse) {
 
   auto instructions =
       get_test_instrs(Instruction{IS_NIL_OP,
-                                  {get_tag(LABEL_TAG, 1),
+                                  {get_tag(LABEL_TAG, 2),
                                    get_tag(X_REGISTER_TAG, 0), get_lit(3)}},
                       &a, &b);
 
@@ -1309,7 +1351,7 @@ void do_compare_test(OpCode opcode, ErlTerm arg1, ErlTerm arg2,
   auto instructions =
       get_test_instrs(Instruction{opcode,
                                   {
-                                      get_tag(LABEL_TAG, 1),
+                                      get_tag(LABEL_TAG, 2),
                                       get_tag(X_REGISTER_TAG, 1),
                                       get_tag(X_REGISTER_TAG, 2),
                                   }},

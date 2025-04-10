@@ -169,7 +169,7 @@ std::vector<ErlTerm> vec_from_erl_list(ErlTerm e, bool include_end) {
 // Assume that all required space has already been allocated contiguously.
 // Copies anything necessary to to_loc and returns the the word representing
 // the whole type
-ErlTerm deepcopy(ErlTerm e, ErlTerm *&to_loc) {
+ErlTerm deepcopy(ErlTerm e, ErlTerm *&to_loc, ErlTerm *max_alloc) {
   const uint8_t bits = e.term & 0b11;
 
   switch (bits) {
@@ -186,10 +186,12 @@ ErlTerm deepcopy(ErlTerm e, ErlTerm *&to_loc) {
     auto box_start = header_ptr + 1;
     auto box_end = box_start + length;
 
+    assert(to_loc + length);
+
     // here we assume that to_loc has enough room
     std::copy(box_start, box_end, to_loc);
 
-    return e;
+    return make_boxed(to_loc);
   }
   case 0b01: {
     ErlList e_list(e);
