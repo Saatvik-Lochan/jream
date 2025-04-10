@@ -32,7 +32,7 @@ struct Emulator {
   std::unordered_map<std::string, BeamSrc *> beam_sources;
 
   void register_beam_sources(std::vector<BeamSrc *>);
-  void run(GlobalFunctionId id);
+  ErlTerm run(GlobalFunctionId id);
   EntryPoint get_entry_point(GlobalFunctionId);
 };
 
@@ -49,5 +49,7 @@ uint8_t *compile_erlang_func(CodeChunk &code_chunk, uint64_t func_index);
 ProcessControlBlock *create_process(EntryPoint entry_point);
 
 ErlReturnCode resume_process(ProcessControlBlock *pcb);
+
+uint64_t get_current_space();
 
 #endif

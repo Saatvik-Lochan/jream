@@ -1,5 +1,6 @@
 #include <glog/logging.h>
 
+#include "bif.hpp"
 #include "exceptions.hpp"
 #include "external_term.hpp"
 #include "int_from_bytes.hpp"
@@ -177,19 +178,19 @@ ErlTerm deepcopy(ErlTerm e, ErlTerm *&to_loc, ErlTerm *max_alloc) {
     return e;
   }
   case 0b10: {
-    ErlTerm *header_ptr = e.as_ptr();
-    ErlTerm header = *header_ptr;
+    ErlTerm *tuple_start = e.as_ptr();
+    ErlTerm header = *tuple_start;
     assert((header & 0b11) == 0b00);
 
     uint64_t length = header >> 6;
+    uint64_t whole_tuple_size = length + 1;
 
-    auto box_start = header_ptr + 1;
-    auto box_end = box_start + length;
+    auto box_end = tuple_start + whole_tuple_size;
 
-    assert(to_loc + length);
+    assert(to_loc + whole_tuple_size <= max_alloc);
 
     // here we assume that to_loc has enough room
-    std::copy(box_start, box_end, to_loc);
+    std::copy(tuple_start, box_end, to_loc);
 
     return make_boxed(to_loc);
   }
@@ -199,6 +200,8 @@ ErlTerm deepcopy(ErlTerm e, ErlTerm *&to_loc, ErlTerm *max_alloc) {
 
     auto it = e_list.begin();
     for (; it != e_list.end(); ++it) {
+      assert(to_loc + 2 <= max_alloc);
+
       builder.add_term(*it, to_loc);
       to_loc += 2;
     }

@@ -10,7 +10,7 @@
 
   ori t0, t2, 0b01  # tag as list
 
-  slli t2, t2, 16  # allocate 2 words
+  addi t2, t2, 16  # allocate 2 words
   store_shared t2, HTOP
 
   # store t0 into destination

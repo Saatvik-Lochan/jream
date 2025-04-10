@@ -61,7 +61,9 @@ void send_message(ErlTerm *xregs) {
   // TODO fix this if garbage collection
   // assume there is space!
   auto heap_top = process->get_shared<HTOP>();
-  auto copied_handle = deepcopy(message, heap_top); // updates heap_top
+  auto stop = process->get_shared<STOP>();
+
+  auto copied_handle = deepcopy(message, heap_top, stop); // updates heap_top
   process->set_shared<HTOP>(heap_top);
 
   auto msg = new Message(copied_handle);

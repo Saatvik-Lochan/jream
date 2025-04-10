@@ -1,6 +1,7 @@
 #ifndef BIF
 #define BIF
 
+#include "execution.hpp"
 #include "external_term.hpp"
 #include <cstdint>
 #include <string>

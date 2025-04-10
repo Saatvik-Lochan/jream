@@ -39,7 +39,7 @@ TEST(ErlTerm, DeepcopyList) {
   ErlTerm *start = new_list_area;
 
   // when
-  auto copy = deepcopy(list, start);
+  auto copy = deepcopy(list, start, new_list_area + 10);
 
   // then
   ErlList initial_list(list);
@@ -70,7 +70,7 @@ TEST(ErlTerm, DeepcopyTuple) {
   ErlTerm *start = new_heap;
 
   // when
-  auto copy = deepcopy(tuple, start);
+  auto copy = deepcopy(tuple, start, heap + 4);
 
   // assert elements equal, but in different locations
   ASSERT_NE(tuple, copy);
@@ -457,6 +457,7 @@ TEST(RISCV, PutList) {
   std::vector<ErlTerm> out_list = vec_from_erl_list(xregs[2]);
   std::vector<ErlTerm> final_list = {0, 1, 2, 3};
   ASSERT_EQ(out_list, final_list);
+  ASSERT_EQ(pcb->get_shared<HTOP>(), heap + 2);
 }
 
 TEST(RISCV, MakeFun) {
@@ -1024,6 +1025,7 @@ TEST(RISCV, Send) {
 
   ErlTerm heap[10];
   other_pcb->set_shared<HTOP>(heap);
+  other_pcb->set_shared<STOP>(heap + 10);
 
   // when
   resume_process(pcb);

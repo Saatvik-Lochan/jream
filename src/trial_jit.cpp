@@ -1,6 +1,7 @@
 #include "../include/beamparser.hpp"
 #include "../include/execution.hpp"
 #include "../include/setup_logging.hpp"
+#include <iostream>
 
 int main(int argc, char *argv[]) {
   setup_logging(argv[0]);
@@ -13,5 +14,12 @@ int main(int argc, char *argv[]) {
   GlobalFunctionId start_function = {
       .module = "merge", .function_name = "main", .arity = 0};
 
-  emulator_main.run(start_function);
+  auto result = emulator_main.run(start_function);
+
+  ErlList e(result);
+  std::cout << "result: ";
+  for (auto i : e) {
+    std::cout << (i.term >> 4) << " ";
+  }
+  std::cout << "\n";
 }

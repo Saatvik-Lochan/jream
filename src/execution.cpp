@@ -799,6 +799,11 @@ ErlReturnCode setup_and_go_label(ProcessControlBlock *pcb, uint64_t label_num) {
       code_chunk, pcb, all_funs, PreCompiled::teardown_code, label_num);
 }
 
+uint64_t get_current_space() {
+  auto pcb = emulator_main.scheduler.get_current_process();
+  return pcb->get_shared<STOP>() - pcb->get_shared<HTOP>();
+}
+
 ErlReturnCode resume_process(ProcessControlBlock *pcb) {
   LOG(INFO) << "\tresuming at label: " << pcb->get_shared<RESUME_LABEL>();
   return setup_and_go_label(pcb, pcb->get_shared<RESUME_LABEL>());
@@ -896,7 +901,7 @@ std::string queue_string(const std::unordered_set<ProcessControlBlock *> q) {
   return out;
 }
 
-void Emulator::run(GlobalFunctionId initial_func) {
+ErlTerm Emulator::run(GlobalFunctionId initial_func) {
 
   assert(initial_func.arity == 0);
 
@@ -937,4 +942,6 @@ void Emulator::run(GlobalFunctionId initial_func) {
     LOG(INFO) << "\twaiting: " << queue_string(scheduler.waiting);
     LOG(INFO) << "\trunnable: " << queue_string(scheduler.runnable);
   }
+
+  return pcb->get_shared<XREG_ARRAY>()[0];
 }

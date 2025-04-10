@@ -76,7 +76,7 @@ static_assert(sizeof(ErlTerm) == 8);
 
 ErlTerm erl_list_from_vec(std::vector<ErlTerm> terms, ErlTerm end);
 inline constexpr uint64_t get_nil_term() { return 0b111011; }
-ErlTerm deepcopy(ErlTerm e, ErlTerm *&to_loc, ErlTerm *max_alloc = nullptr);
+ErlTerm deepcopy(ErlTerm e, ErlTerm *&to_loc, ErlTerm *max_alloc);
 std::vector<ErlTerm> vec_from_erl_list(ErlTerm e, bool include_end = false);
 
 ErlTerm make_boxed(ErlTerm *);
