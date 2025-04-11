@@ -250,7 +250,8 @@ AllocList *parse_alloc_list(std::ifstream &stream) {
       break;
     }
     default: {
-      LOG(FATAL) << "Unknown type in alloc list " + std::to_string(type);
+      throw std::logic_error(
+          std::format("Unknown type in alloc list '{}'", std::to_string(type)));
     }
     }
   }

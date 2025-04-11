@@ -1,1 +1,1 @@
-  exit_because ERROR
+  exit_because BADMATCH

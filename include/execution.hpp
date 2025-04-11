@@ -10,7 +10,14 @@
 #include <unordered_set>
 
 // must match with meta_assembly_compile
-enum ErlReturnCode { ERROR = -1, FINISH = 0, YIELD = 1, WAIT = 2 };
+enum ErlReturnCode {
+  ERROR = -1,
+  FINISH = 0,
+  YIELD = 1,
+  WAIT = 2,
+  BADMATCH = 3,
+  HEAP_SPACE = 4
+};
 
 struct Scheduler {
   std::unordered_set<ProcessControlBlock *> runnable;

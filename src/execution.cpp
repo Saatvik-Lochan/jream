@@ -170,6 +170,12 @@ ErlTerm Emulator::run(GlobalFunctionId initial_func) {
       scheduler.waiting.insert(to_run);
       break;
     }
+    case BADMATCH: {
+      throw std::runtime_error("A process has failed due to a badmatch");
+    }
+    case HEAP_SPACE:
+      throw std::runtime_error(
+          "A process has failed due to a lack of heap space");
     }
 
     LOG(INFO) << "After " << count++ << ":";

@@ -133,6 +133,8 @@ def transform_if_necessary(line: str):
             "FINISH": 0,
             "YIELD": 1,
             "WAIT": 2,
+            "BADMATCH": 3,
+            "HEAP_SPACE": 4
         }
 
         # s8 is the return value register because it doesnt' change
