@@ -146,34 +146,34 @@ std::string get_argument_string(Argument arg, const AtomChunk &atom_chunk) {
 }
 
 void AtomChunk::log() {
-  LOG(INFO) << "AtomChunk";
+  DLOG(INFO) << "AtomChunk";
 
   for (size_t i = 1; i < atoms.size(); i++) {
-    LOG(INFO) << "    " << i << ":  " << atoms[i];
+    DLOG(INFO) << "    " << i << ":  " << atoms[i];
   }
 }
 
 void CodeChunk::log(const AtomChunk &atom_chunk) {
-  LOG(INFO) << "CodeChunk";
-  LOG(INFO) << "name | op_code/arity";
+  DLOG(INFO) << "CodeChunk";
+  DLOG(INFO) << "name | op_code/arity";
 
   for (auto instr : instructions) {
     auto op_code = static_cast<uint32_t>(instr.op_code);
     auto name = op_names[op_code];
     auto arity = op_arities[op_code];
 
-    LOG(INFO) << "";
-    LOG(INFO) << std::format("  {} | {}/{} ", name, op_code, arity);
+    DLOG(INFO) << "";
+    DLOG(INFO) << std::format("  {} | {}/{} ", name, op_code, arity);
 
     const auto &args = instr.arguments;
 
     for (auto arg : args) {
-      LOG(INFO) << "    " << get_argument_string(arg, atom_chunk);
+      DLOG(INFO) << "    " << get_argument_string(arg, atom_chunk);
     }
   }
 }
 
-void LiteralChunk::log() { LOG(INFO) << "Literal Chunk"; }
+void LiteralChunk::log() { DLOG(INFO) << "Literal Chunk"; }
 
 std::string get_func_id_name(ExternalFunctionId func_id,
                              const AtomChunk &atom_chunk) {
@@ -183,9 +183,9 @@ std::string get_func_id_name(ExternalFunctionId func_id,
 }
 
 void ImportTableChunk::log(const AtomChunk &atom_chunk) {
-  LOG(INFO) << "Import Table Chunk";
+  DLOG(INFO) << "Import Table Chunk";
   for (size_t i = 0; i < imports.size(); i++) {
-    LOG(INFO) << "    " << i << ": "
+    DLOG(INFO) << "    " << i << ": "
               << get_func_id_name(imports[i], atom_chunk);
   }
 }
@@ -198,9 +198,9 @@ std::string get_func_id_name(ExportFunctionId func_id,
 }
 
 void ExportTableChunk::log(const AtomChunk &atom_chunk) {
-  LOG(INFO) << "Export Table Chunk";
+  DLOG(INFO) << "Export Table Chunk";
   for (size_t i = 0; i < exports.size(); i++) {
-    LOG(INFO) << "    " << i << ": "
+    DLOG(INFO) << "    " << i << ": "
               << get_func_id_name(exports[i], atom_chunk);
   }
 }
@@ -214,9 +214,9 @@ std::string get_func_id_name(AnonymousFunctionId func_id,
 }
 
 void FunctionTableChunk::log(const AtomChunk &atom_chunk) {
-  LOG(INFO) << "Function Table Chunk:";
+  DLOG(INFO) << "Function Table Chunk:";
   for (size_t i = 0; i < functions.size(); i++) {
-    LOG(INFO) << "    " << i << ": "
+    DLOG(INFO) << "    " << i << ": "
               << get_func_id_name(functions[i], atom_chunk);
   }
 }

@@ -31,7 +31,7 @@ uint64_t get_current_space() {
 }
 
 ErlReturnCode resume_process(ProcessControlBlock *pcb) {
-  LOG(INFO) << "\tresuming at label: " << pcb->get_shared<RESUME_LABEL>();
+  DLOG(INFO) << "\tresuming at label: " << pcb->get_shared<RESUME_LABEL>();
   return setup_and_go_label(pcb, pcb->get_shared<RESUME_LABEL>());
 }
 
@@ -148,7 +148,7 @@ ErlTerm Emulator::run(GlobalFunctionId initial_func) {
   auto count = 1;
 
   while (auto to_run = scheduler.pick_next()) {
-    LOG(INFO) << "Now executing: " << to_run;
+    DLOG(INFO) << "Now executing: " << to_run;
 
     auto result = resume_process(to_run);
 
@@ -157,16 +157,16 @@ ErlTerm Emulator::run(GlobalFunctionId initial_func) {
       throw std::logic_error("Internal process finished with an error");
     }
     case FINISH: {
-      LOG(INFO) << "A process finished: " << to_run;
+      DLOG(INFO) << "A process finished: " << to_run;
       break;
     }
     case YIELD: {
-      LOG(INFO) << "A process yielded: " << to_run;
+      DLOG(INFO) << "A process yielded: " << to_run;
       scheduler.runnable.insert(to_run);
       break;
     }
     case WAIT: {
-      LOG(INFO) << "A process is waiting: " << to_run;
+      DLOG(INFO) << "A process is waiting: " << to_run;
       scheduler.waiting.insert(to_run);
       break;
     }
@@ -178,9 +178,9 @@ ErlTerm Emulator::run(GlobalFunctionId initial_func) {
           "A process has failed due to a lack of heap space");
     }
 
-    LOG(INFO) << "After " << count++ << ":";
-    LOG(INFO) << "\twaiting: " << queue_string(scheduler.waiting);
-    LOG(INFO) << "\trunnable: " << queue_string(scheduler.runnable);
+    DLOG(INFO) << "After " << count++ << ":";
+    DLOG(INFO) << "\twaiting: " << queue_string(scheduler.waiting);
+    DLOG(INFO) << "\trunnable: " << queue_string(scheduler.runnable);
   }
 
   return pcb->get_shared<XREG_ARRAY>()[0];
