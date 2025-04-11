@@ -37,8 +37,8 @@
 # directories
 .cache
 build
-qemu_build
 debug_build
+release_build
 **/__pycache__
 
 # binaries
@@ -50,3 +50,4 @@ main_debug
 *.dump
 *.beam
 compile_commands.json
+
