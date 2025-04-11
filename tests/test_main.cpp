@@ -93,6 +93,23 @@ TEST(ErlTerm, ParseList) {
   ASSERT_EQ(vec, expected_vec);
 }
 
+TEST(ErlTerm, ParseListBadFormatting) {
+  std::string test = "[  1 , 2  , 3 , 4  , 5 ].";
+
+  // when
+  auto result = try_parse(test);
+
+  // then
+  auto vec = vec_from_erl_list(result);
+  std::vector<ErlTerm> expected_vec = {1, 2, 3, 4, 5};
+
+  for (auto &val : expected_vec) {
+    val = make_small_int(val);
+  }
+
+  ASSERT_EQ(vec, expected_vec);
+}
+
 TEST(ErlTerm, ParseMix) {
   std::string test = "{1, [2, 3], 4}.";
 
@@ -1213,7 +1230,56 @@ TEST(RISCV, IsTaggedTuple) {
 
   // then
   ASSERT_TRUE(a);
-  ASSERT_TRUE(a);
+  ASSERT_FALSE(b);
+}
+
+TEST(RISCV, IsTaggedTupleWrongArity) {
+  bool a, b;
+  auto pcb = setup_is_tagged_tuple(&a, &b);
+
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  ErlTerm heap[] = { 3 << 6, make_atom(3), 2 , 4 };
+  xregs[0] = make_boxed(heap);
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_FALSE(a);
+  ASSERT_TRUE(b);
+}
+
+TEST(RISCV, IsTaggedTupleWrongWrongAtom) {
+  bool a, b;
+  auto pcb = setup_is_tagged_tuple(&a, &b);
+
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  ErlTerm heap[] = { 2 << 6, make_atom(4), 2 };
+  xregs[0] = make_boxed(heap);
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_FALSE(a);
+  ASSERT_TRUE(b);
+}
+
+
+TEST(RISCV, IsTaggedTupleNotBoxed) {
+  bool a, b;
+  auto pcb = setup_is_tagged_tuple(&a, &b);
+
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  ErlTerm heap[] = { 2 << 6, make_atom(3), 2 };
+  xregs[0] = ErlTerm(reinterpret_cast<uint64_t>(heap));
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_FALSE(a);
+  ASSERT_TRUE(b);
 }
 
 TEST(RISCV, InitYRegs) {

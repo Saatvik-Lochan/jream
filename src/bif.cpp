@@ -6,7 +6,6 @@
 #include <fstream>
 #include <glog/logging.h>
 #include <iostream>
-#include <stdexcept>
 
 ProcessControlBlock *get_pcb() {
   return emulator_main.scheduler.get_current_process();
