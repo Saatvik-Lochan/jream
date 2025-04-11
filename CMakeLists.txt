@@ -34,6 +34,7 @@ FetchContent_MakeAvailable(zlib)
 # main library
 add_library(jreamlib 
   src/beamparser.cpp
+  src/translation.cpp
   src/bif.cpp
   src/pcb.cpp
   src/exceptions.cpp

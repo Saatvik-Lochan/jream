@@ -42,11 +42,6 @@ inline Emulator emulator_main;
 static_assert(std::is_standard_layout_v<Message>,
               "Message is not standard layout. Required.");
 
-uint8_t *move_code_to_memory(const std::vector<uint8_t> &code);
-void run_code_section(CodeChunk &code_chunk, const CodeSection code_sec,
-                      ProcessControlBlock *pcb);
-uint8_t *compile_erlang_func(CodeChunk &code_chunk, uint64_t func_index);
-
 ProcessControlBlock *create_process(EntryPoint entry_point);
 
 ErlReturnCode resume_process(ProcessControlBlock *pcb);

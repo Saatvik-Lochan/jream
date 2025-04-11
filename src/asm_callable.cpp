@@ -3,6 +3,7 @@
 #include "external_term.hpp"
 #include "op_arity.hpp"
 #include "pcb.hpp"
+#include "translation.hpp"
 #include <compare>
 #include <glog/logging.h>
 #include <iostream>

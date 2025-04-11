@@ -775,6 +775,45 @@ TEST(RISCV, CallExtOnlyBif) {
   ASSERT_EQ(result, FINISH);
 }
 
+TEST(RISCV, CallExtLastBif) {
+  uint64_t arity = 2;
+
+  // don't need alloc/dealloc if it is a bif
+  std::vector<Instruction> instructions = {
+      Instruction{ALLOCATE_OP, {get_lit(2)}},
+      Instruction{CALL_EXT_LAST_OP,
+                  {
+                      Argument{LITERAL_TAG, {.arg_num = arity}},
+                      Argument{LITERAL_TAG, {.arg_num = 0}}, // import index
+                      Argument{LITERAL_TAG, {.arg_num = 2}}  // dealloc
+                  }},
+  };
+
+  wrap_in_function(instructions, 1, false); // don't use return
+  auto file = get_file_with_import("erlang", "test", arity, std::nullopt,
+                                   std::move(instructions));
+
+  auto pcb = get_process(file.code_chunk);
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+
+  xregs[0] = 12;
+  xregs[1] = 134;
+
+  ErlTerm stack[5];
+  auto initial_stack_loc = stack + 5;
+  pcb->set_shared<STOP>(initial_stack_loc);
+
+  // when
+  auto result = resume_process(pcb);
+
+  // then
+  ASSERT_EQ(xregs[0], 12 + 134);
+  ASSERT_EQ(result, FINISH);
+
+  auto new_stop = pcb->get_shared<STOP>();
+  ASSERT_EQ(new_stop, initial_stack_loc);
+}
+
 TEST(RISCV, Bif0) {
   std::vector<Instruction> instructions = {
       Instruction{BIF0_OP,
@@ -1208,7 +1247,7 @@ ProcessControlBlock *setup_is_tagged_tuple(bool *a, bool *b) {
           {Argument{LABEL_TAG, {.arg_num = 2}},
            Argument{X_REGISTER_TAG, {.arg_num = 0}},
            Argument{LITERAL_TAG, {.arg_num = 2}}, // arity
-           Argument{ATOM_TAG, {.arg_num = 3}}},  
+           Argument{ATOM_TAG, {.arg_num = 3}}},
       },
       a, b);
 
@@ -1222,7 +1261,7 @@ TEST(RISCV, IsTaggedTuple) {
   auto pcb = setup_is_tagged_tuple(&a, &b);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
-  ErlTerm heap[] = { 2 << 6, make_atom(3), 2 };
+  ErlTerm heap[] = {2 << 6, make_atom(3), 2};
   xregs[0] = make_boxed(heap);
 
   // when
@@ -1238,7 +1277,7 @@ TEST(RISCV, IsTaggedTupleWrongArity) {
   auto pcb = setup_is_tagged_tuple(&a, &b);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
-  ErlTerm heap[] = { 3 << 6, make_atom(3), 2 , 4 };
+  ErlTerm heap[] = {3 << 6, make_atom(3), 2, 4};
   xregs[0] = make_boxed(heap);
 
   // when
@@ -1254,7 +1293,7 @@ TEST(RISCV, IsTaggedTupleWrongWrongAtom) {
   auto pcb = setup_is_tagged_tuple(&a, &b);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
-  ErlTerm heap[] = { 2 << 6, make_atom(4), 2 };
+  ErlTerm heap[] = {2 << 6, make_atom(4), 2};
   xregs[0] = make_boxed(heap);
 
   // when
@@ -1265,13 +1304,12 @@ TEST(RISCV, IsTaggedTupleWrongWrongAtom) {
   ASSERT_TRUE(b);
 }
 
-
 TEST(RISCV, IsTaggedTupleNotBoxed) {
   bool a, b;
   auto pcb = setup_is_tagged_tuple(&a, &b);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
-  ErlTerm heap[] = { 2 << 6, make_atom(3), 2 };
+  ErlTerm heap[] = {2 << 6, make_atom(3), 2};
   xregs[0] = ErlTerm(reinterpret_cast<uint64_t>(heap));
 
   // when
