@@ -11,6 +11,9 @@ CodeChunk::CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
     : instructions(std::move(instrs)), function_count(function_count),
       label_count(label_count) {
 
+  assert(function_count > 0);
+  assert(label_count > 0);
+
   // allocate label jumps (+1 to count since labels start at 1)
   label_jump_locations = new const uint8_t *[label_count + 1];
   std::fill(label_jump_locations, label_jump_locations + label_count + 1,

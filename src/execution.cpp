@@ -128,7 +128,7 @@ std::string queue_string(const std::unordered_set<ProcessControlBlock *> q) {
 }
 
 ErlTerm Emulator::get_atom_current(std::string atom_name) {
-  auto pcb = emulator_main.scheduler.get_current_process();
+  auto pcb = scheduler.get_current_process();
   auto index =
       pcb->get_shared<CODE_CHUNK_P>()->atom_chunk->atom_index[atom_name];
 

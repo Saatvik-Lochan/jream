@@ -229,9 +229,9 @@ ErlTerm make_small_int(uint64_t num) {
 }
 
 ErlTerm make_atom(uint64_t index) {
-  assert(((index << 4) >> 4) == index);
+  assert(((index << 6) >> 6) == index);
 
-  return ErlTerm((index << 4) + 0b1011);
+  return ErlTerm((index << 6) + 0b1011);
 }
 
 bool is_num(char c) { return 48 <= c && c < 58; }
@@ -254,14 +254,15 @@ ErlTerm parse_int(const std::string &term, size_t &from,
   return make_small_int(num);
 }
 
-template <char start, char end>
-std::vector<ErlTerm> collect(const std::string &term, size_t &from,
+std::vector<ErlTerm> collect_till(const std::string &term, char end, size_t &from,
                              ProcessControlBlock *pcb) {
   std::vector<ErlTerm> terms;
 
+  // TODO make it work for empty array...
+  terms.push_back(parse_term(term, from, pcb));
+
   while (term[from] != end) {
     switch (term[from]) {
-    case start:
     case ',': {
       from++;
       terms.push_back(parse_term(term, from, pcb));
@@ -272,7 +273,8 @@ std::vector<ErlTerm> collect(const std::string &term, size_t &from,
       break;
     }
     default: {
-      throw std::logic_error("Invalid");
+      throw std::logic_error(
+          std::format("Invalid parsing. Did not expect '{}'.", term[from]));
     }
     }
   }
@@ -281,11 +283,8 @@ std::vector<ErlTerm> collect(const std::string &term, size_t &from,
   return terms;
 }
 
-ErlTerm parse_erl_list(const std::string &term, size_t &from,
-                       ProcessControlBlock *pcb) {
-
-  auto terms = collect<'[', ']'>(term, from, pcb);
-
+ErlTerm terms_to_list(const std::vector<ErlTerm> &terms,
+                      ProcessControlBlock *pcb) {
   ErlListBuilder builder;
 
   auto curr = pcb->allocate_heap(terms.size() * 2);
@@ -299,10 +298,31 @@ ErlTerm parse_erl_list(const std::string &term, size_t &from,
   return builder.get_list();
 }
 
+void check_start(std::string term_name, char c, char needed) {
+  if (c != needed) {
+    throw std::logic_error(std::format("parse {} but incorrect opening {}",
+                           term_name, c));
+  }
+}
+
+ErlTerm parse_erl_list(const std::string &term, size_t &from,
+                       ProcessControlBlock *pcb) {
+
+  check_start("list", term[from], '[');
+  from++;
+
+  auto terms = collect_till(term, ']', from, pcb);
+
+  return terms_to_list(terms, pcb);
+}
+
 ErlTerm parse_tuple(const std::string &term, size_t &from,
                     ProcessControlBlock *pcb) {
 
-  auto terms = collect<'{', '}'>(term, from, pcb);
+  check_start("tuple", term[from], '{');
+  from++;
+
+  auto terms = collect_till(term, '}', from, pcb);
 
   auto alloced = pcb->allocate_tuple(terms.size());
   for (size_t i = 0; i < terms.size(); i++) {
@@ -336,8 +356,21 @@ ErlTerm parse_term(const std::string &term, size_t &from,
   }
 }
 
+ErlTerm parse_terms_into_list(const std::string &term,
+                              ProcessControlBlock *pcb) {
+  size_t from = 0;
+  auto terms = collect_till(term, '.', from, pcb);
+
+  return terms_to_list(terms, pcb);
+}
+
 ErlTerm parse_term(const std::string &term) {
   auto pcb = emulator_main.scheduler.get_current_process();
   size_t count = 0;
   return parse_term(term, count, pcb);
+}
+
+ErlTerm parse_multiple_terms(const std::string &terms) {
+  auto pcb = emulator_main.scheduler.get_current_process();
+  return parse_terms_into_list(terms, pcb);
 }

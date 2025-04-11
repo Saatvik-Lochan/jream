@@ -149,7 +149,7 @@ BIFReturn file_consult(uint64_t file_name_raw) {
   std::string buffer(size, '\0');
   file.read(&buffer[0], size);
 
-  auto result = parse_term(buffer);
+  auto result = parse_multiple_terms(buffer);
 
   tuple[1] = emulator_main.get_atom_current("ok");
   tuple[2] = result;

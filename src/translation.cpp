@@ -372,6 +372,18 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       break;
     }
 
+    case TRIM_OP: {
+      auto to_reduce = instr.arguments[0];
+      assert(to_reduce.tag == LITERAL_TAG);
+
+      auto remaining = instr.arguments[1];
+      assert(remaining.tag == LITERAL_TAG);
+
+      add_setup_args_code({to_reduce.arg_raw.arg_num});
+      add_code(get_riscv(TRIM_SNIP));
+      break;
+    }
+
     case INIT_YREGS_OP: {
       // extended list
       auto yregs = instr.arguments[0];

@@ -12,6 +12,86 @@
 #include <iterator>
 #include <optional>
 
+struct BeamFileConstructor {
+  CodeChunk c;
+  std::optional<AtomChunk> a = std::nullopt;
+  std::optional<ImportTableChunk> i = std::nullopt;
+  std::optional<ExportTableChunk> e = std::nullopt;
+  std::optional<LiteralChunk> l = std::nullopt;
+  std::optional<FunctionTableChunk> f = std::nullopt;
+};
+
+BeamSrc get_beam_file(BeamFileConstructor b) {
+
+  AtomChunk a_({});
+  ImportTableChunk i_({});
+  ExportTableChunk e_({});
+  LiteralChunk l_({});
+  FunctionTableChunk f_({});
+
+  return BeamSrc(b.a ? *b.a : a_, b.c, b.l ? *b.l : l_, b.i ? *b.i : i_,
+                 b.e ? *b.e : e_, b.f ? *b.f : f_);
+}
+
+CodeChunk create_code_chunk(std::vector<Instruction> instructions) {
+  return CodeChunk(instructions, 0, 0);
+}
+
+ProcessControlBlock *get_process(CodeChunk *code_chunk) {
+  return create_process({.code_chunk = code_chunk, .label = 1});
+}
+
+ProcessControlBlock *get_process(CodeChunk &code_chunk) {
+  return create_process({.code_chunk = &code_chunk, .label = 1});
+}
+
+Argument get_lit(uint64_t arg) {
+  return Argument{LITERAL_TAG, {.arg_num = arg}};
+}
+
+Argument get_tag(Tag tag, uint64_t num) {
+  return Argument{tag, {.arg_num = num}};
+}
+
+void wrap_in_function(std::vector<Instruction> &instructions,
+                      uint64_t label = 1, bool include_return = true) {
+  auto start = {
+      Instruction{LABEL_OP, {get_lit(label)}},
+      Instruction{LINE_OP, {get_lit(0)}},
+      Instruction{FUNC_INFO_OP, // I don't actually parse the arguments
+                  {get_tag(ATOM_TAG, 0), get_tag(ATOM_TAG, 0), get_lit(0)}},
+  };
+
+  auto end = Instruction{RETURN_OP, {}};
+
+  instructions.insert(instructions.begin(), start.begin(), start.end());
+
+  if (include_return) {
+    instructions.push_back(end);
+  }
+}
+
+TEST(Parsing, GetAtomCurrent) {
+  CodeChunk code_chunk({Instruction{RETURN_OP}}, 1, 1);
+  AtomChunk atoms({"dummy", "module", "ok", "error"});
+
+  auto file = get_beam_file({.c = code_chunk, .a = atoms});
+
+  Emulator emulator;
+  emulator.register_beam_sources({&file});
+
+  auto pcb = get_process(file.code_chunk);
+  emulator.scheduler.runnable.insert(pcb);
+  emulator.scheduler.pick_next();
+
+  // when
+  auto result = emulator.get_atom_current("ok");
+
+  // then
+  // 10 for the index, 001011 for the atom tag
+  ASSERT_EQ(result, 0b10001011) << std::format("{:b}", result.term);
+}
+
 TEST(ErlTerm, ErlListFromVecAndBack) {
   std::vector<ErlTerm> initial_vec = {0, 1, 2, 3, 4, 5};
   auto list = erl_list_from_vec(initial_vec, get_nil_term());
@@ -62,7 +142,7 @@ TEST(ErlTerm, DeepcopyList) {
   ASSERT_EQ(start, new_list_area + 10);
 }
 
-ErlTerm try_parse(std::string term) {
+ErlTerm try_parse(std::string term, bool parse_multiple = false) {
 
   ProcessControlBlock pcb;
   emulator_main.scheduler.runnable.insert(&pcb);
@@ -73,7 +153,11 @@ ErlTerm try_parse(std::string term) {
   pcb.set_shared<STOP>(heap + 100);
 
   // when
-  return parse_term(term);
+  if (!parse_multiple) {
+    return parse_term(term);
+  } else {
+    return parse_multiple_terms(term);
+  }
 }
 
 TEST(ErlTerm, ParseList) {
@@ -136,6 +220,24 @@ TEST(ErlTerm, ParseMix) {
   ASSERT_EQ(received_vec, expected_vec);
 
   ASSERT_EQ(ptr[3], make_small_int(4));
+}
+
+TEST(ErlTerm, ParseMultiple) {
+  std::string test = "1, 2, 3, 4.";
+
+  // when
+  auto result = try_parse(test, true);
+
+  // then
+  auto received_vec = vec_from_erl_list(result);
+
+  std::vector<ErlTerm> expected_vec = {1, 2, 3, 4};
+  for (auto &v : expected_vec) {
+    v = make_small_int(v);
+  }
+
+  ASSERT_EQ(received_vec, expected_vec);
+
 }
 
 TEST(ErlTerm, DeepcopyTuple) {
@@ -203,65 +305,6 @@ TEST(Assembly, SetBTypeImmediate) {
   for (int i = 0; i < 4; i++) {
     ASSERT_EQ(result.raw[i], should.raw[i]) << result.display_hex();
   }
-}
-
-CodeChunk create_code_chunk(std::vector<Instruction> instructions) {
-  return CodeChunk(instructions, 0, 0);
-}
-
-ProcessControlBlock *get_process(CodeChunk *code_chunk) {
-  return create_process({.code_chunk = code_chunk, .label = 1});
-}
-
-ProcessControlBlock *get_process(CodeChunk &code_chunk) {
-  return create_process({.code_chunk = &code_chunk, .label = 1});
-}
-
-Argument get_lit(uint64_t arg) {
-  return Argument{LITERAL_TAG, {.arg_num = arg}};
-}
-
-Argument get_tag(Tag tag, uint64_t num) {
-  return Argument{tag, {.arg_num = num}};
-}
-
-void wrap_in_function(std::vector<Instruction> &instructions,
-                      uint64_t label = 1, bool include_return = true) {
-  auto start = {
-      Instruction{LABEL_OP, {get_lit(label)}},
-      Instruction{LINE_OP, {get_lit(0)}},
-      Instruction{FUNC_INFO_OP, // I don't actually parse the arguments
-                  {get_tag(ATOM_TAG, 0), get_tag(ATOM_TAG, 0), get_lit(0)}},
-  };
-
-  auto end = Instruction{RETURN_OP, {}};
-
-  instructions.insert(instructions.begin(), start.begin(), start.end());
-
-  if (include_return) {
-    instructions.push_back(end);
-  }
-}
-
-struct BeamFileConstructor {
-  CodeChunk c;
-  std::optional<AtomChunk> a = std::nullopt;
-  std::optional<ImportTableChunk> i = std::nullopt;
-  std::optional<ExportTableChunk> e = std::nullopt;
-  std::optional<LiteralChunk> l = std::nullopt;
-  std::optional<FunctionTableChunk> f = std::nullopt;
-};
-
-BeamSrc get_beam_file(BeamFileConstructor b) {
-
-  AtomChunk a_({});
-  ImportTableChunk i_({});
-  ExportTableChunk e_({});
-  LiteralChunk l_({});
-  FunctionTableChunk f_({});
-
-  return BeamSrc(b.a ? *b.a : a_, b.c, b.l ? *b.l : l_, b.i ? *b.i : i_,
-                 b.e ? *b.e : e_, b.f ? *b.f : f_);
 }
 
 void set_flag(bool *address) { *address = true; }
@@ -450,6 +493,33 @@ TEST(RISCV, AllocateAndDeallocate) {
   auto val = pcb->get_shared<STOP>();
   // remains the same because allocate and deallocate
   ASSERT_EQ(val, e) << "'e' was " << e;
+}
+
+TEST(RISCV, Trim) {
+  // given
+  auto trim_amount = 2;
+  auto remaining = 1;
+  std::vector<Instruction> instructions = {
+      Instruction{TRIM_OP, {get_lit(trim_amount), get_lit(remaining)}}};
+
+  wrap_in_function(instructions);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
+
+  auto code_ptr = 321412;
+  ErlTerm stack[5] = {code_ptr, 0, 1, 2};
+
+  auto pcb = get_process(code_chunk);
+  pcb->set_shared<STOP>(stack);
+
+  // when
+  resume_process(pcb);
+
+  // then
+  auto new_stop = pcb->get_shared<STOP>();
+  ASSERT_EQ(new_stop, stack + trim_amount);
+
+  ASSERT_EQ(new_stop[0], code_ptr);
+  ASSERT_EQ(new_stop[1], 2);
 }
 
 TEST(RISCV, TestGetTupleElement) {

@@ -309,5 +309,6 @@ inline auto ErlTerm::operator<=>(const ErlTerm &other) const {
 }
 
 ErlTerm parse_term(const std::string &term);
+ErlTerm parse_multiple_terms(const std::string &terms);
 
 #endif
