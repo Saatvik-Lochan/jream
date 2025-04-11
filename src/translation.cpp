@@ -350,7 +350,37 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     }
 
     case TEST_HEAP_OP: {
-      // just ignore it for now, till we do GC
+      auto amount = instr.arguments[0];
+
+      uint64_t words;
+
+      // calculate num words needed
+      switch (amount.tag) {
+      case EXT_ALLOC_LIST_TAG: {
+        // can change when implementing floats
+        AllocList a = *amount.arg_raw.alloc_list;
+        assert(a.floats == 0);
+
+        words = a.words + a.funs * 2;
+        break;
+      }
+      case LITERAL_TAG: {
+        words = amount.arg_raw.arg_num;
+        break;
+      }
+      default: {
+        throw std::logic_error("Unknown argument for heap");
+      }
+      }
+
+      add_setup_args_code({words});
+
+      auto live = instr.arguments[1];
+      assert(live.tag == LITERAL_TAG);
+
+      add_code(get_riscv(TEST_HEAP_SNIP));
+
+      // TODO actually do the garbage collection
       break;
     }
 

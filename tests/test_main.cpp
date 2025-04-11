@@ -237,7 +237,6 @@ TEST(ErlTerm, ParseMultiple) {
   }
 
   ASSERT_EQ(received_vec, expected_vec);
-
 }
 
 TEST(ErlTerm, DeepcopyTuple) {
@@ -520,6 +519,59 @@ TEST(RISCV, Trim) {
 
   ASSERT_EQ(new_stop[0], code_ptr);
   ASSERT_EQ(new_stop[1], 2);
+}
+
+template <uint64_t space> ErlReturnCode test_heap(Argument arg) {
+  // given
+  std::vector<Instruction> instructions = {
+      Instruction{TEST_HEAP_OP, {arg, get_lit(0)}},
+  };
+
+  wrap_in_function(instructions);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
+
+  ErlTerm heap[space];
+
+  auto pcb = get_process(code_chunk);
+  pcb->set_shared<STOP>(heap + space);
+  pcb->set_shared<HTOP>(heap);
+
+  // when
+  return resume_process(pcb);
+}
+
+TEST(RISCV, TestHeapNoGCLiteralYes) {
+  // given
+  auto result = test_heap<4>(get_lit(4));
+
+  // then
+  ASSERT_EQ(result, FINISH);
+}
+
+TEST(RISCV, TestHeapNoGCLiteralNo) {
+  // given
+  auto result = test_heap<4>(get_lit(5));
+
+  // then
+  ASSERT_EQ(result, FINISH);
+}
+
+TEST(RISCV, TestHeapNoGCAllocListYes) {
+  // given
+  AllocList a = {.words = 2, .floats = 0, .funs = 1};
+  auto result = test_heap<4>(Argument(EXT_ALLOC_LIST_TAG, {.alloc_list = &a}));
+
+  // then
+  ASSERT_EQ(result, FINISH);
+}
+
+TEST(RISCV, TestHeapNoGCAllocListNo) {
+  // given
+  AllocList a = {.words = 2, .floats = 0, .funs = 1};
+  auto result = test_heap<3>(Argument(EXT_ALLOC_LIST_TAG, {.alloc_list = &a}));
+
+  // then
+  ASSERT_EQ(result, FINISH);
 }
 
 TEST(RISCV, TestGetTupleElement) {
@@ -1737,7 +1789,7 @@ TEST(RISCV, Badmatch) {
   auto result = resume_process(pcb);
 
   // then
-  ASSERT_EQ(result, ERROR);
+  ASSERT_EQ(result, BADMATCH);
 }
 
 TEST(BuiltInFunction, ListsSplit) {

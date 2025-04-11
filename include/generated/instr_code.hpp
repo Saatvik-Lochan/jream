@@ -33,6 +33,7 @@ enum AsmSnippet {
   GET_TUPLE_ELEMENT_SNIP, // assembly/build/get_tuple_element.S
   LOAD_1_ARG_SNIP, // assembly/build/load_1_arg.S
   BADMATCH_SNIP, // assembly/build/badmatch.S
+  TEST_HEAP_SNIP, // assembly/build/test_heap.S
   CALL_LAST_SNIP, // assembly/build/call_last.S
   DO_COMP_SNIP, // assembly/build/do_comp.S
   LOAD_3_ARGS_SNIP, // assembly/build/load_3_args.S
