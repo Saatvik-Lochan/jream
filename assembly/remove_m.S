@@ -9,7 +9,7 @@
   store_shared t0, MBOX_TAIL
 
 1:
-  mv a0, t2
+  mv a0, t1
   sd t2, 0(t0)  # *save = (*save)->next 
 
   call_cxx_fun FREE_MSG
