@@ -39,6 +39,7 @@
 build
 debug_build
 release_build
+release_debug_build
 **/__pycache__
 
 # binaries
