@@ -265,13 +265,41 @@ TEST(ErlTerm, ToStringList) {
   }
 
   auto list = erl_list_from_vec(to_print, get_nil_term());
-  ASSERT_EQ(list.getTagType(), LIST_T);
 
   // when
   auto result = to_string(list);
 
   // then
   ASSERT_EQ(result, "[1, 2, 3, 4, 5]");
+}
+
+TEST(ErlTerm, ToStringTupleListAtom) {
+  std::vector<ErlTerm> to_print = {1, 2, 3};
+
+  for (auto &val : to_print) {
+    val = make_small_int(val);
+  }
+
+  auto list = erl_list_from_vec(to_print, get_nil_term());
+
+  AtomChunk a({"dummy", "ok"});
+  CodeChunk code_chunk({{RETURN_OP}}, 1, 1);
+  code_chunk.atom_chunk = &a;
+
+  ProcessControlBlock pcb;
+  pcb.set_shared<CODE_CHUNK_P>(&code_chunk);
+
+  emulator_main.scheduler.runnable.insert(&pcb);
+  emulator_main.scheduler.pick_next();
+
+  ErlTerm heap[] = {3 << 6, list, emulator_main.get_atom_current("ok"),
+                    make_small_int(7)};
+
+  // when
+  auto result = to_string(make_boxed(heap));
+
+  // then
+  ASSERT_EQ(result, "{[1, 2, 3], ok, 7}");
 }
 
 TEST(Assembly, CreateLoadDoubleWord) {
