@@ -47,7 +47,8 @@ BIFReturn spawn_1(uint64_t fun_raw) {
   assert(header >> 6 == func_id.num_free + 1);
 
   // create process with entry point
-  auto pcb = create_process(EntryPoint{code_chunk_p, func_id.label});
+  auto pcb =
+      emulator_main.create_process(EntryPoint{code_chunk_p, func_id.label});
   DLOG(INFO) << "\tspawning at label: " << func_id.label;
 
   auto new_x_reg = pcb->get_shared<XREG_ARRAY>();
@@ -156,7 +157,6 @@ BIFReturn file_consult(uint64_t file_name_raw) {
 
   return make_boxed(tuple);
 }
-
 
 // TODO make general
 BIFReturn io_write(uint64_t term) {

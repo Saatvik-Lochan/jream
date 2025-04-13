@@ -38,11 +38,11 @@ CodeChunk create_code_chunk(std::vector<Instruction> instructions) {
 }
 
 ProcessControlBlock *get_process(CodeChunk *code_chunk) {
-  return create_process({.code_chunk = code_chunk, .label = 1});
+  return emulator_main.create_process({.code_chunk = code_chunk, .label = 1});
 }
 
 ProcessControlBlock *get_process(CodeChunk &code_chunk) {
-  return create_process({.code_chunk = &code_chunk, .label = 1});
+  return emulator_main.create_process({.code_chunk = &code_chunk, .label = 1});
 }
 
 Argument get_lit(uint64_t arg) {

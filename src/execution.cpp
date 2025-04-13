@@ -35,8 +35,15 @@ ErlReturnCode resume_process(ProcessControlBlock *pcb) {
   return setup_and_go_label(pcb, pcb->get_shared<RESUME_LABEL>());
 }
 
-ProcessControlBlock *create_process(EntryPoint entry_point) {
-  ProcessControlBlock *pcb = new ProcessControlBlock;
+ProcessControlBlock *Emulator::create_process(EntryPoint entry_point) {
+  ProcessControlBlock *pcb;
+
+  if (dead_processes.empty()) {
+    pcb = new ProcessControlBlock;
+  } else {
+    pcb = std::move(dead_processes.back());
+    dead_processes.pop_back();
+  }
 
   pcb->set_shared<CODE_CHUNK_P>(entry_point.code_chunk);
   pcb->set_shared<RESUME_LABEL>(entry_point.label);
@@ -44,7 +51,8 @@ ProcessControlBlock *create_process(EntryPoint entry_point) {
   pcb->set_shared<CODE_POINTER>(PreCompiled::teardown_code);
 
   // allocate space
-  pcb->set_shared<XREG_ARRAY>(new ErlTerm[1001]);
+  // TODO make xreg amount dynamic
+  pcb->set_shared<XREG_ARRAY>(new ErlTerm[5]);
 
   const auto HEAP_SIZE = 1000;
   auto heap = new ErlTerm[HEAP_SIZE];
@@ -172,6 +180,9 @@ ErlTerm Emulator::run(GlobalFunctionId initial_func) {
     }
     case FINISH: {
       DLOG(INFO) << "A process finished: " << to_run;
+
+      // TODO check for issues with the message passing to a dead process
+      emulator_main.dead_processes.push_back(to_run);
       break;
     }
     case YIELD: {

@@ -26,9 +26,7 @@ struct Scheduler {
   ProcessControlBlock *pick_next();
   bool signal(ProcessControlBlock *process);
 
-  ProcessControlBlock *get_current_process() {
-    return executing_process;
-  }
+  ProcessControlBlock *get_current_process() { return executing_process; }
 
 private:
   ProcessControlBlock *executing_process = nullptr;
@@ -37,6 +35,8 @@ private:
 struct Emulator {
   Scheduler scheduler;
   std::unordered_map<std::string, BeamSrc *> beam_sources;
+  std::vector<ProcessControlBlock *> dead_processes;
+  ProcessControlBlock *create_process(EntryPoint entry_point);
 
   void register_beam_sources(std::vector<BeamSrc *>);
   ErlTerm run(GlobalFunctionId id);
@@ -49,8 +49,6 @@ inline Emulator emulator_main;
 
 static_assert(std::is_standard_layout_v<Message>,
               "Message is not standard layout. Required.");
-
-ProcessControlBlock *create_process(EntryPoint entry_point);
 
 ErlReturnCode resume_process(ProcessControlBlock *pcb);
 
