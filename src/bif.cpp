@@ -1,4 +1,5 @@
 #include "bif.hpp"
+#include "beam_defs.hpp"
 #include "execution.hpp"
 #include "external_term.hpp"
 #include "pcb.hpp"
@@ -43,8 +44,7 @@ BIFReturn spawn_1(uint64_t fun_raw) {
   auto func_id = functions[index];
 
   // +1 for the index ptr
-  auto size = header >> 6;
-  assert(size == func_id.num_free + 1);
+  assert(header >> 6 == func_id.num_free + 1);
 
   // create process with entry point
   auto pcb = create_process(EntryPoint{code_chunk_p, func_id.label});
@@ -157,16 +157,9 @@ BIFReturn file_consult(uint64_t file_name_raw) {
   return make_boxed(tuple);
 }
 
+
 // TODO make general
 BIFReturn io_write(uint64_t term) {
-  assert(ErlTerm(term).getErlMajorType() == LIST_ET);
-
-  ErlList e(term);
-  std::cout << "result: ";
-  for (auto i : e) {
-    std::cout << (i.term >> 4) << " ";
-  }
-  std::cout << "\n";
-
+  std::cout << to_string(ErlTerm(term)) << "\n";
   return 0;
 }

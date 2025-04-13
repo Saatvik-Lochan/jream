@@ -51,6 +51,9 @@ target_link_libraries(jreamlib PRIVATE
   glog
   zlib
 )
+target_compile_definitions(jreamlib PRIVATE
+  $<$<CONFIG:Debug>:EXEC_LOG=1>
+)
 target_include_directories(jreamlib PRIVATE
   ${PROJECT_SOURCE_DIR}/include
 )

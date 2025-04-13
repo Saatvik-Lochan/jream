@@ -374,3 +374,72 @@ ErlTerm parse_multiple_terms(const std::string &terms) {
   auto pcb = emulator_main.scheduler.get_current_process();
   return parse_terms_into_list(terms, pcb);
 }
+
+std::string to_string(ErlTerm erl_term);
+
+std::string to_string(std::vector<ErlTerm> terms, std::string start,
+                      std::string end) {
+
+  if (terms.size() == 0) {
+    return start + end;
+  }
+
+  std::string out_string = start;
+
+  for (size_t i = 0; i < terms.size() - 1; i++) {
+    out_string += to_string(terms[i]) + ", ";
+  }
+
+  out_string += to_string(terms[terms.size() - 1]);
+
+  return out_string + end;
+}
+
+std::string to_string(ErlTerm erl_term) {
+  switch (erl_term.getTagType()) {
+  case LIST_T: {
+    std::vector<ErlTerm> out = vec_from_erl_list(erl_term);
+    return to_string(out, "[", "]");
+  }
+  case BOXED_T: {
+    auto header_ptr = erl_term.as_ptr();
+    auto header = *header_ptr;
+
+    auto header_tag = (header >> 2) & 0b1111;
+
+    switch (header_tag) {
+    case 0b0000: {
+      auto length = header >> 6;
+
+      std::vector<ErlTerm> out;
+
+      for (auto it = header_ptr + 1; it < header_ptr + length + 1; it++) {
+        out.push_back(*it);
+      }
+
+      return to_string(out, "{", "}");
+    }
+    default:
+      throw std::logic_error(std::format(
+          "Cannot yet print the boxed type with tag {:04b}", header_tag));
+    }
+  }
+  case SMALL_INT_T: {
+    auto value = erl_term.term >> 4;
+    return std::format("{}", value);
+  }
+  case ATOM_T: {
+    return emulator_main.get_atom_string_current(erl_term);
+  }
+  case NIL_T:
+  case PID_T:
+  case PORT_T:
+  case HEADER_T:
+  case CATCH_T:
+  default: {
+    throw std::logic_error(
+        std::format("Cannot yet print term with tag '{}'",
+                    static_cast<int>(erl_term.getTagType())));
+  }
+  }
+}

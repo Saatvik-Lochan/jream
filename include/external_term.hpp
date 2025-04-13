@@ -79,6 +79,8 @@ inline constexpr uint64_t get_nil_term() { return 0b111011; }
 ErlTerm deepcopy(ErlTerm e, ErlTerm *&to_loc, ErlTerm *max_alloc);
 std::vector<ErlTerm> vec_from_erl_list(ErlTerm e, bool include_end = false);
 
+std::string to_string(ErlTerm erl_term);
+
 ErlTerm make_boxed(ErlTerm *);
 ErlTerm make_small_int(uint64_t num);
 ErlTerm make_atom(uint64_t index);

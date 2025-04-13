@@ -257,6 +257,23 @@ TEST(ErlTerm, DeepcopyTuple) {
   }
 }
 
+TEST(ErlTerm, ToStringList) {
+  std::vector<ErlTerm> to_print = {1, 2, 3, 4, 5};
+
+  for (auto &val : to_print) {
+    val = make_small_int(val);
+  }
+
+  auto list = erl_list_from_vec(to_print, get_nil_term());
+  ASSERT_EQ(list.getTagType(), LIST_T);
+
+  // when
+  auto result = to_string(list);
+
+  // then
+  ASSERT_EQ(result, "[1, 2, 3, 4, 5]");
+}
+
 TEST(Assembly, CreateLoadDoubleWord) {
   uint8_t rd = 31;
   uint8_t rs = 10;

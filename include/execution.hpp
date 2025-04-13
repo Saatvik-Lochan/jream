@@ -42,6 +42,7 @@ struct Emulator {
   ErlTerm run(GlobalFunctionId id);
   EntryPoint get_entry_point(GlobalFunctionId);
   ErlTerm get_atom_current(std::string atom_name);
+  std::string get_atom_string_current(ErlTerm e);
 };
 
 inline Emulator emulator_main;

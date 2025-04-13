@@ -86,5 +86,4 @@ uint64_t compare(uint64_t term1, uint64_t term2) {
 
 void free_msg(Message *msg) { delete msg; }
 
-void print_op_name(uint64_t op_code) { DLOG(INFO) << op_names[op_code]; }
-void print_line(uint64_t line_num) { DLOG(INFO) << "line num: " << line_num; }
+void print_op_name(uint64_t op_code) { LOG(INFO) << op_names[op_code]; }

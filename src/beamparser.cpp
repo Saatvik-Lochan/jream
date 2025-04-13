@@ -532,8 +532,7 @@ BeamSrc read_chunks(const std::string &filename) {
     const std::string module_name = read_string(input, 4);
     const uint32_t raw_size = read_big_endian(input);
 
-    DLOG(INFO) << std::format("module: {}, size: {}", module_name, raw_size)
-              << std::endl;
+    DLOG(INFO) << std::format("module: {}, size: {}", module_name, raw_size);
 
     const uint32_t aligned_chunk_len = (4 * ((raw_size + 3) / 4));
     const auto chunk_start = input.tellg();

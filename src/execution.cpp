@@ -40,7 +40,7 @@ ProcessControlBlock *create_process(EntryPoint entry_point) {
 
   pcb->set_shared<CODE_CHUNK_P>(entry_point.code_chunk);
   pcb->set_shared<RESUME_LABEL>(entry_point.label);
-  pcb->set_shared<REDUCTIONS>(1);
+  pcb->set_shared<REDUCTIONS>(100);
   pcb->set_shared<CODE_POINTER>(PreCompiled::teardown_code);
 
   // allocate space
@@ -69,7 +69,7 @@ ProcessControlBlock *Scheduler::pick_next() {
   auto value = runnable.extract(chosen_it);
   auto pcb = value.value();
 
-  pcb->set_shared<REDUCTIONS>(5);
+  pcb->set_shared<REDUCTIONS>(100);
 
   executing_process = pcb;
   return pcb;
@@ -135,6 +135,18 @@ ErlTerm Emulator::get_atom_current(std::string atom_name) {
   return make_atom(index);
 }
 
+std::string Emulator::get_atom_string_current(ErlTerm e) {
+  assert(e.getTagType() == ATOM_T);
+
+  auto index = e.term >> 6;
+  
+  auto pcb = scheduler.get_current_process();
+  auto value =
+      pcb->get_shared<CODE_CHUNK_P>()->atom_chunk->atoms[index];
+
+  return value;
+}
+
 ErlTerm Emulator::run(GlobalFunctionId initial_func) {
 
   assert(initial_func.arity == 0);
@@ -145,7 +157,9 @@ ErlTerm Emulator::run(GlobalFunctionId initial_func) {
   auto &scheduler = emulator_main.scheduler;
   scheduler.runnable.insert(pcb);
 
+#ifdef EXEC_LOG
   auto count = 1;
+#endif
 
   while (auto to_run = scheduler.pick_next()) {
     DLOG(INFO) << "Now executing: " << to_run;
@@ -178,9 +192,11 @@ ErlTerm Emulator::run(GlobalFunctionId initial_func) {
           "A process has failed due to a lack of heap space");
     }
 
-    DLOG(INFO) << "After " << count++ << ":";
-    DLOG(INFO) << "\twaiting: " << queue_string(scheduler.waiting);
-    DLOG(INFO) << "\trunnable: " << queue_string(scheduler.runnable);
+#ifdef EXEC_LOG
+    LOG(INFO) << "After " << count++ << ":";
+    LOG(INFO) << "\twaiting: " << queue_string(scheduler.waiting);
+    LOG(INFO) << "\trunnable: " << queue_string(scheduler.runnable);
+#endif
   }
 
   return pcb->get_shared<XREG_ARRAY>()[0];

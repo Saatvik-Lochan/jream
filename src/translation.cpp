@@ -287,7 +287,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
     const auto &instr = code_chunk.instructions[instr_index];
 
-#ifndef NDEBUG
+#ifdef EXEC_LOG
     // log the op that is executing
     add_riscv_instr(create_add_immediate(10, 0, instr.op_code));
     add_code(get_riscv(LOG_OP_SNIP));
