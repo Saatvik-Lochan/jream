@@ -1,6 +1,7 @@
 #ifndef EXTERNAL_TERM
 #define EXTERNAL_TERM
 #include <algorithm>
+#include <bitset>
 #include <cassert>
 #include <cstdint>
 #include <format>
@@ -82,8 +83,11 @@ std::vector<ErlTerm> vec_from_erl_list(ErlTerm e, bool include_end = false);
 std::string to_string(ErlTerm erl_term);
 
 ErlTerm make_boxed(ErlTerm *);
+ErlTerm make_cons(ErlTerm *);
 ErlTerm make_small_int(uint64_t num);
 ErlTerm make_atom(uint64_t index);
+
+ErlTerm tag(ErlTerm *ptr, std::bitset<2> tag_bits);
 
 class ErlListIterator {
 private:

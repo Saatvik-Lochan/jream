@@ -1,3 +1,4 @@
+#include "../include/allocator.hpp"
 #include "../include/beam_defs.hpp"
 #include "../include/bif.hpp"
 #include "../include/execution.hpp"
@@ -1918,4 +1919,56 @@ int main(int argc, char **argv) {
   setup_logging(argv[0]);
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
+}
+
+TEST(GC, StablePoolAllocator) {
+  using alloc_type = std::array<ErlTerm, 2>;
+  StablePoolAllocator<alloc_type> allocator(10);
+
+  std::vector<alloc_type *> alloced;
+
+  const auto INITIAL_ALLOC = 100;
+  const auto DEALLOC = 100;
+  const auto FINAL_ALLOC = 200;
+
+  auto alloc_and_push = [&](size_t i) {
+    auto result = allocator.alloc();
+    result->at(0) = i;
+    result->at(1) = i * 3;
+
+    alloced.push_back(result);
+  };
+
+  auto assert_correct = [&](size_t i) {
+    auto array = *alloced.at(i);
+    ASSERT_EQ(array[0], i);
+    ASSERT_EQ(array[1], i * 3);
+  };
+
+  for (size_t i = 0; i < INITIAL_ALLOC; i++) {
+    alloc_and_push(i);
+  }
+
+  // assert preserved
+  for (int i = 0; i < INITIAL_ALLOC; i++) {
+    assert_correct(i);
+  }
+
+  auto num_free = allocator.get_free_num();
+
+  for (int i = 0; i < DEALLOC; i++) {
+    allocator.free(alloced[i]);
+  }
+
+  auto num_free_after_dealloc = allocator.get_free_num();
+
+  ASSERT_EQ(num_free + DEALLOC, num_free_after_dealloc);
+
+  for (int i = INITIAL_ALLOC; i < FINAL_ALLOC; i++) {
+    alloc_and_push(i);
+  }
+
+  for (int i = DEALLOC; i < FINAL_ALLOC; i++) {
+    assert_correct(i);
+  }
 }

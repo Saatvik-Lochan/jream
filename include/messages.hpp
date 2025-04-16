@@ -13,6 +13,10 @@ struct Message {
   };
 
   inline ErlTerm get_payload() { return ErlTerm(values[0]); }
+  inline Message *get_next() { return reinterpret_cast<Message *>(values[1]); }
+  inline ErlTerm *get_payload_address() {
+    return reinterpret_cast<ErlTerm *>(values);
+  }
   inline Message **get_next_address() {
     return reinterpret_cast<Message **>(values + 1);
   }

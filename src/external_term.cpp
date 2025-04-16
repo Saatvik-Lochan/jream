@@ -222,6 +222,14 @@ ErlTerm make_boxed(ErlTerm *ptr) {
   return (reinterpret_cast<uint64_t>(ptr) & TAGGING_MASK) + 0b10;
 }
 
+ErlTerm make_cons(ErlTerm *ptr) {
+  return (reinterpret_cast<uint64_t>(ptr) & TAGGING_MASK) + 0b01;
+}
+
+ErlTerm tag(ErlTerm *ptr, std::bitset<2> tag_bits) {
+  return (reinterpret_cast<uint64_t>(ptr) & TAGGING_MASK) | tag_bits.to_ullong();
+}
+
 ErlTerm make_small_int(uint64_t num) {
   assert(((num << 4) >> 4) == num);
 

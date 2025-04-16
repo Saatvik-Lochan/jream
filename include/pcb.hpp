@@ -2,6 +2,7 @@
 #define PCB_H
 
 #include "external_term.hpp"
+#include "garbage_collection.hpp"
 #include "messages.hpp"
 #include <cstdint>
 
@@ -26,8 +27,8 @@ ENUM_TYPE(CODE_POINTER, const uint8_t *)
 ENUM_TYPE(REDUCTIONS, uint64_t)
 ENUM_TYPE(RESUME_LABEL, uint64_t)
 ENUM_TYPE(MBOX_HEAD, Message *)
-ENUM_TYPE(MBOX_TAIL, Message * volatile*)
-ENUM_TYPE(MBOX_SAVE, Message * volatile*)
+ENUM_TYPE(MBOX_TAIL, Message *volatile *)
+ENUM_TYPE(MBOX_SAVE, Message *volatile *)
 
 // we align by 16 bytes so we use 4 tag in pointers
 struct __attribute__((aligned(16))) ProcessControlBlock {
@@ -52,6 +53,20 @@ struct __attribute__((aligned(16))) ProcessControlBlock {
   void queue_message(Message *msg);
   ErlTerm *allocate_heap(size_t size);
   ErlTerm *allocate_tuple(size_t size);
+  ErlTerm *allocate_and_gc(size_t size, size_t xregs);
+  std::span<ErlTerm> get_stack() {
+    return std::span<ErlTerm>{get_shared<STOP>(), heap.data() + heap.size()};
+  }
+
+private:
+  std::span<ErlTerm> heap;
+  ErlTerm *highwater;
+
+  std::vector<std::span<ErlTerm>> get_root_set(size_t);
+  std::span<ErlTerm> get_next_to_space(size_t);
+  std::span<ErlTerm> prev_to_space;
+
+  OldHeap old_heap;
 };
 
 constexpr uint64_t PID_TAGGING_MASK = ~0UL << 4;

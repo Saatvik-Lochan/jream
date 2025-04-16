@@ -33,6 +33,7 @@ FetchContent_MakeAvailable(zlib)
 
 # main library
 add_library(jreamlib 
+  src/garbage_collection.cpp
   src/beamparser.cpp
   src/translation.cpp
   src/bif.cpp

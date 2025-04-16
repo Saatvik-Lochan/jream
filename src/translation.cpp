@@ -223,7 +223,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
   auto add_call_biff = [&](std::span<Argument> bif_args, uint64_t fail_label,
                            Argument dest_reg, uint64_t bif_num,
-                           size_t instr_index) {
+                           size_t instr_index, bool gc = false) {
     for (size_t i = 0; i < bif_args.size(); i++) {
       // load into a0, ..., aN
       add_load_appropriate(bif_args[i], 10 + i);
