@@ -11,7 +11,7 @@
 // we assume to_space has enough size
 YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
                    ErlTerm *to_space, const YoungHeap current_young,
-                   OldHeap &old_heap) {
+                   GeneralPurposeHeap &old_heap) {
 
   ErlTerm *new_top = to_space;
 
@@ -24,7 +24,7 @@ YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
     return out;
   };
 
-  std::stack<ErlTerm *> old_heap_to_fix;
+  std::stack<std::span<ErlTerm>> old_heap_to_fix;
 
   auto copy_term = [&alloc_and_copy, &current_young, &old_heap,
                     &old_heap_to_fix](ErlTerm *ptr_term_ptr) {
@@ -32,17 +32,17 @@ YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
 
     ErlTerm *copy_ptr = ptr_term.as_ptr();
 
-    if (!current_young.contains(copy_ptr)) {
-      // i.e. it is in the old heap and we don't have to gc it
-      return;
-    }
-
     switch (ptr_term & 0b11) {
     case 0b11:
     case 0b00: {
       return;
     }
     case 0b01: {
+      if (!current_young.contains(copy_ptr)) {
+        // i.e. it is in the old heap and we don't have to gc it
+        return;
+      }
+
       // list case
       if (copy_ptr[0] == 0) {
         // i.e list already moved
@@ -60,8 +60,7 @@ YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
         new_ref = old_heap.allocate_cons();
         std::ranges::copy(span, new_ref);
 
-        old_heap_to_fix.push(new_ref);
-        old_heap_to_fix.push(new_ref + 1);
+        old_heap_to_fix.push({new_ref, 2});
 
       } else {
         new_ref = alloc_and_copy(std::span<ErlTerm>{copy_ptr, 2});
@@ -76,6 +75,11 @@ YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
       return;
     }
     case 0b10: {
+
+      if (!current_young.contains(copy_ptr)) {
+        return;
+      }
+
       // boxed case
       ErlTerm header = *copy_ptr; // a.k.a header when relevant
 
@@ -96,9 +100,7 @@ YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
         new_ref = old_heap.allocate_other(size);
         std::ranges::copy(span, new_ref);
 
-        for (auto &val : span) {
-          old_heap_to_fix.push(&val);
-        }
+        old_heap_to_fix.push(span);
       } else {
         new_ref = alloc_and_copy(span);
       }
@@ -122,7 +124,9 @@ YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
     auto next = old_heap_to_fix.top();
     old_heap_to_fix.pop();
 
-    copy_term(next);
+    for (auto &e : next) {
+      copy_term(&e);
+    }
   }
 
   ErlTerm *new_bot = to_space;

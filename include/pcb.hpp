@@ -58,16 +58,22 @@ struct __attribute__((aligned(16))) ProcessControlBlock {
   std::span<ErlTerm> get_stack() {
     return std::span<ErlTerm>{get_shared<STOP>(), heap.data() + heap.size()};
   }
+  ErlTerm *allocate_heap_frag(size_t size) {
+    auto ptr = new ErlTerm[size];
+    heap_fragments.push_back({ptr, size});
+    return ptr;
+  }
 
   std::span<ErlTerm> heap;
+  std::vector<std::span<ErlTerm>> heap_fragments;
   ErlTerm *highwater;
+
+  GeneralPurposeHeap old_heap;
 
 private:
   std::vector<std::span<ErlTerm>> get_root_set(size_t);
   std::span<ErlTerm> get_next_to_space(size_t);
   std::span<ErlTerm> prev_to_space;
-
-  OldHeap old_heap;
 };
 
 constexpr uint64_t PID_TAGGING_MASK = ~0UL << 4;

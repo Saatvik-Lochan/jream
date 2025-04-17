@@ -2,23 +2,21 @@
 #define MESSAGES
 
 #include "external_term.hpp"
-#include <cstdint>
+#include <cstddef>
 
 struct Message {
-  uint64_t values[2];
+  ErlTerm payload;
+  Message *next;
 
-  inline explicit Message(ErlTerm e) {
-    values[0] = e;
-    values[1] = reinterpret_cast<uint64_t>(nullptr);
-  };
+  inline explicit Message(ErlTerm e): payload(e), next(nullptr) {}
 
-  inline ErlTerm get_payload() { return ErlTerm(values[0]); }
-  inline Message *get_next() { return reinterpret_cast<Message *>(values[1]); }
+  inline ErlTerm get_payload() { return payload; }
+  inline Message *get_next() { return next; }
   inline ErlTerm *get_payload_address() {
-    return reinterpret_cast<ErlTerm *>(values);
+    return &payload;
   }
   inline Message **get_next_address() {
-    return reinterpret_cast<Message **>(values + 1);
+    return &next;
   }
 };
 
@@ -26,5 +24,8 @@ struct Message {
 // is the same as the pointer to the first field (values)
 static_assert(std::is_standard_layout_v<Message>,
               "Message is not standard layout. Required.");
-
+static_assert(offsetof(Message, payload) == 0,
+              "Message payload must be at offset 0");
+static_assert(offsetof(Message, next) == 8,
+              "Message next ptr must be at offset 8");
 #endif

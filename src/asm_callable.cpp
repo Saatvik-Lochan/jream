@@ -59,13 +59,9 @@ void send_message(ErlTerm *xregs) {
 
   ProcessControlBlock *process = from_pid(destination_pid);
 
-  // TODO fix this if garbage collection
-  // assume there is space!
-  auto heap_top = process->get_shared<HTOP>();
-  auto stop = process->get_shared<STOP>();
-
-  auto copied_handle = deepcopy(message, heap_top, stop); // updates heap_top
-  process->set_shared<HTOP>(heap_top);
+  auto size = get_heap_size(message);
+  auto heap_frag = process->allocate_heap_frag(size);
+  auto copied_handle = deepcopy(message, heap_frag);
 
   auto msg = new Message(copied_handle);
   process->queue_message(msg);
@@ -86,4 +82,6 @@ uint64_t compare(uint64_t term1, uint64_t term2) {
 
 void free_msg(Message *msg) { delete msg; }
 
-void print_op_name(uint64_t op_code) { LOG(INFO) << op_names[op_code]; }
+void print_op_name(uint64_t op_code) {
+  LOG(INFO) << op_names[op_code] << ": " << op_code;
+}

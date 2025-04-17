@@ -2,6 +2,7 @@
 #include "external_term.hpp"
 #include "garbage_collection.hpp"
 #include <algorithm>
+#include <ranges>
 
 ErlTerm make_pid(ProcessControlBlock *pcb) {
   return (reinterpret_cast<uint64_t>(pcb) & PID_TAGGING_MASK) + 0b0011;
@@ -31,6 +32,10 @@ ErlTerm *ProcessControlBlock::allocate_tuple(size_t size, size_t xregs) {
 std::span<ErlTerm> ProcessControlBlock::get_next_to_space(size_t alloc_amount) {
   // in words
   auto required_amount = heap.size() + alloc_amount;
+
+  for (auto v : heap_fragments) {
+    required_amount += v.size();
+  }
 
   if (prev_to_space.size() >= required_amount) {
     return prev_to_space;
@@ -76,7 +81,8 @@ ErlTerm *ProcessControlBlock::allocate_and_gc(size_t size, size_t xregs) {
     std::span<ErlTerm> to_space = get_next_to_space(size);
 
     // copy stack
-    std::ranges::copy_backward(get_stack(), to_space.end());
+    auto stack_span = get_stack();
+    std::ranges::copy_backward(stack_span, to_space.end());
 
     // do gc
     auto root_set = get_root_set(xregs);
@@ -91,12 +97,20 @@ ErlTerm *ProcessControlBlock::allocate_and_gc(size_t size, size_t xregs) {
     // store in case we need in the future
     prev_to_space = heap;
 
+    // dealloc heap frags
+    for (auto frags : heap_fragments) {
+      delete[] frags.data();
+    }
+
     // set new values
     heap = to_space;
     set_shared<HTOP>(result.heap_top + size); // new top after alloc
+    set_shared<STOP>(heap.data() + heap.size() - stack_span.size());
     highwater = result.highwater;
 
     htop = result.heap_top;
+  } else {
+    set_shared<HTOP>(new_top);
   }
 
   return htop;

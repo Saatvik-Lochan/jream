@@ -1,3 +1,4 @@
+#include <concepts>
 #include <glog/logging.h>
 
 #include "exceptions.hpp"
@@ -8,9 +9,13 @@
 #include <cassert>
 #include <cstdint>
 #include <format>
+#include <stack>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <unordered_map>
+#include <unordered_set>
+#include <variant>
 #include <vector>
 
 std::string ErlTerm::raw_display() { return std::format("{:b}", term); }
@@ -110,7 +115,7 @@ std::pair<ErlTerm, uint8_t *> ErlTerm::from_binary(uint8_t *data,
       terms.push_back(char_term);
     }
 
-    ErlTerm list = erl_list_from_vec(terms, get_nil_term());
+    ErlTerm list = erl_list_from_range(terms, get_nil_term());
     return {list, data + string_len};
   }
   case 108: { // list_ext
@@ -127,7 +132,7 @@ std::pair<ErlTerm, uint8_t *> ErlTerm::from_binary(uint8_t *data,
     }
 
     auto end = from_binary(data, false).first;
-    ErlTerm list = erl_list_from_vec(terms, end);
+    ErlTerm list = erl_list_from_range(terms, end);
 
     return {list, data};
   }
@@ -139,17 +144,6 @@ std::pair<ErlTerm, uint8_t *> ErlTerm::from_binary(uint8_t *data,
     throw NotImplementedException(err_msg.c_str());
   }
   }
-}
-
-ErlTerm erl_list_from_vec(std::vector<ErlTerm> terms, ErlTerm end) {
-  ErlListBuilder builder;
-
-  for (auto term : terms) {
-    builder.add_term(term, new ErlTerm[2]);
-  }
-
-  builder.set_end(end);
-  return builder.get_list();
 }
 
 std::vector<ErlTerm> vec_from_erl_list(ErlTerm e, bool include_end) {
@@ -168,54 +162,183 @@ std::vector<ErlTerm> vec_from_erl_list(ErlTerm e, bool include_end) {
   return out;
 }
 
+template <typename T, typename U, typename V>
+void traverse_term(T e, U &&do_each_block, V &&combine)
+  requires requires(T t, U u, V v, ErlTerm next, bool b) {
+    { v(u(t, b), next) } -> std::same_as<T>;
+    { t.next } -> std::same_as<ErlTerm &>;
+  }
+{
+  auto is_pointer = [](ErlTerm e) {
+    auto tag = e.term & 0b11;
+    return (tag == 0b10 || tag == 0b01);
+  };
+
+  if (!is_pointer(e.next)) {
+    return;
+  }
+
+  std::stack<T> to_check;
+  to_check.push(e); // root
+
+  std::unordered_set<uint64_t> visited;
+
+  while (!to_check.empty()) {
+    T to_consider = to_check.top();
+    to_check.pop();
+
+    ErlTerm next = to_consider.next;
+
+    auto in_visited = visited.contains(next);
+    auto other = do_each_block(to_consider, in_visited);
+
+    if (in_visited) {
+      continue;
+    }
+
+    visited.insert(next);
+
+    // assume it is a pointer
+    const uint8_t bits = next & 0b11;
+
+    switch (bits) {
+    case 0b10: {
+      ErlTerm *tuple_start = next.as_ptr();
+      ErlTerm header = *tuple_start;
+      assert((header & 0b11) == 0b00);
+
+      uint64_t length = header >> 6;
+
+      std::span<ErlTerm> tuple_span(tuple_start + 1, length);
+
+      for (auto val : tuple_span) {
+        if (is_pointer(val)) {
+          to_check.push(combine(other, val));
+        }
+      }
+      break;
+    }
+    case 0b01: {
+      for (auto val : std::span<ErlTerm>{next.as_ptr(), 2}) {
+        if (is_pointer(val)) {
+          to_check.push(combine(other, val));
+        }
+      }
+      break;
+    }
+    case 0b11: { // only one word to copy
+      throw std::logic_error(
+          "Logic error. Should never reach here whent traversing!");
+    }
+    default: {
+      throw std::logic_error("Heap size not a valid operation for return "
+                             "address/header words (tag: 0b00)");
+    }
+    }
+  }
+}
+
+size_t get_heap_size(const ErlTerm e) {
+  auto count = 0;
+
+  struct out {
+    ErlTerm next;
+  };
+
+  traverse_term<out>(
+      {e},
+      [&count](out val, bool in_visited) {
+        if (!in_visited) {
+          auto next = val.next;
+          auto tag = next & 0b11;
+
+          switch (tag) {
+          case 0b01: {
+            count += 2;
+            break;
+          }
+          case 0b10: {
+            auto size = *next.as_ptr() >> 6;
+            count += (size + 1);
+            break;
+          }
+          }
+        }
+        return std::monostate();
+      },
+      [](const std::monostate, ErlTerm next) { return out{.next = next}; });
+
+  return count;
+}
+
 // Assume that all required space has already been allocated contiguously.
 // Copies anything necessary to to_loc and returns the the word representing
 // the whole type
-ErlTerm deepcopy(ErlTerm e, ErlTerm *&to_loc, ErlTerm *max_alloc) {
-  const uint8_t bits = e.term & 0b11;
+ErlTerm deepcopy(ErlTerm e, ErlTerm *const to_loc) {
+  std::unordered_map<uint64_t, ErlTerm> alr_copied;
 
-  switch (bits) {
-  case 0b11: { // only one word to copy
-    return e;
-  }
-  case 0b10: {
-    ErlTerm *tuple_start = e.as_ptr();
-    ErlTerm header = *tuple_start;
-    assert((header & 0b11) == 0b00);
+  auto current = to_loc;
 
-    uint64_t length = header >> 6;
-    uint64_t whole_tuple_size = length + 1;
+  struct with_copy_parent {
+    ErlTerm next;
+    ErlTerm *copy_parent;
+  };
 
-    auto box_end = tuple_start + whole_tuple_size;
+  ErlTerm out_handle = e;
 
-    assert(to_loc + whole_tuple_size <= max_alloc);
+  traverse_term<with_copy_parent>(
+      {.next = e, .copy_parent = &out_handle},
+      [&current, &alr_copied](with_copy_parent val, bool in_visited) {
+        if (in_visited) {
+          auto copy_parent = val.copy_parent;
+          *copy_parent = alr_copied[val.next];
+        } else {
+          auto next = val.next;
+          auto copy_parent = val.copy_parent;
+          // first time encountering so copy
+          auto tag = next & 0b11;
+          auto heap_vals_ptr = next.as_ptr();
 
-    // here we assume that to_loc has enough room
-    std::copy(tuple_start, box_end, to_loc);
+          switch (tag) {
+          case 0b01: {
+            // copy cons cell
+            current[0] = heap_vals_ptr[0];
+            current[1] = heap_vals_ptr[1];
 
-    return make_boxed(to_loc);
-  }
-  case 0b01: {
-    ErlList e_list(e);
-    ErlListBuilder builder;
+            auto handle = make_cons(current);
+            alr_copied[next] = handle;
+            *copy_parent = handle;
 
-    auto it = e_list.begin();
-    for (; it != e_list.end(); ++it) {
-      assert(to_loc + 2 <= max_alloc);
+            auto parent_val = current;
+            current += 2;
 
-      builder.add_term(*it, to_loc);
-      to_loc += 2;
-    }
+            return parent_val;
+          }
+          case 0b10: {
+            // copy tuple
+            auto size = heap_vals_ptr[0] >> 6;
+            auto new_end = heap_vals_ptr + size + 1;
+            std::copy(heap_vals_ptr, new_end, current);
 
-    builder.set_end(it.get_end());
+            auto handle = make_boxed(current);
+            alr_copied[next] = handle;
+            *copy_parent = handle;
 
-    return builder.get_list();
-  }
-  default: {
-    throw std::logic_error(
-        "Deepcopy not possibly for return address/header words (tag: 0b00)");
-  }
-  }
+            auto parent_val = current;
+            current = new_end;
+
+            return parent_val;
+          }
+          }
+        }
+
+        throw std::logic_error("Not a pointer type yet reached in traversal");
+      },
+      [](ErlTerm *copy_parent, ErlTerm next) {
+        return with_copy_parent{.next = next, .copy_parent = copy_parent};
+      });
+
+  return out_handle;
 }
 
 ErlTerm make_boxed(ErlTerm *ptr) {
@@ -227,7 +350,8 @@ ErlTerm make_cons(ErlTerm *ptr) {
 }
 
 ErlTerm tag(ErlTerm *ptr, std::bitset<2> tag_bits) {
-  return (reinterpret_cast<uint64_t>(ptr) & TAGGING_MASK) | tag_bits.to_ullong();
+  return (reinterpret_cast<uint64_t>(ptr) & TAGGING_MASK) |
+         tag_bits.to_ullong();
 }
 
 ErlTerm make_small_int(uint64_t num) {
@@ -262,8 +386,8 @@ ErlTerm parse_int(const std::string &term, size_t &from,
   return make_small_int(num);
 }
 
-std::vector<ErlTerm> collect_till(const std::string &term, char end, size_t &from,
-                             ProcessControlBlock *pcb) {
+std::vector<ErlTerm> collect_till(const std::string &term, char end,
+                                  size_t &from, ProcessControlBlock *pcb) {
   std::vector<ErlTerm> terms;
 
   // TODO make it work for empty array...
@@ -308,8 +432,8 @@ ErlTerm terms_to_list(const std::vector<ErlTerm> &terms,
 
 void check_start(std::string term_name, char c, char needed) {
   if (c != needed) {
-    throw std::logic_error(std::format("parse {} but incorrect opening {}",
-                           term_name, c));
+    throw std::logic_error(
+        std::format("parse {} but incorrect opening {}", term_name, c));
   }
 }
 

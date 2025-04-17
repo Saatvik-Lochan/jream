@@ -6,12 +6,16 @@
 #include "../include/generated/instr_code.hpp"
 #include "../include/riscv_gen.hpp"
 #include "../include/setup_logging.hpp"
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <gtest/gtest.h>
 #include <iterator>
+#include <numeric>
 #include <optional>
+#include <ranges>
+#include <unistd.h>
 
 struct BeamFileConstructor {
   CodeChunk c;
@@ -72,6 +76,15 @@ void wrap_in_function(std::vector<Instruction> &instructions,
   }
 }
 
+CodeChunk get_minimal_code_chunk() {
+  return CodeChunk({{RETURN_OP, {}}}, 1, 1);
+}
+
+void set_current_pcb(ProcessControlBlock &pcb) {
+  emulator_main.scheduler.runnable.insert(&pcb);
+  emulator_main.scheduler.pick_next();
+}
+
 TEST(Parsing, GetAtomCurrent) {
   CodeChunk code_chunk({Instruction{RETURN_OP}}, 1, 1);
   AtomChunk atoms({"dummy", "module", "ok", "error"});
@@ -95,7 +108,7 @@ TEST(Parsing, GetAtomCurrent) {
 
 TEST(ErlTerm, ErlListFromVecAndBack) {
   std::vector<ErlTerm> initial_vec = {0, 1, 2, 3, 4, 5};
-  auto list = erl_list_from_vec(initial_vec, get_nil_term());
+  auto list = erl_list_from_range(initial_vec, get_nil_term());
   auto transformed_vec = vec_from_erl_list(list);
 
   ASSERT_NE(&initial_vec, &transformed_vec);
@@ -104,28 +117,45 @@ TEST(ErlTerm, ErlListFromVecAndBack) {
 
 TEST(ErlTerm, ErlListFromVecAndBackEmpty) {
   std::vector<ErlTerm> initial_vec = {};
-  auto list = erl_list_from_vec(initial_vec, get_nil_term());
+  auto list = erl_list_from_range(initial_vec, get_nil_term());
   auto transformed_vec = vec_from_erl_list(list);
 
   ASSERT_NE(&initial_vec, &transformed_vec);
   ASSERT_EQ(initial_vec, transformed_vec);
 }
 
-TEST(ErlTerm, DeepcopyList) {
+TEST(ErlTerm, GetHeapSizeImmediate) {
   // given
-  std::vector<ErlTerm> vec = {1, 2, 3, 4, 5};
-  auto list = erl_list_from_vec(vec, get_nil_term());
-
-  // for 5 nodes
-  ErlTerm new_list_area[10];
-  ErlTerm *start = new_list_area;
+  auto immediate = make_small_int(3);
 
   // when
-  auto copy = deepcopy(list, start, new_list_area + 10);
+  auto size = get_heap_size(immediate);
 
   // then
-  ErlList initial_list(list);
-  ErlList copy_list(copy);
+  ASSERT_EQ(size, 0);
+}
+
+TEST(ErlTerm, GetHeapSizeNested) {
+  // given
+  std::vector<ErlTerm> vec = {1, 2, 3, 4, 5};
+  auto list = erl_list_from_range(vec | std::views::all |
+                                      std::views::transform(make_small_int),
+                                  get_nil_term());
+
+  ErlTerm heap[] = {3 << 6, list, 2, list};
+  auto tuple = make_boxed(heap);
+
+  // when
+  auto value = get_heap_size(tuple);
+
+  // then
+  // 2 * 5 (list) + 4 (tuple)
+  ASSERT_EQ(value, 14);
+}
+
+void assert_deepcopy_list(ErlTerm list_a, ErlTerm list_b) {
+  ErlList initial_list(list_a);
+  ErlList copy_list(list_b);
 
   auto it_i = initial_list.begin();
   auto it_c = copy_list.begin();
@@ -140,14 +170,83 @@ TEST(ErlTerm, DeepcopyList) {
   // assert same size
   ASSERT_EQ(it_i, initial_list.end());
   ASSERT_EQ(it_c, copy_list.end());
+}
+
+TEST(ErlTerm, DeepcopyList) {
+  // given
+  std::vector<ErlTerm> vec = {1, 2, 3, 4, 5};
+  auto list = erl_list_from_range(vec | std::views::all |
+                                      std::views::transform(make_small_int),
+                                  get_nil_term());
+
+  // for 5 nodes
+  ErlTerm new_list_area[10];
+  ErlTerm *start = new_list_area;
+
+  // when
+  auto copy = deepcopy(list, start);
+
+  // then
+  assert_deepcopy_list(copy, list);
   ASSERT_EQ(start, new_list_area + 10);
+}
+
+TEST(ErlTerm, DeepcopyTuple) {
+  // given
+  ErlTerm heap[] = {3 << 6, make_small_int(1), make_small_int(2),
+                    make_small_int(3)};
+
+  auto tuple = make_boxed(heap);
+
+  ErlTerm new_heap[4];
+  ErlTerm *start = new_heap;
+
+  // when
+  auto copy = deepcopy(tuple, start);
+
+  // assert elements equal, but in different locations
+  ASSERT_NE(tuple, copy);
+  for (int i = 0; i < 4; i++) {
+    ASSERT_EQ(heap[i], new_heap[i]);
+  }
+}
+
+// TODO fix this test
+TEST(ErlTerm, DeepCopyNestedShared) {
+  // given
+  std::vector<ErlTerm> vec = {1, 2, 3, 4, 5};
+  auto list = erl_list_from_range(vec | std::views::all |
+                                      std::views::transform(make_small_int),
+                                  get_nil_term());
+
+  ErlTerm heap[] = {3 << 6, list, make_small_int(2), list};
+  auto tuple = make_boxed(heap);
+
+  ErlTerm new_heap[20];
+
+  // when
+  auto copy = deepcopy(tuple, new_heap);
+
+  // assert elements equal, but in different locations
+  ASSERT_NE(tuple, copy);
+
+  auto tuple_ptr = tuple.as_ptr();
+  auto copy_ptr = copy.as_ptr();
+
+  ASSERT_EQ(copy_ptr[0], tuple_ptr[0]);
+  ASSERT_EQ(copy_ptr[2], tuple_ptr[2]);
+
+  // i.e. both point to the same element
+  ASSERT_EQ(copy_ptr[1], copy_ptr[3]);
+
+  // points to it's own element
+  assert_deepcopy_list(copy_ptr[1], tuple_ptr[1]);
 }
 
 ErlTerm try_parse(std::string term, bool parse_multiple = false) {
 
   ProcessControlBlock pcb;
-  emulator_main.scheduler.runnable.insert(&pcb);
-  emulator_main.scheduler.pick_next();
+  set_current_pcb(pcb);
 
   ErlTerm heap[100];
   pcb.set_shared<HTOP>(heap);
@@ -240,24 +339,6 @@ TEST(ErlTerm, ParseMultiple) {
   ASSERT_EQ(received_vec, expected_vec);
 }
 
-TEST(ErlTerm, DeepcopyTuple) {
-  // given
-  ErlTerm heap[] = {3 << 6, 1, 2, 3};
-  auto tuple = make_boxed(heap);
-
-  ErlTerm new_heap[4];
-  ErlTerm *start = new_heap;
-
-  // when
-  auto copy = deepcopy(tuple, start, heap + 4);
-
-  // assert elements equal, but in different locations
-  ASSERT_NE(tuple, copy);
-  for (int i = 0; i < 4; i++) {
-    ASSERT_EQ(heap[i], new_heap[i]);
-  }
-}
-
 TEST(ErlTerm, ToStringList) {
   std::vector<ErlTerm> to_print = {1, 2, 3, 4, 5};
 
@@ -265,7 +346,7 @@ TEST(ErlTerm, ToStringList) {
     val = make_small_int(val);
   }
 
-  auto list = erl_list_from_vec(to_print, get_nil_term());
+  auto list = erl_list_from_range(to_print, get_nil_term());
 
   // when
   auto result = to_string(list);
@@ -281,7 +362,7 @@ TEST(ErlTerm, ToStringTupleListAtom) {
     val = make_small_int(val);
   }
 
-  auto list = erl_list_from_vec(to_print, get_nil_term());
+  auto list = erl_list_from_range(to_print, get_nil_term());
 
   AtomChunk a({"dummy", "ok"});
   CodeChunk code_chunk({{RETURN_OP}}, 1, 1);
@@ -290,8 +371,7 @@ TEST(ErlTerm, ToStringTupleListAtom) {
   ProcessControlBlock pcb;
   pcb.set_shared<CODE_CHUNK_P>(&code_chunk);
 
-  emulator_main.scheduler.runnable.insert(&pcb);
-  emulator_main.scheduler.pick_next();
+  set_current_pcb(pcb);
 
   ErlTerm heap[] = {3 << 6, list, emulator_main.get_atom_current("ok"),
                     make_small_int(7)};
@@ -706,7 +786,7 @@ TEST(RISCV, GetList) {
   ErlTerm xreg[1001];
   pcb->set_shared<XREG_ARRAY>(xreg);
 
-  auto list = erl_list_from_vec({20, 30}, get_nil_term());
+  auto list = erl_list_from_range({20, 30}, get_nil_term());
   xreg[0] = list;
 
   // when
@@ -736,7 +816,7 @@ TEST(RISCV, PutList) {
   pcb->set_shared<HTOP>(heap);
 
   xregs[0] = 0;
-  xregs[1] = erl_list_from_vec({1, 2, 3}, get_nil_term());
+  xregs[1] = erl_list_from_range({1, 2, 3}, get_nil_term());
 
   // when
   resume_process(pcb);
@@ -1191,8 +1271,7 @@ TEST(RISCV, Spawn) {
 
   pcb->get_shared<XREG_ARRAY>()[0] = make_boxed(fun);
 
-  emulator_main.scheduler.runnable.insert(pcb);
-  emulator_main.scheduler.pick_next();
+  set_current_pcb(*pcb);
 
   // when
   resume_process(pcb);
@@ -1346,7 +1425,7 @@ TEST(RISCV, Send) {
   emulator_main.scheduler.waiting.insert(other_pcb);
 
   std::vector<ErlTerm> list = {0, 1, 2, 3, 4};
-  auto erl_list = erl_list_from_vec(list, get_nil_term());
+  auto erl_list = erl_list_from_range(list, get_nil_term());
   xreg[0] = make_pid(other_pcb);
   xreg[1] = erl_list;
 
@@ -1669,7 +1748,7 @@ TEST(RISCV, TestIsNonEmptyListTrue) {
   auto pcb = get_process(code_chunk);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
-  xregs[0] = erl_list_from_vec({1, 2, 3}, get_nil_term());
+  xregs[0] = erl_list_from_range({1, 2, 3}, get_nil_term());
 
   // when
   resume_process(pcb);
@@ -1741,7 +1820,7 @@ TEST(RISCV, TestIsNilFalse) {
   auto pcb = get_process(code_chunk);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
-  xregs[0] = erl_list_from_vec({1, 2, 3}, get_nil_term());
+  xregs[0] = erl_list_from_range({1, 2, 3}, get_nil_term());
 
   // when
   resume_process(pcb);
@@ -1785,7 +1864,7 @@ void do_compare_test(OpCode opcode, ErlTerm arg1, ErlTerm arg2,
 }
 
 TEST(RISCV, CompDiffTypesGT) {
-  auto arg1 = erl_list_from_vec({make_small_int(1)}, get_nil_term());
+  auto arg1 = erl_list_from_range({make_small_int(1)}, get_nil_term());
   auto arg2 = make_small_int(4000);
 
   auto should_ge_jump = false;
@@ -1795,7 +1874,7 @@ TEST(RISCV, CompDiffTypesGT) {
 
 TEST(RISCV, CompDiffTypesLT) {
   auto arg1 = make_small_int(4000);
-  auto arg2 = erl_list_from_vec({make_small_int(1)}, get_nil_term());
+  auto arg2 = erl_list_from_range({make_small_int(1)}, get_nil_term());
 
   auto should_ge_jump = true;
   do_compare_test(IS_GE_OP, arg1, arg2, should_ge_jump);
@@ -1803,9 +1882,9 @@ TEST(RISCV, CompDiffTypesLT) {
 }
 
 TEST(RISCV, CompListGTLen) {
-  auto arg1 =
-      erl_list_from_vec({make_small_int(1), make_small_int(2)}, get_nil_term());
-  auto arg2 = erl_list_from_vec(
+  auto arg1 = erl_list_from_range({make_small_int(1), make_small_int(2)},
+                                  get_nil_term());
+  auto arg2 = erl_list_from_range(
       {make_small_int(1), make_small_int(2), make_small_int(3)},
       get_nil_term());
 
@@ -1815,9 +1894,9 @@ TEST(RISCV, CompListGTLen) {
 }
 
 TEST(RISCV, CompListGTValue) {
-  auto arg1 = erl_list_from_vec({make_small_int(2)}, get_nil_term());
-  auto arg2 =
-      erl_list_from_vec({make_small_int(1), make_small_int(2)}, get_nil_term());
+  auto arg1 = erl_list_from_range({make_small_int(2)}, get_nil_term());
+  auto arg2 = erl_list_from_range({make_small_int(1), make_small_int(2)},
+                                  get_nil_term());
 
   auto should_ge_jump = false;
   do_compare_test(IS_GE_OP, arg1, arg2, should_ge_jump);
@@ -1883,21 +1962,19 @@ TEST(RISCV, Badmatch) {
 
 TEST(BuiltInFunction, ListsSplit) {
   auto split_loc = make_small_int(3);
-  auto list = erl_list_from_vec({1, 2, 3, 4, 5}, get_nil_term());
+  auto list = erl_list_from_range({1, 2, 3, 4, 5}, get_nil_term());
 
-  ProcessControlBlock pcb;
-  ErlTerm heap[3];
-  pcb.set_shared<HTOP>(heap);
-  pcb.set_shared<STOP>(heap + 3);
+  auto code_chunk = get_minimal_code_chunk();
+  auto pcb = get_process(code_chunk);
 
-  emulator_main.scheduler.runnable.insert(&pcb);
-  emulator_main.scheduler.pick_next();
+  set_current_pcb(*pcb);
 
   // when
   list_split(split_loc, list, 0);
 
   // then
-  auto htop = pcb.get_shared<HTOP>();
+  auto htop = pcb->get_shared<HTOP>();
+  auto heap = pcb->heap.data();
   ASSERT_EQ(htop, heap + 3);
   ASSERT_EQ(heap[0], 2 << 6);
 
@@ -1912,15 +1989,12 @@ TEST(BuiltInFunction, ListsSplit) {
 
 TEST(BuiltInFunction, ListsSplitEdgeCase) {
   auto split_loc = make_small_int(4);
-  auto list = erl_list_from_vec({1, 2, 3, 4}, get_nil_term());
+  auto list = erl_list_from_range({1, 2, 3, 4}, get_nil_term());
 
-  ProcessControlBlock pcb;
-  ErlTerm heap[3];
-  pcb.set_shared<HTOP>(heap);
-  pcb.set_shared<STOP>(heap + 3);
+  auto code_chunk = get_minimal_code_chunk();
+  auto pcb = get_process(code_chunk);
 
-  emulator_main.scheduler.runnable.insert(&pcb);
-  emulator_main.scheduler.pick_next();
+  set_current_pcb(*pcb);
 
   // when
   auto result = list_split(split_loc, list, 0);
@@ -1932,7 +2006,7 @@ TEST(BuiltInFunction, ListsSplitEdgeCase) {
 
   auto tuple_loc = res_term.as_ptr();
 
-  auto htop = pcb.get_shared<HTOP>();
+  auto htop = pcb->get_shared<HTOP>();
   ASSERT_EQ(htop, tuple_loc + 3);
   ASSERT_EQ(tuple_loc[0], 2 << 6);
 
@@ -1954,6 +2028,19 @@ TEST(BuiltInFunction, ErlDiv) {
 
   // then
   ASSERT_EQ(result.a0 >> 4, 6);
+  ASSERT_EQ(ErlTerm(result.a0).getTagType(), SMALL_INT_T);
+  ASSERT_EQ(result.a1, 0);
+}
+
+TEST(BuiltInFunction, ErlSub) {
+  auto a = make_small_int(25);
+  auto b = make_small_int(4);
+
+  // when
+  auto result = erl_sub(a, b);
+
+  // then
+  ASSERT_EQ(result.a0 >> 4, 21);
   ASSERT_EQ(ErlTerm(result.a0).getTagType(), SMALL_INT_T);
   ASSERT_EQ(result.a1, 0);
 }
@@ -2014,4 +2101,110 @@ TEST(GC, StablePoolAllocator) {
   for (int i = DEALLOC; i < FINAL_ALLOC; i++) {
     assert_correct(i);
   }
+}
+
+TEST(GC, AllocateEnough) {
+  auto code_chunk = get_minimal_code_chunk();
+  auto pcb = get_process(code_chunk);
+
+  set_current_pcb(*pcb);
+
+  // force gc
+  const auto ALLOC_SIZE = pcb->heap.size();
+  ErlTerm *val = pcb->allocate_and_gc(ALLOC_SIZE, 0);
+
+  ASSERT_LE(val + ALLOC_SIZE, pcb->heap.data() + pcb->heap.size());
+}
+
+TEST(GC, CopyFirstPass) {
+  auto code_chunk = get_minimal_code_chunk();
+  auto pcb = get_process(code_chunk);
+
+  set_current_pcb(*pcb);
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+
+  auto current_stack = pcb->get_shared<STOP>();
+  std::iota(current_stack - 10, current_stack, 0);
+  pcb->set_shared<STOP>(current_stack - 10);
+
+  auto check_stack = [&]() {
+    auto stack =
+        pcb->get_stack() | std::views::transform([](auto a) { return a.term; });
+
+    auto count = 0;
+    for (auto val : stack) {
+      ASSERT_EQ(val, count);
+      count++;
+    }
+
+    ASSERT_EQ(pcb->get_stack().size(), 10);
+  };
+
+  check_stack();
+
+  auto tuple = pcb->allocate_tuple(10, 0);
+
+  std::iota(tuple + 1, tuple + 11, 1);
+  auto initial = make_boxed(tuple);
+  xregs[0] = initial;
+
+  // force gc
+  const auto ALLOC_SIZE = pcb->heap.size();
+  pcb->allocate_and_gc(ALLOC_SIZE, 1);
+
+  ASSERT_NE(xregs[0], initial); // expect pointer to have changed
+  assert_tuple(xregs[0], {1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+
+  check_stack();
+}
+
+TEST(GC, CopyShared) {
+  auto code_chunk = get_minimal_code_chunk();
+  auto pcb = get_process(code_chunk);
+
+  set_current_pcb(*pcb);
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+
+  auto tuple = pcb->allocate_tuple(10, 0);
+
+  std::iota(tuple + 1, tuple + 11, 1);
+  auto initial = make_boxed(tuple);
+  xregs[0] = initial;
+  xregs[1] = initial;
+
+  // force gc
+  const auto ALLOC_SIZE = pcb->heap.size();
+  pcb->allocate_and_gc(ALLOC_SIZE, 2);
+
+  ASSERT_NE(xregs[0], initial);
+  assert_tuple(xregs[0], {1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+
+  ASSERT_EQ(xregs[0], xregs[1]);
+}
+
+TEST(GC, GenerationPromotion) {
+  auto code_chunk = get_minimal_code_chunk();
+  auto pcb = get_process(code_chunk);
+
+  set_current_pcb(*pcb);
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+
+  auto tuple = pcb->allocate_tuple(10, 0);
+
+  std::iota(tuple + 1, tuple + 11, 1);
+  auto initial = make_boxed(tuple);
+  xregs[0] = initial;
+
+  // force gc
+  auto ALLOC_SIZE = pcb->heap.size();
+  pcb->allocate_and_gc(ALLOC_SIZE, 1);
+
+  ASSERT_FALSE(pcb->old_heap.contains_other(xregs[0].as_ptr()));
+
+  // force gc a second time
+  ALLOC_SIZE = pcb->heap.size();
+  pcb->allocate_and_gc(ALLOC_SIZE, 1);
+
+  // Now x0 should have been moved to old heap
+  ASSERT_TRUE(pcb->old_heap.contains_other(xregs[0].as_ptr()));
 }

@@ -3,8 +3,10 @@
 #include <algorithm>
 #include <bitset>
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <format>
+#include <ranges>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -74,11 +76,15 @@ struct ErlTerm {
 
 static_assert(std::is_standard_layout_v<ErlTerm>);
 static_assert(sizeof(ErlTerm) == 8);
+static_assert(offsetof(ErlTerm, term) == 0);
 
-ErlTerm erl_list_from_vec(std::vector<ErlTerm> terms, ErlTerm end);
 inline constexpr uint64_t get_nil_term() { return 0b111011; }
-ErlTerm deepcopy(ErlTerm e, ErlTerm *&to_loc, ErlTerm *max_alloc);
+
+
 std::vector<ErlTerm> vec_from_erl_list(ErlTerm e, bool include_end = false);
+
+size_t get_heap_size(ErlTerm e);
+ErlTerm deepcopy(ErlTerm e, ErlTerm *const to_loc);
 
 std::string to_string(ErlTerm erl_term);
 
@@ -305,7 +311,7 @@ inline auto ErlTerm::operator<=>(const ErlTerm &other) const {
   case MAP_ET:
   case FUN_ET:
   case BINARY_ET:
-  case REF_ET: 
+  case REF_ET:
   default: {
     throw std::domain_error(
         std::format("Not implemented comparison for ErlMajorType {}",
@@ -316,5 +322,23 @@ inline auto ErlTerm::operator<=>(const ErlTerm &other) const {
 
 ErlTerm parse_term(const std::string &term);
 ErlTerm parse_multiple_terms(const std::string &terms);
+
+template <std::ranges::range R>
+ErlTerm erl_list_from_range(R &&terms, ErlTerm end)
+{
+  ErlListBuilder builder;
+
+  for (auto term : terms) {
+    builder.add_term(term, new ErlTerm[2]);
+  }
+
+  builder.set_end(end);
+  return builder.get_list();
+}
+
+template <typename T>
+ErlTerm erl_list_from_range(std::initializer_list<T> terms, ErlTerm end) {
+  return erl_list_from_range(std::views::all(terms), end);
+}
 
 #endif
