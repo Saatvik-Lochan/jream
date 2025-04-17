@@ -39,10 +39,11 @@ struct Emulator {
   ProcessControlBlock *create_process(EntryPoint entry_point);
 
   void register_beam_sources(std::vector<BeamSrc *>);
-  ErlTerm run(GlobalFunctionId id);
   EntryPoint get_entry_point(GlobalFunctionId);
   ErlTerm get_atom_current(std::string atom_name);
   std::string get_atom_string_current(ErlTerm e);
+
+  ErlTerm run(GlobalFunctionId id);
 };
 
 inline Emulator emulator_main;
