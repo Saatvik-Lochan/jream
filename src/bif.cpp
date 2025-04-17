@@ -73,7 +73,7 @@ BIFReturn length(uint64_t list_raw) {
 
   uint64_t count = 0;
 
-  for (auto e : list) {
+  for (auto _ : list) {
     count++;
   }
 

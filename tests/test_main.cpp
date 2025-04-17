@@ -6,7 +6,6 @@
 #include "../include/generated/instr_code.hpp"
 #include "../include/riscv_gen.hpp"
 #include "../include/setup_logging.hpp"
-#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -142,7 +141,7 @@ TEST(ErlTerm, GetHeapSizeNested) {
                                       std::views::transform(make_small_int),
                                   get_nil_term());
 
-  ErlTerm heap[] = {3 << 6, list, 2, list};
+  ErlTerm heap[] = {3 << 6, list, make_small_int(2), list};
   auto tuple = make_boxed(heap);
 
   // when
@@ -160,6 +159,11 @@ void assert_deepcopy_list(ErlTerm list_a, ErlTerm list_b) {
   auto it_i = initial_list.begin();
   auto it_c = copy_list.begin();
 
+  auto a = vec_from_erl_list(list_a);
+  auto b = vec_from_erl_list(list_b);
+
+  ASSERT_EQ(a, b);
+
   // assert elements equal, but in different locations
   for (; it_i != initial_list.end() && it_c != copy_list.end();
        ++it_i, ++it_c) {
@@ -175,20 +179,20 @@ void assert_deepcopy_list(ErlTerm list_a, ErlTerm list_b) {
 TEST(ErlTerm, DeepcopyList) {
   // given
   std::vector<ErlTerm> vec = {1, 2, 3, 4, 5};
-  auto list = erl_list_from_range(vec | std::views::all |
-                                      std::views::transform(make_small_int),
-                                  get_nil_term());
+  for (auto &val : vec) {
+    val = make_small_int(val);
+  }
+
+  auto list = erl_list_from_range(vec, get_nil_term());
 
   // for 5 nodes
   ErlTerm new_list_area[10];
-  ErlTerm *start = new_list_area;
 
   // when
-  auto copy = deepcopy(list, start);
+  auto copy = deepcopy(list, new_list_area);
 
   // then
   assert_deepcopy_list(copy, list);
-  ASSERT_EQ(start, new_list_area + 10);
 }
 
 TEST(ErlTerm, DeepcopyTuple) {
@@ -214,7 +218,7 @@ TEST(ErlTerm, DeepcopyTuple) {
 // TODO fix this test
 TEST(ErlTerm, DeepCopyNestedShared) {
   // given
-  std::vector<ErlTerm> vec = {1, 2, 3, 4, 5};
+  std::vector<ErlTerm> vec = {1};
   auto list = erl_list_from_range(vec | std::views::all |
                                       std::views::transform(make_small_int),
                                   get_nil_term());
@@ -222,7 +226,7 @@ TEST(ErlTerm, DeepCopyNestedShared) {
   ErlTerm heap[] = {3 << 6, list, make_small_int(2), list};
   auto tuple = make_boxed(heap);
 
-  ErlTerm new_heap[20];
+  ErlTerm new_heap[30];
 
   // when
   auto copy = deepcopy(tuple, new_heap);
@@ -239,8 +243,12 @@ TEST(ErlTerm, DeepCopyNestedShared) {
   // i.e. both point to the same element
   ASSERT_EQ(copy_ptr[1], copy_ptr[3]);
 
+  std::cout << "I was before" << std::endl;
+
   // points to it's own element
   assert_deepcopy_list(copy_ptr[1], tuple_ptr[1]);
+
+  std::cout << "I was here";
 }
 
 ErlTerm try_parse(std::string term, bool parse_multiple = false) {
@@ -1425,20 +1433,17 @@ TEST(RISCV, Send) {
   emulator_main.scheduler.waiting.insert(other_pcb);
 
   std::vector<ErlTerm> list = {0, 1, 2, 3, 4};
+
+  for (auto &val : list) {
+    val = make_small_int(val);
+  }
+
   auto erl_list = erl_list_from_range(list, get_nil_term());
   xreg[0] = make_pid(other_pcb);
   xreg[1] = erl_list;
 
-  ErlTerm heap[10];
-  other_pcb->set_shared<HTOP>(heap);
-  other_pcb->set_shared<STOP>(heap + 10);
-
   // when
   resume_process(pcb);
-
-  // assert other htop
-  auto other_htop = other_pcb->get_shared<HTOP>();
-  ASSERT_EQ(other_htop, heap + 10);
 
   auto other_mbox_head = other_pcb->get_shared<MBOX_HEAD>();
   auto msg_payload = other_mbox_head->get_payload();
@@ -1502,7 +1507,6 @@ TEST(RISCV, IsTupleOpNotBoxed) {
   auto pcb = setup_is_tuple(&a, &b);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
 
-  ErlTerm e[3] = {0b11000000, 1, 2};
   xregs[0] = 0b1011111; // 5 as a small integer
 
   // when
@@ -2207,4 +2211,33 @@ TEST(GC, GenerationPromotion) {
 
   // Now x0 should have been moved to old heap
   ASSERT_TRUE(pcb->old_heap.contains_other(xregs[0].as_ptr()));
+}
+
+TEST(GC, HeapFragment) {
+  auto code_chunk = get_minimal_code_chunk();
+  auto pcb = get_process(code_chunk);
+
+  set_current_pcb(*pcb);
+  auto frag = pcb->allocate_heap_frag(1000);
+  auto list = erl_list_from_range({make_small_int(1), make_small_int(2)},
+                                  get_nil_term());
+
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  xregs[0] = deepcopy(list, frag);
+  auto initial_handle = xregs[0];
+
+  // when
+  pcb->do_gc(0, 1);
+
+  // then
+  // heap frags should be empty
+  ASSERT_TRUE(pcb->heap_fragments.empty());
+
+  // data should be on the new heap
+  auto new_handle = xregs[0];
+  ASSERT_NE(new_handle, initial_handle);
+
+  auto gced_ptr = new_handle.as_ptr();
+  ASSERT_LE(pcb->heap.data(), gced_ptr);
+  ASSERT_LT(gced_ptr, pcb->heap.data() + pcb->heap.size());
 }

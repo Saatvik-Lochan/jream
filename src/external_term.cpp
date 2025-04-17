@@ -6,9 +6,12 @@
 #include "external_term.hpp"
 #include "int_from_bytes.hpp"
 #include "pcb.hpp"
+#include "riscv_gen.hpp"
 #include <cassert>
 #include <cstdint>
 #include <format>
+#include <iostream>
+#include <iterator>
 #include <stack>
 #include <stdexcept>
 #include <string>
@@ -164,8 +167,8 @@ std::vector<ErlTerm> vec_from_erl_list(ErlTerm e, bool include_end) {
 
 template <typename T, typename U, typename V>
 void traverse_term(T e, U &&do_each_block, V &&combine)
-  requires requires(T t, U u, V v, ErlTerm next, bool b) {
-    { v(u(t, b), next) } -> std::same_as<T>;
+  requires requires(T t, U u, V v, ErlTerm next, bool b, size_t offset) {
+    { v(u(t, b), offset, next) } -> std::same_as<T>;
     { t.next } -> std::same_as<ErlTerm &>;
   }
 {
@@ -211,17 +214,18 @@ void traverse_term(T e, U &&do_each_block, V &&combine)
 
       std::span<ErlTerm> tuple_span(tuple_start + 1, length);
 
-      for (auto val : tuple_span) {
+      for (auto &val : tuple_span) {
         if (is_pointer(val)) {
-          to_check.push(combine(other, val));
+          to_check.push(combine(other, std::distance(tuple_start, &val), val));
         }
       }
       break;
     }
     case 0b01: {
-      for (auto val : std::span<ErlTerm>{next.as_ptr(), 2}) {
+      auto cons_start = next.as_ptr();
+      for (auto &val : std::span<ErlTerm>{cons_start, 2}) {
         if (is_pointer(val)) {
-          to_check.push(combine(other, val));
+          to_check.push(combine(other, std::distance(cons_start, &val), val));
         }
       }
       break;
@@ -266,7 +270,9 @@ size_t get_heap_size(const ErlTerm e) {
         }
         return std::monostate();
       },
-      [](const std::monostate, ErlTerm next) { return out{.next = next}; });
+      [](const std::monostate, size_t offset, ErlTerm next) {
+        return out{.next = next};
+      });
 
   return count;
 }
@@ -282,60 +288,65 @@ ErlTerm deepcopy(ErlTerm e, ErlTerm *const to_loc) {
   struct with_copy_parent {
     ErlTerm next;
     ErlTerm *copy_parent;
+    size_t offset;
   };
 
   ErlTerm out_handle = e;
 
   traverse_term<with_copy_parent>(
-      {.next = e, .copy_parent = &out_handle},
+      {.next = e, .copy_parent = &out_handle, .offset = 0},
       [&current, &alr_copied](with_copy_parent val, bool in_visited) {
         if (in_visited) {
           auto copy_parent = val.copy_parent;
-          *copy_parent = alr_copied[val.next];
-        } else {
-          auto next = val.next;
-          auto copy_parent = val.copy_parent;
-          // first time encountering so copy
-          auto tag = next & 0b11;
-          auto heap_vals_ptr = next.as_ptr();
 
-          switch (tag) {
-          case 0b01: {
-            // copy cons cell
-            current[0] = heap_vals_ptr[0];
-            current[1] = heap_vals_ptr[1];
+          assert(alr_copied.contains(val.next));
+          copy_parent[val.offset] = alr_copied[val.next];
 
-            auto handle = make_cons(current);
-            alr_copied[next] = handle;
-            *copy_parent = handle;
+          return static_cast<ErlTerm *>(nullptr); // not used
+        }
 
-            auto parent_val = current;
-            current += 2;
+        auto next = val.next;
+        auto copy_parent = val.copy_parent;
+        // first time encountering so copy
+        auto tag = next & 0b11;
+        auto heap_vals_ptr = next.as_ptr();
 
-            return parent_val;
-          }
-          case 0b10: {
-            // copy tuple
-            auto size = heap_vals_ptr[0] >> 6;
-            auto new_end = heap_vals_ptr + size + 1;
-            std::copy(heap_vals_ptr, new_end, current);
+        switch (tag) {
+        case 0b01: {
+          // copy cons cell
+          current[0] = heap_vals_ptr[0];
+          current[1] = heap_vals_ptr[1];
 
-            auto handle = make_boxed(current);
-            alr_copied[next] = handle;
-            *copy_parent = handle;
+          auto handle = make_cons(current);
+          alr_copied[next] = handle;
+          copy_parent[val.offset] = handle;
 
-            auto parent_val = current;
-            current = new_end;
+          auto parent_val = current;
+          current += 2;
 
-            return parent_val;
-          }
-          }
+          return parent_val;
+        }
+        case 0b10: {
+          // copy tuple
+          auto size = (heap_vals_ptr[0] >> 6) + 1;
+          std::copy(heap_vals_ptr, heap_vals_ptr + size, current);
+
+          auto handle = make_boxed(current);
+          alr_copied[next] = handle;
+          copy_parent[val.offset] = handle;
+
+          auto parent_val = current;
+          current += size;
+
+          return parent_val;
+        }
         }
 
         throw std::logic_error("Not a pointer type yet reached in traversal");
       },
-      [](ErlTerm *copy_parent, ErlTerm next) {
-        return with_copy_parent{.next = next, .copy_parent = copy_parent};
+      [](ErlTerm *copy_parent, size_t offset, ErlTerm next) {
+        return with_copy_parent{
+            .next = next, .copy_parent = copy_parent, .offset = offset};
       });
 
   return out_handle;

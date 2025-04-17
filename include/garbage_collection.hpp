@@ -27,7 +27,7 @@ struct YoungHeap {
   ErlTerm *heap_start;
   ErlTerm *heap_top;
   ErlTerm *highwater;
-  std::vector<std::span<ErlTerm>> frags;
+  std::span<std::span<ErlTerm>> frags;
 
   bool contains(ErlTerm *ptr) const {
     return (heap_start <= ptr && ptr <= heap_top) ||

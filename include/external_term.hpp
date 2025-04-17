@@ -71,10 +71,11 @@ struct ErlTerm {
 
   std::string display();
   std::string raw_display();
-  ~ErlTerm() {} // TODO make a destructor
+  /*~ErlTerm() {} // TODO make a destructor*/
 };
 
 static_assert(std::is_standard_layout_v<ErlTerm>);
+static_assert(std::is_trivially_copyable_v<ErlTerm>);
 static_assert(sizeof(ErlTerm) == 8);
 static_assert(offsetof(ErlTerm, term) == 0);
 

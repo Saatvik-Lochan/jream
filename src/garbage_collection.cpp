@@ -1,6 +1,7 @@
 #include "garbage_collection.hpp"
 #include "external_term.hpp"
 #include <algorithm>
+#include <glog/logging.h>
 #include <span>
 #include <stack>
 

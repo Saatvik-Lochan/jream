@@ -54,6 +54,7 @@ struct __attribute__((aligned(16))) ProcessControlBlock {
 
   // The default xreg value will make all xregisters dangling!
   ErlTerm *allocate_tuple(size_t size, size_t xregs = 0);
+  ErlTerm *do_gc(size_t size, size_t xregs);
   ErlTerm *allocate_and_gc(size_t size, size_t xregs);
   std::span<ErlTerm> get_stack() {
     return std::span<ErlTerm>{get_shared<STOP>(), heap.data() + heap.size()};
