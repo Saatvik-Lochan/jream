@@ -6,6 +6,9 @@
  *
  */
 
+#ifndef ALLOCATOR_H
+#define ALLOCATOR_H
+
 #include <cstddef>
 #include <span>
 #include <vector>
@@ -45,7 +48,7 @@ template <typename T> class StablePoolAllocator {
 public:
   StablePoolAllocator(size_t size = 512): base_slab_size(size) {}
 
-  T *alloc() {
+  inline T *alloc() {
     if (free_list_head == nullptr) {
       add_and_link_slab();
     }
@@ -56,13 +59,13 @@ public:
     return reinterpret_cast<T *>(out);
   }
 
-  void free(T *ptr) {
+  inline void free(T *ptr) {
     auto freed_as_obj_ptr = reinterpret_cast<FreeObject *>(ptr);
     freed_as_obj_ptr->next = free_list_head;
     free_list_head = freed_as_obj_ptr;
   }
 
-  size_t get_free_num() {
+  inline size_t get_free_num() {
     FreeObject *current = free_list_head;
 
     size_t count = 0;
@@ -75,3 +78,5 @@ public:
     return count;
   }
 };
+
+#endif

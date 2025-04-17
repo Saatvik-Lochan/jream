@@ -4,6 +4,7 @@
 #include "external_term.hpp"
 #include "pcb.hpp"
 #include <cassert>
+#include <cstdint>
 #include <fstream>
 #include <glog/logging.h>
 #include <iostream>
@@ -84,14 +85,24 @@ BIFReturn self() {
   return make_pid(pcb);
 }
 
-BIFReturn erl_div(uint64_t a, uint64_t b) {
+template <typename T>
+ErlTerm do_arith(uint64_t a, uint64_t b, T&& f) {
   assert(ErlTerm(a).getTagType() == SMALL_INT_T);
   assert(ErlTerm(b).getTagType() == SMALL_INT_T);
 
-  return make_small_int((a >> 4) / (b >> 4));
+  return make_small_int(f((a >> 4), (b >> 4)));
 }
 
-BIFReturn list_split(uint64_t first_size_raw, uint64_t list_raw) {
+BIFReturn erl_div(uint64_t a, uint64_t b) {
+  return do_arith(a, b, [](auto a, auto b){ return a / b; });
+}
+
+BIFReturn erl_sub(uint64_t a, uint64_t b) {
+  return do_arith(a, b, [](auto a, auto b){ return a - b; });
+}
+
+BIFReturn list_split(uint64_t first_size_raw, uint64_t list_raw,
+                     uint64_t xregs) {
   assert(ErlTerm(first_size_raw).getTagType() == SMALL_INT_T);
   assert(ErlTerm(list_raw).getErlMajorType() == LIST_ET);
 
@@ -99,7 +110,7 @@ BIFReturn list_split(uint64_t first_size_raw, uint64_t list_raw) {
 
   auto pcb = get_pcb();
 
-  auto tuple = pcb->allocate_tuple(2);
+  auto tuple = pcb->allocate_tuple(2, xregs);
   tuple[1] = list_raw;
 
   // just point to the tuple
@@ -120,7 +131,7 @@ BIFReturn list_split(uint64_t first_size_raw, uint64_t list_raw) {
   return make_boxed(tuple);
 }
 
-BIFReturn file_consult(uint64_t file_name_raw) {
+BIFReturn file_consult(uint64_t file_name_raw, uint64_t xregs) {
   assert(ErlTerm(file_name_raw).getErlMajorType() == LIST_ET);
   ErlList file_list(file_name_raw);
 
@@ -134,7 +145,7 @@ BIFReturn file_consult(uint64_t file_name_raw) {
                      std::ios::in | std::ios::binary | std::ios::ate);
 
   auto pcb = get_pcb();
-  auto tuple = pcb->allocate_tuple(2);
+  auto tuple = pcb->allocate_tuple(2, xregs);
 
   if (!file) {
     tuple[1] = emulator_main.get_atom_current("error");

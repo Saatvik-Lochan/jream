@@ -25,6 +25,7 @@ enum AsmSnippet {
   IS_NONEMPTY_LIST_SNIP, // assembly/build/is_nonempty_list.S
   WAIT_SNIP, // assembly/build/wait.S
   TRIM_SNIP, // assembly/build/trim.S
+  PUT_TUPLE2_SNIP, // assembly/build/put_tuple2.S
   TEST_ARITY_SNIP, // assembly/build/test_arity.S
   ALLOCATE_SNIP, // assembly/build/allocate.S
   SEND_SNIP, // assembly/build/send.S

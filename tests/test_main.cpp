@@ -646,6 +646,49 @@ TEST(RISCV, TestGetTupleElement) {
   ASSERT_EQ(xregs[1], 10);
 }
 
+void assert_tuple(ErlTerm term, std::initializer_list<ErlTerm> elements) {
+  ASSERT_EQ(term.getErlMajorType(), TUPLE_ET);
+
+  auto ptr = term.as_ptr();
+  const auto header = *ptr;
+
+  const auto size = header >> 6;
+  ASSERT_EQ(size, elements.size());
+
+  for (auto e : elements) {
+    ASSERT_EQ(e, *++ptr);
+  }
+}
+
+TEST(RISCV, PutTuple2) {
+  std::vector<Argument> element_list = {
+      Argument{X_REGISTER_TAG, {.arg_num = 1}},
+      Argument{X_REGISTER_TAG, {.arg_num = 2}},
+  };
+
+  std::vector<Instruction> instructions = {Instruction{
+      PUT_TUPLE2_OP,
+      {
+          Argument{X_REGISTER_TAG, {.arg_num = 0}},             // x0 (dest)
+          Argument{EXT_LIST_TAG, {.arg_vec_p = &element_list}}, // terms
+      }}};
+
+  wrap_in_function(instructions);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
+
+  auto pcb = get_process(code_chunk);
+
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  xregs[1] = 10;
+  xregs[2] = 20;
+
+  // when
+  resume_process(pcb);
+
+  // then
+  assert_tuple(xregs[0], {10, 20});
+}
+
 TEST(RISCV, GetList) {
   std::vector<Instruction> instructions = {
       Instruction{GET_LIST_OP,
@@ -1851,7 +1894,7 @@ TEST(BuiltInFunction, ListsSplit) {
   emulator_main.scheduler.pick_next();
 
   // when
-  list_split(split_loc, list);
+  list_split(split_loc, list, 0);
 
   // then
   auto htop = pcb.get_shared<HTOP>();
@@ -1880,7 +1923,7 @@ TEST(BuiltInFunction, ListsSplitEdgeCase) {
   emulator_main.scheduler.pick_next();
 
   // when
-  auto result = list_split(split_loc, list);
+  auto result = list_split(split_loc, list, 0);
 
   // then
   ErlTerm res_term(result.a0);

@@ -32,9 +32,10 @@ BIFReturn spawn_1(uint64_t fun_raw);
 BIFReturn length(uint64_t list_raw);
 BIFReturn self();
 BIFReturn erl_div(uint64_t a, uint64_t b);
-BIFReturn list_split(uint64_t first_size_raw, uint64_t list_raw);
+BIFReturn erl_sub(uint64_t a, uint64_t b);
+BIFReturn list_split(uint64_t first_size_raw, uint64_t list_raw, uint64_t xregs);
 
-BIFReturn file_consult(uint64_t file_name);
+BIFReturn file_consult(uint64_t file_name, uint64_t xregs);
 BIFReturn io_write(uint64_t term);
 
 #define MAP(Name, Function)                                                    \
@@ -51,6 +52,8 @@ const inline std::unordered_map<std::string, uintptr_t> name_bif_map = {
     MAP("erlang:length/1", length),
     MAP("erlang:self/0", self),
     MAP("erlang:div/2", erl_div),
+
+    MAP("erlang:-/2", erl_sub),
 
     MAP("file:consult/1", file_consult),
     MAP("io:write/1", io_write),

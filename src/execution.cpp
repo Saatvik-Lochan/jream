@@ -58,6 +58,8 @@ ProcessControlBlock *Emulator::create_process(EntryPoint entry_point) {
   auto heap = new ErlTerm[HEAP_SIZE];
   pcb->set_shared<HTOP>(heap);
   pcb->set_shared<STOP>(heap + HEAP_SIZE - 1);
+  pcb->heap = {heap, HEAP_SIZE};
+  pcb->highwater = heap;
 
   // message passing
   auto head = pcb->get_address<MBOX_HEAD>();

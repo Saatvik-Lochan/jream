@@ -80,9 +80,10 @@ YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
       ErlTerm header = *copy_ptr; // a.k.a header when relevant
 
       if ((header & 0b11) == 0b11) {
+        constexpr uint64_t MASK = ~0UL << 1;
         // i.e. head has already been moved
         // we just zero out the last bit to get a valid boxed tag
-        *ptr_term_ptr = header & (~0UL << 1);
+        *ptr_term_ptr = header & MASK;
         return;
       }
 

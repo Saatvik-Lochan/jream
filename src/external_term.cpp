@@ -295,7 +295,7 @@ ErlTerm terms_to_list(const std::vector<ErlTerm> &terms,
                       ProcessControlBlock *pcb) {
   ErlListBuilder builder;
 
-  auto curr = pcb->allocate_heap(terms.size() * 2);
+  auto curr = pcb->allocate_and_gc(terms.size() * 2, 0);
 
   for (auto term : terms) {
     builder.add_term(term, curr);

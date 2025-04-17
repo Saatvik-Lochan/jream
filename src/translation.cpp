@@ -14,6 +14,7 @@
 #include "beam_defs.hpp"
 #include "bif.hpp"
 #include "generated/instr_code.hpp"
+#include "op_arity.hpp"
 #include "riscv_gen.hpp"
 #include "translation.hpp"
 
@@ -223,10 +224,15 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
   auto add_call_biff = [&](std::span<Argument> bif_args, uint64_t fail_label,
                            Argument dest_reg, uint64_t bif_num,
-                           size_t instr_index, bool gc = false) {
+                           size_t instr_index,
+                           std::optional<uint64_t> live = std::nullopt) {
     for (size_t i = 0; i < bif_args.size(); i++) {
       // load into a0, ..., aN
       add_load_appropriate(bif_args[i], 10 + i);
+    }
+
+    if (live) {
+      add_riscv_instr(create_add_immediate(10 + bif_args.size(), 0, *live));
     }
 
     const auto func_id = code_chunk.import_table_chunk->imports[bif_num];
@@ -252,17 +258,22 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
   // call_ext lambdas
   auto add_call_ext = [&](Instruction instr, auto if_bif, auto if_not_bif) {
-    auto arity = instr.arguments[0];
+    const auto arity = instr.arguments[0];
     assert(arity.tag == LITERAL_TAG);
 
-    // only 8 argument register!
-    assert(arity.arg_raw.arg_num < 8);
+    const auto arity_val = arity.arg_raw.arg_num;
 
-    for (size_t i = 0; i < arity.arg_raw.arg_num; i++) {
+    // only 8 argument register! The 8th is used for the gc bit.
+    assert(arity_val < 8);
+
+    for (size_t i = 0; i < arity_val; i++) {
       // s5 (x21) has the x_registers
       // we load them into a0, ..., an
       add_riscv_instr(create_load_x_reg(10 + i, i, 21));
     }
+
+    // i.e. 0 out the live register
+    add_riscv_instr(create_add_immediate(10 + arity_val, 0, 0));
 
     auto destination = instr.arguments[1];
     assert(destination.tag == LITERAL_TAG);
@@ -276,6 +287,23 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       if_bif(*result);
     } else {
       if_not_bif(index);
+    }
+  };
+
+  // does not do any heap allocation, just copies
+  auto copy_ext_list_heap = [&]<uint8_t start_reg>(auto ext_list,
+                                                   size_t initial_offset) {
+    static_assert(start_reg != 5);
+
+    for (const auto &reg_to_save : *ext_list) {
+      // load reg to t0
+      add_load_appropriate(reg_to_save, 5);
+
+      // t1 has the heap pointer
+      // sd t0, pos(t1)
+      add_riscv_instr(create_store_doubleword(start_reg, 5, initial_offset));
+
+      initial_offset += 8;
     }
   };
 
@@ -503,6 +531,10 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       assert(label.tag == LABEL_TAG);
       auto label_val = label.arg_raw.arg_num;
 
+      auto live = instr.arguments[1];
+      assert(live.tag == LITERAL_TAG);
+      auto live_val = live.arg_raw.arg_num;
+
       auto bif_num = instr.arguments[2];
       assert(bif_num.tag == LITERAL_TAG);
 
@@ -512,7 +544,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
       auto destination = instr.arguments[4];
 
-      add_call_biff(args, label_val, destination, bif_num_val, instr_index);
+      add_call_biff(args, label_val, destination, bif_num_val, instr_index,
+                    live_val);
 
       break;
     }
@@ -521,6 +554,10 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto label = instr.arguments[0];
       assert(label.tag == LABEL_TAG);
       auto label_val = label.arg_raw.arg_num;
+
+      auto live = instr.arguments[1];
+      assert(live.tag == LITERAL_TAG);
+      auto live_val = live.arg_raw.arg_num;
 
       auto bif_num = instr.arguments[2];
       assert(bif_num.tag == LITERAL_TAG);
@@ -531,7 +568,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
       auto destination = instr.arguments[5];
 
-      add_call_biff(args, label_val, destination, bif_num_val, instr_index);
+      add_call_biff(args, label_val, destination, bif_num_val, instr_index,
+                    live_val);
 
       break;
     }
@@ -685,6 +723,25 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       break;
     }
 
+    case PUT_TUPLE2_OP: {
+      auto destination = instr.arguments[0];
+      auto elements = instr.arguments[1];
+      assert(elements.tag == EXT_LIST_TAG);
+
+      auto elements_vec = elements.arg_raw.arg_vec_p;
+
+      add_setup_args_code({elements_vec->size() + 1});
+
+      add_code(get_riscv(PUT_TUPLE2_SNIP));
+
+      const auto offset = 8; // skip the header
+      copy_ext_list_heap.template operator()<6>(elements_vec, offset);
+      add_code(get_riscv(TAG_BOXED_T1_SNIP));
+
+      add_store_appropriate(destination, 6);
+      break;
+    }
+
     case MAKE_FUN3_OP: {
       auto index = instr.arguments[0];
       assert(index.tag == LITERAL_TAG);
@@ -704,19 +761,10 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_code(get_riscv(MAKE_FUN3_SNIP));
 
       // now pointing to pos right after the index loc
-      int position = 16;
+      const size_t offset = 16;
 
-      for (const auto &reg_to_save : *freeze_list_val) {
-        // load reg to t0
-        add_load_appropriate(reg_to_save, 5);
-
-        // t1 has the heap pointer
-        // sd t0, pos(t1)
-        add_riscv_instr(create_store_doubleword(6, 5, position));
-
-        position += 8;
-      }
-
+      // t1 has the heap pointer
+      copy_ext_list_heap.template operator()<6>(freeze_list_val, offset);
       add_code(get_riscv(TAG_BOXED_T1_SNIP));
 
       // the value in t1 (i.e. the heap pointer before this)

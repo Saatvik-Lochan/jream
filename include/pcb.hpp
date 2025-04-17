@@ -51,17 +51,18 @@ struct __attribute__((aligned(16))) ProcessControlBlock {
   }
 
   void queue_message(Message *msg);
-  ErlTerm *allocate_heap(size_t size);
-  ErlTerm *allocate_tuple(size_t size);
+
+  // The default xreg value will make all xregisters dangling!
+  ErlTerm *allocate_tuple(size_t size, size_t xregs = 0);
   ErlTerm *allocate_and_gc(size_t size, size_t xregs);
   std::span<ErlTerm> get_stack() {
     return std::span<ErlTerm>{get_shared<STOP>(), heap.data() + heap.size()};
   }
 
-private:
   std::span<ErlTerm> heap;
   ErlTerm *highwater;
 
+private:
   std::vector<std::span<ErlTerm>> get_root_set(size_t);
   std::span<ErlTerm> get_next_to_space(size_t);
   std::span<ErlTerm> prev_to_space;

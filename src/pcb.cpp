@@ -2,7 +2,6 @@
 #include "external_term.hpp"
 #include "garbage_collection.hpp"
 #include <algorithm>
-#include <iterator>
 
 ErlTerm make_pid(ProcessControlBlock *pcb) {
   return (reinterpret_cast<uint64_t>(pcb) & PID_TAGGING_MASK) + 0b0011;
@@ -20,21 +19,10 @@ void ProcessControlBlock::queue_message(Message *msg) {
   set_shared<MBOX_TAIL>(msg->get_next_address());
 }
 
-ErlTerm *ProcessControlBlock::allocate_heap(size_t size) {
-  const auto heap = get_shared<HTOP>();
-  const auto new_top = heap + size;
-
-  assert(new_top <= get_shared<STOP>());
-
-  set_shared<HTOP>(new_top);
-
-  return heap;
-}
-
-ErlTerm *ProcessControlBlock::allocate_tuple(size_t size) {
+ErlTerm *ProcessControlBlock::allocate_tuple(size_t size, size_t xregs) {
   assert((size << 6) >> 6 == size);
 
-  auto heap_slots = allocate_heap(size + 1);
+  auto heap_slots = allocate_and_gc(size + 1, xregs);
   heap_slots[0] = size << 6;
 
   return heap_slots;
