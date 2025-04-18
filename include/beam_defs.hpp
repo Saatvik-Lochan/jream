@@ -211,7 +211,7 @@ struct CodeChunk {
 
   void set_external_jump_loc(uint64_t index, CodeChunk *, uint64_t label);
 
-  void log(const AtomChunk &atom_chunk);
+  void log(const AtomChunk &atom_chunk, const LiteralChunk &literal_chunk);
 };
 
 struct BeamSrc {

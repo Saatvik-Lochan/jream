@@ -87,3 +87,12 @@ void free_msg(Message *msg) {
 void print_op_name(uint64_t op_code) {
   LOG(INFO) << op_names[op_code] << ": " << op_code;
 }
+
+void execute_minor_gc(size_t new_term_size, size_t xregs) {
+  auto pcb = emulator_main.scheduler.get_current_process();
+  pcb->do_gc(new_term_size, xregs);
+}
+
+void log_label(uint64_t label) {
+  LOG(INFO) << "|-> AT LABEL: " << label;
+}

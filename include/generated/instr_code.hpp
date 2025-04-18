@@ -22,6 +22,7 @@ enum AsmSnippet {
   IS_TUPLE_1_SNIP, // assembly/build/is_tuple_1.S
   TAG_BOXED_T1_SNIP, // assembly/build/tag_boxed_t1.S
   RETURN_SNIP, // assembly/build/return.S
+  GET_TL_SNIP, // assembly/build/get_tl.S
   IS_NONEMPTY_LIST_SNIP, // assembly/build/is_nonempty_list.S
   WAIT_SNIP, // assembly/build/wait.S
   TRIM_SNIP, // assembly/build/trim.S
@@ -45,6 +46,7 @@ enum AsmSnippet {
   IS_TUPLE_2_SNIP, // assembly/build/is_tuple_2.S
   LOOP_REC_2_SNIP, // assembly/build/loop_rec_2.S
   SETUP_SNIP, // assembly/build/setup.S
+  LOG_LABEL_SNIP, // assembly/build/log_label.S
   GET_LIST_SNIP, // assembly/build/get_list.S
   PUT_LIST_SNIP, // assembly/build/put_list.S
   CALL_EXT_SNIP, // assembly/build/call_ext.S

@@ -7,13 +7,13 @@ set(GCC_PREFIX "/usr")
 
 set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -lpthread")
+set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -lpthread -static-libasan")
 
 set(CMAKE_C_COMPILER   clang)
 set(CMAKE_CXX_COMPILER clang++)
 
 set(TRIPLE "--target=${RISCV_TOOL} --gcc-toolchain=${GCC_PREFIX} --sysroot=${RISCV_SYSROOT}")
-set(PACKAGES "-pthread")
+set(PACKAGES "-pthread -fsanitize=address")
 
 set(COMMON_FLAGS "${TRIPLE} ${PACKAGES}")
 

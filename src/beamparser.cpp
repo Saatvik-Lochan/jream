@@ -75,7 +75,9 @@ AtomChunk parse_atom_chunk(std::ifstream &stream) {
   uint32_t num_atoms = read_big_endian(stream);
   std::vector<std::string> atoms;
 
-  atoms.push_back("dummy"); // indexing dummy
+  atoms.push_back("NIL (not atom)"); 
+  // 0th atom index represents nil
+  // however this value should not be used
 
   for (uint32_t i = 0; i < num_atoms; i++) {
     uint8_t atom_length = read_byte(stream);

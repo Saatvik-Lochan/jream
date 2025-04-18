@@ -57,8 +57,6 @@ const inline std::unordered_map<std::string, uintptr_t> name_bif_map = {
 
     MAP("file:consult/1", file_consult),
     MAP("io:write/1", io_write),
-
-    MAP("lists:split/2", list_split),
 };
 
 #endif

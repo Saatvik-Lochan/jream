@@ -79,7 +79,7 @@ std::pair<ErlTerm, uint8_t *> ErlTerm::from_binary(uint8_t *data,
 
   switch (type_byte) {
   case 97: // small_integer_ext
-    return {ErlTerm((data[1] << 4) & 0b1111), data + 2};
+    return {make_small_int(data[1]), data + 2};
   case 98: { // integer_ext
     auto integer = big_endian_from_bytes<int32_t>(data + 1);
     return {from_integer(integer), data + 5};
@@ -99,8 +99,7 @@ std::pair<ErlTerm, uint8_t *> ErlTerm::from_binary(uint8_t *data,
       data = result.second;
     }
 
-    ErlTerm out((reinterpret_cast<size_t>(tuple_p) & 0b00) + 0b10);
-    return {out, data};
+    return {make_boxed(tuple_p), data};
   }
   case 106: { // nil_ext
     return {get_nil_term(), data + 1};
@@ -540,6 +539,7 @@ std::string to_string(std::vector<ErlTerm> terms, std::string start,
 
 std::string to_string(ErlTerm erl_term) {
   switch (erl_term.getTagType()) {
+  case NIL_T:
   case LIST_T: {
     std::vector<ErlTerm> out = vec_from_erl_list(erl_term);
     return to_string(out, "[", "]");
@@ -574,7 +574,6 @@ std::string to_string(ErlTerm erl_term) {
   case ATOM_T: {
     return emulator_main.get_atom_string_current(erl_term);
   }
-  case NIL_T:
   case PID_T:
   case PORT_T:
   case HEADER_T:

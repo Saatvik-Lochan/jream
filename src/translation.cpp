@@ -13,6 +13,7 @@
 
 #include "beam_defs.hpp"
 #include "bif.hpp"
+#include "external_term.hpp"
 #include "generated/instr_code.hpp"
 #include "op_arity.hpp"
 #include "riscv_gen.hpp"
@@ -119,6 +120,13 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto small_int = make_small_int(val);
 
       add_literal(small_int);
+      break;
+    }
+    case ATOM_TAG: {
+      auto val = arg.arg_raw.arg_num;
+
+      ErlTerm term = val == 0 ? ErlTerm(get_nil_term()) : make_atom(val);
+      add_literal(term);
       break;
     }
     case EXT_LITERAL_TAG: {
@@ -272,7 +280,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_riscv_instr(create_load_x_reg(10 + i, i, 21));
     }
 
-    // i.e. 0 out the live register
+    // i.e. 0 out the 'live' register
     add_riscv_instr(create_add_immediate(10 + arity_val, 0, 0));
 
     auto destination = instr.arguments[1];
@@ -345,6 +353,13 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
       label_offsets[label_val] = compiled.size();
       local_labels.insert(label_val);
+
+#ifdef EXEC_LOG
+      // log the function at every entry
+      add_riscv_instr(create_add_immediate(10, 0, label_val));
+      add_code(get_riscv(LOG_LABEL_SNIP));
+#endif
+
       break;
     }
 
@@ -707,6 +722,17 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       break;
     }
 
+    case GET_TL_OP: {
+      // load the register pointed at in t0
+      add_load_appropriate(instr.arguments[0], 5);
+
+      add_code(get_riscv(GET_TL_SNIP));
+
+      // store from t1
+      add_store_appropriate(instr.arguments[1], 6);
+      break;
+    }
+
     case GET_TUPLE_ELEMENT_OP: {
       auto source = instr.arguments[0];
       auto element = instr.arguments[1];
@@ -770,6 +796,11 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       // the value in t1 (i.e. the heap pointer before this)
       add_store_appropriate(instr.arguments[1], 6);
 
+      break;
+    }
+
+    case IS_EQ_EXACT_OP: {
+      add_comparison(instr, 0x1);
       break;
     }
 

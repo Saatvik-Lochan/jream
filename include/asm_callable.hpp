@@ -15,6 +15,8 @@ void free_msg(Message *);
 void send_message(ErlTerm *);
 uint64_t compare(uint64_t term1, uint64_t term2);
 void print_op_name(uint64_t op_code);
+void execute_minor_gc(size_t new_term_size, size_t xregs);
+void log_label(uint64_t label);
 
 #define CAST(Func) reinterpret_cast<std::uintptr_t>(&Func)
 
@@ -31,6 +33,8 @@ inline std::uintptr_t all_funs[] = {
     CAST(send_message),                // m_asm: SEND_MSG
     CAST(compare),                     // m_asm: COMPARE
     CAST(print_op_name),               // m_asm: PRINT_OP_NAME
+    CAST(execute_minor_gc),            // m_asm: EXECUTE_GC
+    CAST(log_label),                   // m_asm: LOG_LABEL
 };
 
 #endif

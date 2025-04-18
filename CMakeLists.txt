@@ -13,8 +13,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic")
 # Want to support cross compilation, so must prefer static libs
 # and building from source with FetchContent
 
-find_package(Threads REQUIRED)
-
 include(FetchContent)
 
 set(WITH_GFLAGS OFF)

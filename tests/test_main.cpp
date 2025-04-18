@@ -243,12 +243,8 @@ TEST(ErlTerm, DeepCopyNestedShared) {
   // i.e. both point to the same element
   ASSERT_EQ(copy_ptr[1], copy_ptr[3]);
 
-  std::cout << "I was before" << std::endl;
-
   // points to it's own element
   assert_deepcopy_list(copy_ptr[1], tuple_ptr[1]);
-
-  std::cout << "I was here";
 }
 
 ErlTerm try_parse(std::string term, bool parse_multiple = false) {
@@ -361,6 +357,18 @@ TEST(ErlTerm, ToStringList) {
 
   // then
   ASSERT_EQ(result, "[1, 2, 3, 4, 5]");
+}
+
+TEST(ErlTerm, ToStringNilPair) {
+  ErlTerm tuple[3] = { 2 << 6, get_nil_term(), get_nil_term() };
+  auto handle = make_boxed(tuple);
+
+  // when
+  auto result = to_string(handle);
+
+  // then
+  ASSERT_EQ(result, "{[], []}");
+
 }
 
 TEST(ErlTerm, ToStringTupleListAtom) {
@@ -802,7 +810,36 @@ TEST(RISCV, GetList) {
 
   // then
   ASSERT_EQ(xreg[1], 20);
-  // TODO check that the list is correct & other registers unchanged
+  auto other_list = vec_from_erl_list(xreg[2]);
+  std::vector<ErlTerm> expected_list = {30};
+  ASSERT_EQ(other_list, expected_list);
+}
+
+TEST(RISCV, GetTail) {
+  std::vector<Instruction> instructions = {
+      Instruction{GET_TL_OP,
+                  {
+                      Argument{X_REGISTER_TAG, {.arg_num = 0}},
+                      Argument{X_REGISTER_TAG, {.arg_num = 1}},
+                  }}};
+
+  wrap_in_function(instructions);
+  CodeChunk code_chunk(std::move(instructions), 1, 1);
+
+  auto pcb = get_process(code_chunk);
+
+  auto xreg = pcb->get_shared<XREG_ARRAY>();
+
+  auto list = erl_list_from_range({20, 30}, get_nil_term());
+  xreg[0] = list;
+
+  // when
+  resume_process(pcb);
+
+  // then
+  auto tail = vec_from_erl_list(xreg[1]);
+  std::vector<ErlTerm> expected_tail = {30};
+  ASSERT_EQ(tail, expected_tail);
 }
 
 TEST(RISCV, PutList) {
@@ -1143,7 +1180,7 @@ TEST(RISCV, GCBif1) {
       Instruction{GC_BIF1_OP,
                   {
                       get_tag(LABEL_TAG, 2),   // fail label
-                      get_tag(LITERAL_TAG, 0), // Live X regs (not used till gc)
+                      get_tag(LITERAL_TAG, 0), // Live X regs 
                       get_tag(LITERAL_TAG, 0), // bif_num (import index)
                       get_tag(X_REGISTER_TAG, 3), // arg_1
                       get_tag(X_REGISTER_TAG, 2), // destination
@@ -1786,6 +1823,30 @@ TEST(RISCV, TestIsNonEmptyListFalse) {
   ASSERT_TRUE(b);
 }
 
+TEST(RISCV, TestIsNonEmptyListOtherFalse) {
+  bool a = false;
+  bool b = false;
+
+  auto instructions =
+      get_test_instrs(Instruction{IS_NONEMPTY_LIST_OP,
+                                  {get_tag(LABEL_TAG, 2),
+                                   get_tag(X_REGISTER_TAG, 0), get_lit(3)}},
+                      &a, &b);
+
+  CodeChunk code_chunk(std::move(instructions), 1, 2);
+  auto pcb = get_process(code_chunk);
+
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  xregs[0] = make_small_int(5);
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_FALSE(a);
+  ASSERT_TRUE(b);
+}
+
 TEST(RISCV, TestIsNilTrue) {
   bool a = false;
   bool b = false;
@@ -1825,6 +1886,30 @@ TEST(RISCV, TestIsNilFalse) {
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
   xregs[0] = erl_list_from_range({1, 2, 3}, get_nil_term());
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_FALSE(a);
+  ASSERT_TRUE(b);
+}
+
+TEST(RISCV, TestIsNilOtherFalse) {
+  bool a = false;
+  bool b = false;
+
+  auto instructions =
+      get_test_instrs(Instruction{IS_NIL_OP,
+                                  {get_tag(LABEL_TAG, 2),
+                                   get_tag(X_REGISTER_TAG, 0), get_lit(3)}},
+                      &a, &b);
+
+  CodeChunk code_chunk(std::move(instructions), 1, 2);
+  auto pcb = get_process(code_chunk);
+
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  xregs[0] = make_small_int(5);
 
   // when
   resume_process(pcb);
@@ -1947,6 +2032,14 @@ TEST(RISCV, CompIntLT) {
   auto should_ge_jump = true;
   do_compare_test(IS_GE_OP, arg1, arg2, should_ge_jump);
   do_compare_test(IS_LT_OP, arg1, arg2, !should_ge_jump);
+}
+
+TEST(RISCV, CompEqExactTrue) {
+  auto arg1 = make_small_int(0);
+  auto arg2 = make_small_int(0);
+
+  auto should_jump = false;
+  do_compare_test(IS_EQ_EXACT_OP, arg1, arg2, should_jump);
 }
 
 TEST(RISCV, Badmatch) {

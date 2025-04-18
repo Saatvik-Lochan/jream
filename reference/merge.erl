@@ -1,5 +1,9 @@
 -module(merge).
--export([merge_sort/1]).
+-export([main/0, merge_sort/1]).
+
+main() ->
+  {ok, [List]} = file:consult("list.txt"),
+  io:write(merge_sort(List)).
 
 % Entry point
 merge_sort(List) ->
@@ -17,7 +21,13 @@ merge_sort(List) ->
 
 % Split the list into two halves
 split(List) ->
-    lists:split(length(List) div 2, List).
+    split(length(List) div 2, List).
+
+split(_, []) -> {[], []};
+split(0, List) -> {[], List};
+split(N, [Head | Tail]) when N > 0 ->
+    {First, Second} = split(N - 1, Tail),
+    {[Head | First], Second}.
 
 % Merge two sorted lists
 merge([], Right) -> Right;

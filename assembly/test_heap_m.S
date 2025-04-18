@@ -9,5 +9,5 @@
   load_arg t1, 0 
 
   bge t0, t1, 1f
-  exit_because HEAP_SPACE
+  call_cxx_fun EXECUTE_GC
 1:

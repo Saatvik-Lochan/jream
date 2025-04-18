@@ -98,7 +98,8 @@ void CodeChunk::set_external_jump_loc(uint64_t index, CodeChunk *code_chunk_p,
   loc.label = label;
 }
 
-std::string get_argument_string(Argument arg, const AtomChunk &atom_chunk) {
+std::string get_argument_string(Argument arg, const AtomChunk &atom_chunk,
+                                const LiteralChunk &literal_chunk) {
   std::string tag_name = TagToString(arg.tag) + " = ";
   auto val = arg.arg_raw;
   auto &atoms = atom_chunk.atoms;
@@ -127,17 +128,20 @@ std::string get_argument_string(Argument arg, const AtomChunk &atom_chunk) {
 
     size_t i = 0;
     for (; i < vec.size() - 1; i++) {
-      vec_string += get_argument_string(vec[i], atom_chunk);
+      vec_string += get_argument_string(vec[i], atom_chunk, literal_chunk);
       vec_string += ", ";
     }
 
-    vec_string += get_argument_string(vec[i], atom_chunk);
+    vec_string += get_argument_string(vec[i], atom_chunk, literal_chunk);
     vec_string += "]";
 
     return tag_name + vec_string;
   }
+  case EXT_LITERAL_TAG: {
+    auto index = val.arg_num;
+    return tag_name + to_string(literal_chunk.literals[index]);
+  }
   case EXT_ALLOC_LIST_TAG:
-  case EXT_LITERAL_TAG:
   case TYPED_REGISTER_TAG:
   case EXT_FPREG_TAG:
   default:
@@ -153,7 +157,8 @@ void AtomChunk::log() {
   }
 }
 
-void CodeChunk::log(const AtomChunk &atom_chunk) {
+void CodeChunk::log(const AtomChunk &atom_chunk,
+                    const LiteralChunk &lit_chunk) {
   LOG(INFO) << "CodeChunk";
   LOG(INFO) << "name | op_code/arity";
 
@@ -168,12 +173,18 @@ void CodeChunk::log(const AtomChunk &atom_chunk) {
     const auto &args = instr.arguments;
 
     for (auto arg : args) {
-      LOG(INFO) << "    " << get_argument_string(arg, atom_chunk);
+      LOG(INFO) << "    " << get_argument_string(arg, atom_chunk, lit_chunk);
     }
   }
 }
 
-void LiteralChunk::log() { LOG(INFO) << "Literal Chunk"; }
+void LiteralChunk::log() { 
+  LOG(INFO) << "Literal Chunk"; 
+
+  for (auto literal : literals) {
+    LOG(INFO) << "    " << to_string(literal);
+  }
+}
 
 std::string get_func_id_name(ExternalFunctionId func_id,
                              const AtomChunk &atom_chunk) {
@@ -223,11 +234,11 @@ void FunctionTableChunk::log(const AtomChunk &atom_chunk) {
 
 void BeamSrc::log() {
   atom_chunk.log();
-  code_chunk.log(atom_chunk);
   import_table_chunk.log(atom_chunk);
   export_table_chunk.log(atom_chunk);
   function_table_chunk.log(atom_chunk);
   literal_chunk.log();
+  code_chunk.log(atom_chunk, literal_chunk);
 }
 
 ExportFunctionId BeamSrc::get_external_id(GlobalFunctionId global) {

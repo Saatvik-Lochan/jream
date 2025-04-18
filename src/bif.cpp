@@ -101,6 +101,8 @@ BIFReturn erl_sub(uint64_t a, uint64_t b) {
   return do_arith(a, b, [](auto a, auto b){ return a - b; });
 }
 
+// WARNING: This can not be used in erlang because it is inplace!
+// and we are mutating immutable lists!
 BIFReturn list_split(uint64_t first_size_raw, uint64_t list_raw,
                      uint64_t xregs) {
   assert(ErlTerm(first_size_raw).getTagType() == SMALL_INT_T);

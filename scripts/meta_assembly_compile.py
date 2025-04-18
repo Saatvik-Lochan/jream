@@ -100,7 +100,7 @@ def transform_if_necessary(line: str):
             f"ld t0, {fun_index * 8}(s4) "
             f"# generated from '{line.strip()}'\n"
             f"jalr t0 "
-            f"# cont..."
+            f"# cont...\n"
         )
 
         return instructions

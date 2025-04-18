@@ -237,7 +237,7 @@ inline ErlMajorType ErlTerm::getErlMajorType() const {
   case CATCH_T:
   case HEADER_T:
   default: {
-    throw std::logic_error("Not a valid type");
+    throw std::logic_error(std::format("Not a valid type {:b}", term));
   }
   }
 }
