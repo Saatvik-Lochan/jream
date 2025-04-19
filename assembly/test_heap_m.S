@@ -6,8 +6,10 @@
   sub t0, t0, t1  
 
   # space needed
-  load_arg t1, 0 
+  load_arg a0, 0 
 
-  bge t0, t1, 1f
+  bge t0, a0, 1f
+
+  load_arg a1, 1
   call_cxx_fun EXECUTE_GC
 1:

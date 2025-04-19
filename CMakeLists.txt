@@ -32,13 +32,18 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(zlib)
 
+include(FetchContent)
+
 FetchContent_Declare(
-  compiler_rt
-  GIT_REPOSITORY https://github.com/llvm/llvm-project.git
-  GIT_TAG llvmorg-18.1.2 # or another stable version
+  mimalloc
+  GIT_REPOSITORY https://github.com/microsoft/mimalloc.git
+  GIT_TAG v2.1.2 
 )
 
-FetchContent_MakeAvailable(compiler_rt)
+set(MI_BUILD_STATIC ON CACHE BOOL "" FORCE)
+set(MI_BUILD_SHARED ON CACHE BOOL "" FORCE)
+set(MI_DEBUG_FULL ON CACHE BOOL "" FORCE)  
+FetchContent_MakeAvailable(mimalloc)
 
 # main library
 add_library(jreamlib 
@@ -137,6 +142,7 @@ configure_shared_variable_gen()
 # main executable
 add_executable(trial src/trial_jit.cpp)
 target_link_libraries(trial PRIVATE
+  mimalloc-static
   jreamlib
   glog
 )

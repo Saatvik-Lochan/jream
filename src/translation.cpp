@@ -420,14 +420,12 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       }
       }
 
-      add_setup_args_code({words});
-
       auto live = instr.arguments[1];
       assert(live.tag == LITERAL_TAG);
 
-      add_code(get_riscv(TEST_HEAP_SNIP));
+      add_setup_args_code({words, live.arg_raw.arg_num});
 
-      // TODO actually do the garbage collection
+      add_code(get_riscv(TEST_HEAP_SNIP));
       break;
     }
 
@@ -435,7 +433,10 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto alloc_amount = instr.arguments[0];
       assert(alloc_amount.tag == LITERAL_TAG);
 
-      add_setup_args_code({alloc_amount.arg_raw.arg_num});
+      auto live = instr.arguments[1];
+      assert(live.tag == LITERAL_TAG);
+
+      add_setup_args_code({alloc_amount.arg_raw.arg_num, live.arg_raw.arg_num});
       add_code(get_riscv(ALLOCATE_SNIP));
       break;
     }

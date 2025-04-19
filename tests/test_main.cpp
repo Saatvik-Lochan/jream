@@ -602,23 +602,19 @@ TEST(RISCV, Swap) {
 TEST(RISCV, Allocate) {
   // given
   std::vector<Instruction> instructions = {
-      Instruction{ALLOCATE_OP, {get_lit(3)}}};
+      Instruction{ALLOCATE_OP, {get_lit(3), get_lit(0)}}};
   wrap_in_function(instructions);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
-  ErlTerm e[5];
-
   auto pcb = get_process(code_chunk);
-  pcb->set_shared<STOP>(e + 4);
+  auto initial = pcb->get_shared<STOP>();
 
   // when
   resume_process(pcb);
 
   // then
-  auto val = pcb->get_shared<STOP>();
-
-  // 3 + 1 from code pointer
-  ASSERT_EQ(val, e);
+  auto after = pcb->get_shared<STOP>();
+  ASSERT_EQ(after, initial - 4);
   // no test for code pointer storing here, see call tests
 }
 
@@ -627,7 +623,7 @@ TEST(RISCV, Allocate) {
 TEST(RISCV, AllocateAndDeallocate) {
   // given
   std::vector<Instruction> instructions = {
-      Instruction{ALLOCATE_OP, {get_lit(3)}},
+      Instruction{ALLOCATE_OP, {get_lit(3), get_lit(0)}},
       Instruction{DEALLOCATE_OP, {get_lit(3)}}};
 
   wrap_in_function(instructions);
@@ -938,7 +934,7 @@ TEST(RISCV, MakeFun) {
 
 CodeChunk getCallCodeChunk(bool *flag) {
   std::vector<Instruction> func_1 = {
-      Instruction{ALLOCATE_OP, {get_lit(1)}},
+      Instruction{ALLOCATE_OP, {get_lit(1), get_lit(0)}},
       Instruction{CALL_OP,
                   {
                       Argument{LITERAL_TAG, {.arg_num = 1}}, // arity
@@ -1127,7 +1123,7 @@ TEST(RISCV, CallExtLastBif) {
 
   // don't need alloc/dealloc if it is a bif
   std::vector<Instruction> instructions = {
-      Instruction{ALLOCATE_OP, {get_lit(2)}},
+      Instruction{ALLOCATE_OP, {get_lit(2), get_lit(0)}},
       Instruction{CALL_EXT_LAST_OP,
                   {
                       Argument{LITERAL_TAG, {.arg_num = arity}},
@@ -1669,7 +1665,7 @@ TEST(RISCV, InitYRegs) {
   };
 
   std::vector<Instruction> instructions = {
-      Instruction{ALLOCATE_OP, {get_lit(3)}},
+      Instruction{ALLOCATE_OP, {get_lit(3), get_lit(0)}},
       Instruction{INIT_YREGS_OP,
                   {Argument{EXT_LIST_TAG, {.arg_vec_p = &arguments}}}},
       Instruction{WAIT_OP, {get_tag(LABEL_TAG, 0)}} // label doesn't matter
@@ -1695,7 +1691,7 @@ TEST(RISCV, InitYRegs) {
 
 CodeChunk getCallLastCodeChunk(bool *flag) {
   std::vector<Instruction> func_1 = {
-      Instruction{ALLOCATE_OP, {get_lit(3)}},
+      Instruction{ALLOCATE_OP, {get_lit(3), get_lit(0)}},
       Instruction{CALL_LAST_OP,
                   {
                       Argument{LITERAL_TAG, {.arg_num = 1}}, // arity

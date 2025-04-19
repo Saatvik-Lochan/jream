@@ -1,5 +1,5 @@
 -module(merge).
--export([main/0, main_s/0, main_split/0]).
+-export([main/0, main_s/0, main_split/0, test/0]).
 
 main() ->
   {ok, [List]} = file:consult("list.txt"),
@@ -12,6 +12,9 @@ main_s() ->
 main_split() ->
   {ok, [List]} = file:consult("list.txt"),
   io:write(split(List)).
+
+test() ->
+  io:write(merge([100], [200])).
 
 % Entry point
 merge_sort(List) ->
