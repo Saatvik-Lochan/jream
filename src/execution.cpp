@@ -54,7 +54,7 @@ ProcessControlBlock *Emulator::create_process(EntryPoint entry_point) {
   // TODO make xreg amount dynamic
   pcb->set_shared<XREG_ARRAY>(new ErlTerm[5]);
 
-  const auto HEAP_SIZE = 1000;
+  const auto HEAP_SIZE = 4;
   auto heap = new ErlTerm[HEAP_SIZE];
   pcb->set_shared<HTOP>(heap);
   pcb->set_shared<STOP>(heap + HEAP_SIZE);
@@ -150,10 +150,9 @@ std::string Emulator::get_atom_string_current(ErlTerm e) {
   assert(e.getTagType() == ATOM_T);
 
   auto index = e.term >> 6;
-  
+
   auto pcb = scheduler.get_current_process();
-  auto value =
-      pcb->get_shared<CODE_CHUNK_P>()->atom_chunk->atoms[index];
+  auto value = pcb->get_shared<CODE_CHUNK_P>()->atom_chunk->atoms[index];
 
   return value;
 }

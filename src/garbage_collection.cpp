@@ -5,6 +5,9 @@
 #include <span>
 #include <stack>
 
+
+constexpr uint64_t MOVED_CONS_MARKER = 37 << 2;
+
 /*
  * Currently only minor gc is implemented and old heap cannot free just yet.
  */
@@ -45,7 +48,7 @@ YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
       }
 
       // list case
-      if (copy_ptr[0] == 0) {
+      if (copy_ptr[0] == MOVED_CONS_MARKER) {
         // i.e list already moved
         *ptr_term_ptr = copy_ptr[1];
         return;
@@ -69,7 +72,7 @@ YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
 
       auto new_erl_ref = make_cons(new_ref);
 
-      copy_ptr[0] = 0; // 0ing out to mark as moved
+      copy_ptr[0] = MOVED_CONS_MARKER; // 0ing out to mark as moved
       copy_ptr[1] = new_erl_ref;
 
       *ptr_term_ptr = new_erl_ref;

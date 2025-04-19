@@ -176,3 +176,14 @@ BIFReturn io_write(uint64_t term) {
   std::cout << to_string(ErlTerm(term)) << "\n";
   return 0;
 }
+
+// debug ops
+uintptr_t curr_cp() {
+  auto code_pointer = get_pcb()->get_stack().data()[0];
+  return code_pointer.term;
+}
+
+size_t stack_space() {
+  auto code_pointer = get_pcb()->get_stack().data()[0];
+  return code_pointer.term;
+}

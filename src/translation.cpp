@@ -933,6 +933,13 @@ uint8_t *move_code_to_memory(const std::vector<uint8_t> &code) {
   void *const allocated_mem = mmap(0, code.size(), PROT_READ | PROT_WRITE,
                                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
+  // memory has to be aligned with 4 byte
+#ifdef EXEC_LOG
+  LOG(INFO) << "Allocating memory for code size: " << code.size() << " at "
+            << allocated_mem;
+#endif
+  assert((reinterpret_cast<uint64_t>(allocated_mem) & 0xb11) == 0);
+
   if (allocated_mem == MAP_FAILED) {
     std::string msg =
         std::format("Could not allocate memory with mmap. Errno: {}", errno);

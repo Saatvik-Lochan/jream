@@ -8,6 +8,9 @@
 #include <unordered_map>
 #include <utility>
 
+// debugging utility
+uintptr_t curr_cp();
+
 struct BIFReturn {
   uint64_t a0;
   uint64_t a1;

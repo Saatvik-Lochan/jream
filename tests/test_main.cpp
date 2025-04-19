@@ -2228,20 +2228,21 @@ TEST(GC, CopyFirstPass) {
   auto xregs = pcb->get_shared<XREG_ARRAY>();
 
   auto current_stack = pcb->get_shared<STOP>();
-  std::iota(current_stack - 10, current_stack, 0);
-  pcb->set_shared<STOP>(current_stack - 10);
+
+  const auto STACK_SIZE = 2;
+  assert(current_stack - STACK_SIZE >= pcb->heap.data());
+
+  std::iota(current_stack - STACK_SIZE, current_stack, 0);
+  pcb->set_shared<STOP>(current_stack - STACK_SIZE);
 
   auto check_stack = [&]() {
-    auto stack =
-        pcb->get_stack() | std::views::transform([](auto a) { return a.term; });
-
     auto count = 0;
-    for (auto val : stack) {
-      ASSERT_EQ(val, count);
+    for (auto val : pcb->get_stack()) {
+      ASSERT_EQ(val.term, count);
       count++;
     }
 
-    ASSERT_EQ(pcb->get_stack().size(), 10);
+    ASSERT_EQ(pcb->get_stack().size(), STACK_SIZE);
   };
 
   check_stack();

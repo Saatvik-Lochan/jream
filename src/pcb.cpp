@@ -3,6 +3,7 @@
 #include "garbage_collection.hpp"
 #include <algorithm>
 #include <glog/logging.h>
+#include <iterator>
 
 ErlTerm make_pid(ProcessControlBlock *pcb) {
   return (reinterpret_cast<uint64_t>(pcb) & PID_TAGGING_MASK) + 0b0011;
@@ -47,16 +48,20 @@ std::span<ErlTerm> ProcessControlBlock::get_next_to_space(size_t alloc_amount) {
   auto new_to_space = new ErlTerm[wanted_amount];
 
   // free previous
-  delete[] prev_to_space.data();
+  auto prev_data = prev_to_space.data();
+  if (prev_data) {
+    delete[] prev_data;
+  }
+
   return {new_to_space, wanted_amount};
 }
 
 std::vector<std::span<ErlTerm>>
-ProcessControlBlock::get_root_set(size_t xregs) {
+ProcessControlBlock::get_root_set(size_t xregs, std::span<ErlTerm> stack) {
   std::vector<std::span<ErlTerm>> out;
 
   // stack
-  out.push_back(get_stack());
+  out.push_back(stack);
 
   // registers
   out.push_back(std::span<ErlTerm>{get_shared<XREG_ARRAY>(), xregs});
@@ -84,10 +89,12 @@ ErlTerm *ProcessControlBlock::do_gc(size_t size, size_t xregs) {
 
   // copy stack
   auto stack_span = get_stack();
-  std::ranges::copy_backward(stack_span, to_space.end());
+  std::span<ErlTerm> to_space_stack(to_space.end() - stack_span.size(),
+                                    to_space.end());
+  std::ranges::copy(stack_span, to_space_stack.data());
 
   // do gc
-  auto root_set = get_root_set(xregs);
+  auto root_set = get_root_set(xregs, to_space_stack);
   auto result = minor_gc(root_set, to_space.data(),
                          {.heap_start = heap.data(),
                           .heap_top = htop,
@@ -108,7 +115,7 @@ ErlTerm *ProcessControlBlock::do_gc(size_t size, size_t xregs) {
   // set new values
   heap = to_space;
   set_shared<HTOP>(result.heap_top + size); // new top after alloc
-  set_shared<STOP>(heap.data() + heap.size() - stack_span.size());
+  set_shared<STOP>(to_space_stack.data());
   highwater = result.highwater;
 
 #ifdef EXEC_LOG

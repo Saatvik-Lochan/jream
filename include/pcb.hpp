@@ -70,11 +70,12 @@ struct __attribute__((aligned(16))) ProcessControlBlock {
   ErlTerm *highwater;
 
   GeneralPurposeHeap old_heap;
+  std::span<ErlTerm> prev_to_space;
 
 private:
-  std::vector<std::span<ErlTerm>> get_root_set(size_t);
+  std::vector<std::span<ErlTerm>> get_root_set(size_t xregs,
+                                               std::span<ErlTerm> stack);
   std::span<ErlTerm> get_next_to_space(size_t);
-  std::span<ErlTerm> prev_to_space;
 };
 
 constexpr uint64_t PID_TAGGING_MASK = ~0UL << 4;

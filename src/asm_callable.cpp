@@ -24,6 +24,9 @@ const uint8_t *get_or_compile_label(CodeChunk *code_chunk, uint64_t label) {
   auto offset = code_chunk->label_offsets[label];
   auto label_loc = compiled_code + offset;
 
+  // assert label_loc is four byte aligned
+  assert((reinterpret_cast<uintptr_t>(label_loc) & 0b11) == 0);
+
   return label_loc;
 }
 

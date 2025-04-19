@@ -42,7 +42,13 @@ FetchContent_Declare(
 
 set(MI_BUILD_STATIC ON CACHE BOOL "" FORCE)
 set(MI_BUILD_SHARED ON CACHE BOOL "" FORCE)
-set(MI_DEBUG_FULL ON CACHE BOOL "" FORCE)  
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(MI_DEBUG_FULL ON CACHE BOOL "" FORCE)
+else()
+    set(MI_DEBUG_FULL OFF CACHE BOOL "" FORCE)
+endif()
+
 FetchContent_MakeAvailable(mimalloc)
 
 # main library
