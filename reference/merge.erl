@@ -1,9 +1,17 @@
 -module(merge).
--export([main/0, merge_sort/1]).
+-export([main/0, main_s/0, main_split/0]).
 
 main() ->
   {ok, [List]} = file:consult("list.txt"),
   io:write(merge_sort(List)).
+
+main_s() ->
+  {ok, [List]} = file:consult("list.txt"),
+  io:write(sort(List)).
+
+main_split() ->
+  {ok, [List]} = file:consult("list.txt"),
+  io:write(split(List)).
 
 % Entry point
 merge_sort(List) ->
@@ -18,6 +26,13 @@ merge_sort(List) ->
                 SortedLeft -> merge(SortedLeft, SortedRight)
             end
     end.
+
+ % Non spawning for testing
+sort([]) -> [];
+sort([A]) -> [A];
+sort(List) ->
+    {Left, Right} = split(List),
+    merge(sort(Left), sort(Right)).
 
 % Split the list into two halves
 split(List) ->

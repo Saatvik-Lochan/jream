@@ -169,17 +169,14 @@ inline RISCV_Instruction create_load_x_reg(uint8_t riscv_dest_reg,
 
 inline std::vector<RISCV_Instruction>
 create_load_y_reg(uint8_t riscv_dest_reg, uint16_t y_reg_num,
-                  uint8_t pcb_p_register) {
-
-  // either t0 or t1, making sure there is no clash
-  auto other_register = riscv_dest_reg == 5 ? 6 : 5;
+                  uint8_t pcb_p_register, uint8_t spare_register) {
 
   return std::vector<RISCV_Instruction>{
       // ld riscv_dest_reg, STOP_index(pcb_p_register)
-      create_load_doubleword(other_register, pcb_p_register, STOP * 8),
+      create_load_doubleword(spare_register, pcb_p_register, STOP * 8),
 
-      // ld riscv_dest_reg, y_reg_num(riscv_dest_reg)
-      create_load_doubleword(riscv_dest_reg, other_register,
+      // ld riscv_dest_reg, (y_reg_num + 1)(riscv_dest_reg)
+      create_load_doubleword(riscv_dest_reg, spare_register,
                              (y_reg_num + 1) * 8)};
 }
 
@@ -193,18 +190,15 @@ inline RISCV_Instruction create_store_x_reg(uint8_t riscv_dest_reg,
 
 inline std::vector<RISCV_Instruction>
 create_store_y_reg(uint8_t riscv_dest_reg, uint16_t y_reg_num,
-                   uint8_t pcb_p_register) {
-
-  // either t0 or t1, making sure there is no clash
-  auto other_register = riscv_dest_reg == 5 ? 6 : 5;
+                   uint8_t pcb_p_register, uint8_t spare_register) {
 
   return std::vector<RISCV_Instruction>{
       // ld other_register, STOP_index(pcb_p_register)
-      create_load_doubleword(other_register, pcb_p_register, STOP * 8),
+      create_load_doubleword(spare_register, pcb_p_register, STOP * 8),
 
       // +1 because the code_pointer is allocated there
-      // sd riscv_dest_reg, y_reg_num + 1(other_register)
-      create_store_doubleword(other_register, riscv_dest_reg,
+      // sd riscv_dest_reg, y_reg_num + 1(spare_register)
+      create_store_doubleword(spare_register, riscv_dest_reg,
                               (y_reg_num + 1) * 8)};
 }
 

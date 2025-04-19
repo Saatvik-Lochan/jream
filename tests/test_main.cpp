@@ -399,6 +399,17 @@ TEST(ErlTerm, ToStringTupleListAtom) {
   ASSERT_EQ(result, "{[1, 2, 3], ok, 7}");
 }
 
+TEST(Parsing, FromBinary) {
+  uint8_t data[] = { 131, 108, 0, 0, 0, 1, 97, 55, 106 };
+  auto result = ErlTerm::from_binary(data, true);
+  ErlTerm parsed = result.first;
+
+  auto parsed_vec = vec_from_erl_list(parsed);
+  std::vector<ErlTerm> expected = { make_small_int(55) };
+
+  ASSERT_EQ(parsed_vec, expected);
+}
+
 TEST(Assembly, CreateLoadDoubleWord) {
   uint8_t rd = 31;
   uint8_t rs = 10;

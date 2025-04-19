@@ -414,15 +414,14 @@ LiteralChunk parse_literal_chunk(std::ifstream &stream,
   DLOG(INFO) << "num_literals: " << num_literals << std::endl;
 
   for (uint32_t i = 0; i < num_literals; i++) {
-    [[maybe_unused]]
     uint32_t literal_size = big_endian_from_bytes<uint32_t>(curr_pos);
     curr_pos += 4;
 
-    auto result = ErlTerm::from_binary(curr_pos);
-    DLOG(INFO) << i << ": " << result.first.display() << std::endl;
-    terms.push_back(result.first);
+    auto result = ErlTerm::from_binary(curr_pos).first;
+    DLOG(INFO) << i << ": " << to_string(result) << std::endl;
+    terms.push_back(result);
 
-    curr_pos = result.second;
+    curr_pos += literal_size;
   }
 
   return LiteralChunk(std::move(terms));

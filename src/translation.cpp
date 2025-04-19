@@ -79,7 +79,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       };
 
   // create load/store appropriate
-  const auto add_store_appropriate = [&](Argument arg, uint8_t src_reg) {
+  const auto add_store_appropriate = [&](Argument arg, uint8_t src_reg,
+                                         uint8_t spare_reg) {
     switch (arg.tag) {
     case X_REGISTER_TAG: {
       // assume s5 is the x array register
@@ -88,7 +89,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     }
     case Y_REGISTER_TAG: {
       // assumes s1 points to the pcb
-      add_riscv_instrs(create_store_y_reg(src_reg, arg.arg_raw.arg_num, 9));
+      add_riscv_instrs(
+          create_store_y_reg(src_reg, arg.arg_raw.arg_num, 9, spare_reg));
       break;
     }
     default:
@@ -97,7 +99,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     }
   };
 
-  auto add_load_appropriate = [&](Argument arg, uint8_t dest_reg) {
+  auto add_load_appropriate = [&](Argument arg, uint8_t dest_reg,
+                                  uint8_t spare_reg) {
     auto add_literal = [&](ErlTerm lit) {
       add_setup_args_code({lit});
       // ld dest_reg, 0(s3)
@@ -112,7 +115,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     }
     case Y_REGISTER_TAG: {
       // assumes s1 points to the pcb
-      add_riscv_instrs(create_load_y_reg(dest_reg, arg.arg_raw.arg_num, 9));
+      add_riscv_instrs(
+          create_load_y_reg(dest_reg, arg.arg_raw.arg_num, 9, spare_reg));
       break;
     }
     case INTEGER_TAG: {
@@ -168,7 +172,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     auto source = instr.arguments[1];
 
     // load into t0
-    add_load_appropriate(source, 5);
+    add_load_appropriate(source, 5, 6);
     add_code(get_riscv(stack_check));
 
     reserve_branch_label(label_val);
@@ -196,7 +200,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     auto source = instr.arguments[1];
 
     // load into t0
-    add_load_appropriate(source, 5);
+    add_load_appropriate(source, 5, 6);
     add_code(get_riscv(stack_check));
 
     reserve_branch_label(label_val);
@@ -218,8 +222,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     auto arg2 = instr.arguments[2];
 
     // load into a0, a1
-    add_load_appropriate(arg1, 10);
-    add_load_appropriate(arg2, 11);
+    add_load_appropriate(arg1, 10, 5);
+    add_load_appropriate(arg2, 11, 5);
 
     add_code(get_riscv(DO_COMP_SNIP));
 
@@ -236,7 +240,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
                            std::optional<uint64_t> live = std::nullopt) {
     for (size_t i = 0; i < bif_args.size(); i++) {
       // load into a0, ..., aN
-      add_load_appropriate(bif_args[i], 10 + i);
+      add_load_appropriate(bif_args[i], 10 + i, 5);
     }
 
     if (live) {
@@ -261,7 +265,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     }
 
     // store a0 in dest_reg
-    add_store_appropriate(dest_reg, 10);
+    add_store_appropriate(dest_reg, 10, 5);
   };
 
   // call_ext lambdas
@@ -305,7 +309,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
     for (const auto &reg_to_save : *ext_list) {
       // load reg to t0
-      add_load_appropriate(reg_to_save, 5);
+      add_load_appropriate(reg_to_save, 5, 6);
 
       // t1 has the heap pointer
       // sd t0, pos(t1)
@@ -373,8 +377,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto source = instr.arguments[0];
       auto destination = instr.arguments[1];
 
-      add_load_appropriate(source, 5);
-      add_store_appropriate(destination, 5);
+      add_load_appropriate(source, 5, 6);
+      add_store_appropriate(destination, 5, 6);
 
       break;
     }
@@ -383,11 +387,11 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto reg1 = instr.arguments[0];
       auto reg2 = instr.arguments[1];
 
-      add_load_appropriate(reg1, 5);
-      add_load_appropriate(reg2, 6);
+      add_load_appropriate(reg1, 5, 7);
+      add_load_appropriate(reg2, 6, 7);
 
-      add_store_appropriate(reg1, 6);
-      add_store_appropriate(reg2, 5);
+      add_store_appropriate(reg1, 6, 7);
+      add_store_appropriate(reg2, 5, 7);
 
       break;
     }
@@ -690,7 +694,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto destination = instr.arguments[1];
 
       // save t2
-      add_store_appropriate(destination, 7);
+      add_store_appropriate(destination, 7, 5);
       break;
     }
 
@@ -700,36 +704,36 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto destination = instr.arguments[2];
 
       // head goes in t1, tail goes in t2
-      add_load_appropriate(head, 5);
-      add_load_appropriate(tail, 6);
+      add_load_appropriate(head, 5, 7);
+      add_load_appropriate(tail, 6, 7);
 
       add_code(get_riscv(PUT_LIST_SNIP));
 
-      add_store_appropriate(destination, 5);
+      add_store_appropriate(destination, 5, 6);
 
       break;
     }
 
     case GET_LIST_OP: {
       // load the register pointed at in t0
-      add_load_appropriate(instr.arguments[0], 5);
+      add_load_appropriate(instr.arguments[0], 5, 6);
 
       add_code(get_riscv(GET_LIST_SNIP));
 
       // store from t1 and t2
-      add_store_appropriate(instr.arguments[1], 6);
-      add_store_appropriate(instr.arguments[2], 7);
+      add_store_appropriate(instr.arguments[1], 6, 8);
+      add_store_appropriate(instr.arguments[2], 7, 8);
       break;
     }
 
     case GET_TL_OP: {
       // load the register pointed at in t0
-      add_load_appropriate(instr.arguments[0], 5);
+      add_load_appropriate(instr.arguments[0], 5, 6);
 
       add_code(get_riscv(GET_TL_SNIP));
 
       // store from t1
-      add_store_appropriate(instr.arguments[1], 6);
+      add_store_appropriate(instr.arguments[1], 6, 5);
       break;
     }
 
@@ -742,10 +746,10 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_setup_args_code({element.arg_raw.arg_num});
 
       // load source into t0
-      add_load_appropriate(source, 5);
+      add_load_appropriate(source, 5, 6);
       add_code(get_riscv(GET_TUPLE_ELEMENT_SNIP));
 
-      add_store_appropriate(destination, 5);
+      add_store_appropriate(destination, 5, 6);
       break;
     }
 
@@ -764,7 +768,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       copy_ext_list_heap.template operator()<6>(elements_vec, offset);
       add_code(get_riscv(TAG_BOXED_T1_SNIP));
 
-      add_store_appropriate(destination, 6);
+      add_store_appropriate(destination, 6, 5);
       break;
     }
 
@@ -794,7 +798,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_code(get_riscv(TAG_BOXED_T1_SNIP));
 
       // the value in t1 (i.e. the heap pointer before this)
-      add_store_appropriate(instr.arguments[1], 6);
+      add_store_appropriate(instr.arguments[1], 6, 5);
 
       break;
     }
@@ -837,7 +841,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_setup_args_code(
           {arity.arg_raw.arg_num, make_atom(atom.arg_raw.arg_num)});
 
-      add_load_appropriate(source, 5);
+      add_load_appropriate(source, 5, 6);
       add_branches_after(label.arg_raw.arg_num,
                          {IS_TAGGED_TUPLE_1_SNIP, IS_TAGGED_TUPLE_2_SNIP,
                           IS_TAGGED_TUPLE_3_SNIP, IS_TAGGED_TUPLE_4_SNIP});
@@ -867,7 +871,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_setup_args_code({arity.arg_raw.arg_num});
 
       // load soucre into t1
-      add_load_appropriate(source, 6);
+      add_load_appropriate(source, 6, 5);
       add_code(get_riscv(TEST_ARITY_SNIP));
 
       auto label_val = label.arg_raw.arg_num;
