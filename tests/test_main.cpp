@@ -14,6 +14,7 @@
 #include <numeric>
 #include <optional>
 #include <ranges>
+#include <string_view>
 #include <unistd.h>
 
 struct BeamFileConstructor {
@@ -35,10 +36,6 @@ BeamSrc get_beam_file(BeamFileConstructor b) {
 
   return BeamSrc(b.a ? *b.a : a_, b.c, b.l ? *b.l : l_, b.i ? *b.i : i_,
                  b.e ? *b.e : e_, b.f ? *b.f : f_);
-}
-
-CodeChunk create_code_chunk(std::vector<Instruction> instructions) {
-  return CodeChunk(instructions, 0, 0);
 }
 
 ProcessControlBlock *get_process(CodeChunk *code_chunk) {
@@ -1285,6 +1282,44 @@ TEST(RISCV, GCBif2Fail) {
   ASSERT_TRUE(b);
 }
 
+TEST(RISCV, FastBif) {
+  bool a, b;
+
+  // don't need alloc/dealloc if it is a bif
+  std::vector<Instruction> instructions = {
+      Instruction{GC_BIF2_OP,
+                  {
+                      get_tag(LABEL_TAG, 2),   // fail label
+                      get_tag(LITERAL_TAG, 0), // Live X regs (not used till gc)
+                      get_tag(LITERAL_TAG, 0), // bif_num (import index)
+                      get_tag(X_REGISTER_TAG, 1), // arg_1
+                      get_tag(X_REGISTER_TAG, 3), // arg_2
+                      get_tag(X_REGISTER_TAG, 2), // destination
+                  }},
+      set_flag_instr(&a),
+      Instruction{RETURN_OP},
+      Instruction{LABEL_OP, {get_lit(2)}},
+      set_flag_instr(&b),
+  };
+
+  wrap_in_function(instructions);
+  auto file = get_file_with_import("erlang", "+", 2, std::nullopt,
+                                   std::move(instructions));
+
+  auto pcb = get_process(file.code_chunk);
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  xregs[1] = make_small_int(222);
+  xregs[3] = make_small_int(1000);
+
+  // when
+  resume_process(pcb);
+
+  // then
+  ASSERT_TRUE(a);
+  ASSERT_FALSE(b);
+  ASSERT_EQ(xregs[2], make_small_int(1000 + 222));
+}
+
 TEST(RISCV, Spawn) {
   // given
   uint32_t label = 20;
@@ -2168,7 +2203,7 @@ TEST(BuiltInFunction, ErlBXor) {
   auto result = erl_bxor(a, b);
 
   // then
-  ASSERT_EQ(result.a0 >> 4, 25 | 4);
+  ASSERT_EQ(result.a0 >> 4, 25 ^ 4);
   ASSERT_EQ(ErlTerm(result.a0).getTagType(), SMALL_INT_T);
   ASSERT_EQ(result.a1, 0);
 }
@@ -2184,6 +2219,64 @@ TEST(BuiltInFunction, ErlBsr) {
   ASSERT_EQ(result.a0 >> 4, 25 >> 2);
   ASSERT_EQ(ErlTerm(result.a0).getTagType(), SMALL_INT_T);
   ASSERT_EQ(result.a1, 0);
+}
+
+ErlTerm test_fast_bif2(std::string name, ErlTerm a, ErlTerm b) {
+  std::vector<Instruction> instructions = {
+      Instruction{BIF2_OP,
+                  {
+                      Argument{LABEL_TAG, {.arg_num = 0}},      // label
+                      Argument{LITERAL_TAG, {.arg_num = 0}},    // import index
+                      Argument{X_REGISTER_TAG, {.arg_num = 0}}, // arg 1
+                      Argument{X_REGISTER_TAG, {.arg_num = 1}}, // arg 2
+                      Argument{X_REGISTER_TAG, {.arg_num = 2}}, // dest
+                  }},
+  };
+
+  wrap_in_function(instructions);
+  auto file = get_file_with_import("erlang", name, 2, std::nullopt,
+                                   std::move(instructions));
+  auto pcb = get_process(file.code_chunk);
+
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  xregs[0] = a;
+  xregs[1] = b;
+
+  resume_process(pcb);
+
+  return xregs[2];
+}
+
+TEST(FastBif, ErlBxor) {
+  auto result =
+      test_fast_bif2("bxor", make_small_int(2314), make_small_int(4231));
+
+  // then
+  ASSERT_EQ(result, make_small_int(2314 ^ 4231));
+}
+
+TEST(FastBif, ErlBsr) {
+  auto result =
+      test_fast_bif2("bsr", make_small_int(1234), make_small_int(4));
+
+  // then
+  ASSERT_EQ(result, make_small_int(1234 >> 4));
+}
+
+TEST(FastBif, ErlAdd) {
+  auto result =
+      test_fast_bif2("+", make_small_int(1234), make_small_int(5555));
+
+  // then
+  ASSERT_EQ(result, make_small_int(1234 + 5555));
+}
+
+TEST(FastBif, ErlSub) {
+  auto result =
+      test_fast_bif2("-", make_small_int(1234), make_small_int(234));
+
+  // then
+  ASSERT_EQ(result, make_small_int(1234 - 234));
 }
 
 int main(int argc, char **argv) {

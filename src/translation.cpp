@@ -20,15 +20,31 @@
 #include "riscv_gen.hpp"
 #include "translation.hpp"
 
-std::optional<uintptr_t> bif_from_id(ExternalFunctionId id,
-                                     const AtomChunk &atom_chunk) {
+std::string get_bif_string(ExternalFunctionId id, const AtomChunk &atom_chunk) {
   PROFILE();
 
   auto &atoms = atom_chunk.atoms;
 
   auto id_string = std::format("{}:{}/{}", atoms[id.module],
                                atoms[id.function_name], id.arity);
-  auto result = name_bif_map.find(id_string);
+
+  return id_string;
+}
+
+std::optional<AsmSnippet> get_fast_bif(std::string bif_string) {
+  PROFILE();
+  auto result = inline_bif_map.find(bif_string);
+
+  if (result == inline_bif_map.end()) {
+    return std::nullopt;
+  }
+
+  return std::make_optional(result->second);
+}
+
+std::optional<uintptr_t> bif_from_id(std::string bif_string) {
+  PROFILE();
+  auto result = name_bif_map.find(bif_string);
 
   if (result == name_bif_map.end()) {
     return std::nullopt;
@@ -237,34 +253,42 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
         create_B_type_instruction(0b1100011, branch_funct3, 10, 0, 0));
   };
 
-  auto add_call_biff = [&](std::span<Argument> bif_args, uint64_t fail_label,
-                           Argument dest_reg, uint64_t bif_num,
-                           size_t instr_index,
-                           std::optional<uint64_t> live = std::nullopt) {
+  auto add_call_bif = [&](std::span<Argument> bif_args, uint64_t fail_label,
+                          Argument dest_reg, uint64_t bif_num,
+                          size_t instr_index,
+                          std::optional<uint64_t> live = std::nullopt) {
     for (size_t i = 0; i < bif_args.size(); i++) {
       // load into a0, ..., aN
       add_load_appropriate(bif_args[i], 10 + i, 5);
     }
 
-    if (live) {
-      add_riscv_instr(create_add_immediate(10 + bif_args.size(), 0, *live));
-    }
-
     const auto func_id = code_chunk.import_table_chunk->imports[bif_num];
-    const auto result = bif_from_id(func_id, *code_chunk.atom_chunk);
+    auto bif_string = get_bif_string(func_id, *code_chunk.atom_chunk);
 
-    if (!result) {
-      throw std::logic_error(
-          std::format("BIF '{}' was called, but is not implemented", bif_num));
-    }
+    const auto fast_bif = get_fast_bif(bif_string);
 
-    add_setup_args_code({*result});
-    add_code(get_riscv(BIF_SNIP));
+    if (fast_bif) {
+      add_code(get_riscv(*fast_bif));
+    } else {
+      const auto result = bif_from_id(bif_string);
 
-    if (fail_label) {
-      reserve_branch_label(fail_label);
-      // i.e. if a1 is not 0, then branch
-      add_riscv_instr(create_branch_not_equal(11, 0, 0));
+      if (!result) {
+        throw std::logic_error(std::format(
+            "BIF '{}' was called, but is not implemented", bif_num));
+      }
+
+      if (live) {
+        add_riscv_instr(create_add_immediate(10 + bif_args.size(), 0, *live));
+      }
+
+      add_setup_args_code({*result});
+      add_code(get_riscv(BIF_SNIP));
+
+      if (fail_label) {
+        reserve_branch_label(fail_label);
+        // i.e. if a1 is not 0, then branch
+        add_riscv_instr(create_branch_not_equal(11, 0, 0));
+      }
     }
 
     // store a0 in dest_reg
@@ -296,7 +320,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     auto index = destination.arg_raw.arg_num;
     auto func_id = code_chunk.import_table_chunk->imports[index];
 
-    auto result = bif_from_id(func_id, *code_chunk.atom_chunk);
+    auto bif_string = get_bif_string(func_id, *code_chunk.atom_chunk);
+    auto result = bif_from_id(bif_string);
 
     if (result) {
       if_bif(*result);
@@ -544,9 +569,28 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
       auto destination = instr.arguments[1];
 
-      add_call_biff({}, 0, destination, bif_num_val, instr_index);
+      add_call_bif({}, 0, destination, bif_num_val, instr_index);
       break;
     }
+
+    case BIF2_OP: {
+      auto label = instr.arguments[0];
+      assert(label.tag == LABEL_TAG);
+      auto label_val = label.arg_raw.arg_num;
+
+      auto bif_num = instr.arguments[1];
+      assert(bif_num.tag == LITERAL_TAG);
+
+      Argument args[] = {instr.arguments[2], instr.arguments[3]};
+
+      auto bif_num_val = bif_num.arg_raw.arg_num;
+
+      auto destination = instr.arguments[4];
+
+      add_call_bif(args, label_val, destination, bif_num_val, instr_index);
+      break;
+    }
+
 
       // BIF1 and 2 are quite similar, maybe refactor
     case GC_BIF1_OP: {
@@ -567,8 +611,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
       auto destination = instr.arguments[4];
 
-      add_call_biff(args, label_val, destination, bif_num_val, instr_index,
-                    live_val);
+      add_call_bif(args, label_val, destination, bif_num_val, instr_index,
+                   live_val);
 
       break;
     }
@@ -591,8 +635,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
       auto destination = instr.arguments[5];
 
-      add_call_biff(args, label_val, destination, bif_num_val, instr_index,
-                    live_val);
+      add_call_bif(args, label_val, destination, bif_num_val, instr_index,
+                   live_val);
 
       break;
     }

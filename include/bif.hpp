@@ -2,6 +2,7 @@
 #define BIF
 
 #include "external_term.hpp"
+#include "generated/instr_code.hpp"
 #include <cstdint>
 #include <string>
 #include <type_traits>
@@ -49,6 +50,9 @@ BIFReturn io_write(uint64_t term);
 #define MAP(Name, Function)                                                    \
   std::make_pair(Name, reinterpret_cast<uintptr_t>(Function))
 
+#define PAIR(Name, Snip)                                                    \
+  std::make_pair(Name, Snip)
+
 const inline std::unordered_map<std::string, uintptr_t> name_bif_map = {
     // testing BIFs
     MAP("erlang:test/0", ret100), 
@@ -61,13 +65,15 @@ const inline std::unordered_map<std::string, uintptr_t> name_bif_map = {
     MAP("erlang:self/0", self),
     MAP("erlang:div/2", erl_div),
 
-    MAP("erlang:+/2", erl_add),
-    MAP("erlang:-/2", erl_sub),
-    MAP("erlang:bsr/2", erl_bsr),
-    MAP("erlang:bxor/2", erl_bxor),
-
     MAP("file:consult/1", file_consult),
     MAP("io:write/1", io_write),
+};
+
+const inline std::unordered_map<std::string, AsmSnippet> inline_bif_map = {
+    PAIR("erlang:+/2", ERL_ADD_SNIP),
+    PAIR("erlang:-/2", ERL_SUB_SNIP),
+    PAIR("erlang:bsr/2", ERL_BSR_SNIP),
+    PAIR("erlang:bxor/2", ERL_BXOR_SNIP),
 };
 
 #endif

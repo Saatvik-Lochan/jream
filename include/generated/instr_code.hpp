@@ -12,6 +12,7 @@ enum AsmSnippet {
   GOTO_LABEL_SNIP, // assembly/build/goto_label.S
   CALL_EXT_BIF_SNIP, // assembly/build/call_ext_bif.S
   BIF_SNIP, // assembly/build/bif.S
+  ERL_ADD_SNIP, // assembly/build/erl_add.S
   INIT_YREGS_SNIP, // assembly/build/init_yregs.S
   LOG_OP_SNIP, // assembly/build/log_op.S
   LOOP_REC_1_SNIP, // assembly/build/loop_rec_1.S
@@ -26,12 +27,15 @@ enum AsmSnippet {
   IS_NONEMPTY_LIST_SNIP, // assembly/build/is_nonempty_list.S
   WAIT_SNIP, // assembly/build/wait.S
   TRIM_SNIP, // assembly/build/trim.S
+  ERL_BSR_SNIP, // assembly/build/erl_bsr.S
   PUT_TUPLE2_SNIP, // assembly/build/put_tuple2.S
   TEST_ARITY_SNIP, // assembly/build/test_arity.S
   ALLOCATE_SNIP, // assembly/build/allocate.S
   SEND_SNIP, // assembly/build/send.S
   IS_TAGGED_TUPLE_3_SNIP, // assembly/build/is_tagged_tuple_3.S
+  ERL_BXOR_SNIP, // assembly/build/erl_bxor.S
   CALL_SNIP, // assembly/build/call.S
+  ERL_SUB_SNIP, // assembly/build/erl_sub.S
   GET_TUPLE_ELEMENT_SNIP, // assembly/build/get_tuple_element.S
   LOAD_1_ARG_SNIP, // assembly/build/load_1_arg.S
   BADMATCH_SNIP, // assembly/build/badmatch.S

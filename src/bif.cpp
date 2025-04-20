@@ -121,7 +121,7 @@ BIFReturn erl_bsr(int64_t a, int64_t amount) {
 BIFReturn erl_bxor(int64_t a, int64_t b) {
   PROFILE();
   // the 0b1111 at the end doesn't change anything
-  return a | b;
+  return (a ^ b) | 0b1111;
 }
 
 // WARNING: This can not be used in erlang because it is inplace!
