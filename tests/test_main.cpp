@@ -1249,7 +1249,8 @@ TEST(RISCV, GCBif2) {
 }
 
 TEST(RISCV, GCBif2Fail) {
-  bool a, b;
+  bool a = false;
+  bool b = false;
 
   // don't need alloc/dealloc if it is a bif
   std::vector<Instruction> instructions = {
@@ -1283,7 +1284,8 @@ TEST(RISCV, GCBif2Fail) {
 }
 
 TEST(RISCV, FastBif) {
-  bool a, b;
+  bool a = false;
+  bool b = false;
 
   // don't need alloc/dealloc if it is a bif
   std::vector<Instruction> instructions = {
