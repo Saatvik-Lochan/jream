@@ -6,11 +6,10 @@
 #include "external_term.hpp"
 #include "int_from_bytes.hpp"
 #include "pcb.hpp"
-#include "riscv_gen.hpp"
+#include "profiler.hpp"
 #include <cassert>
 #include <cstdint>
 #include <format>
-#include <iostream>
 #include <iterator>
 #include <stack>
 #include <stdexcept>
@@ -54,6 +53,7 @@ ErlTerm from_integer(const std::vector<uint8_t> &big_integer) {
 
 // TODO test this!
 template <typename T> ErlTerm ErlTerm::from_integer(T integer) {
+  PROFILE();
   static_assert(std::is_integral_v<T>, "T must be an integral value");
   // TODO this static assert fails on characters on the RISC-V VM
   /*static_assert(std::is_signed_v<T>, "T must be a signed value");*/
@@ -71,6 +71,7 @@ template <typename T> ErlTerm ErlTerm::from_integer(T integer) {
 
 std::pair<ErlTerm, uint8_t *> ErlTerm::from_binary(uint8_t *data,
                                                    bool is_initial) {
+  PROFILE();
   if (is_initial) {
     assert(*data == 131);
     data++;
@@ -171,6 +172,7 @@ void traverse_term(T e, U &&do_each_block, V &&combine)
     { t.next } -> std::same_as<ErlTerm &>;
   }
 {
+  PROFILE();
   auto is_pointer = [](ErlTerm e) {
     auto tag = e.term & 0b11;
     return (tag == 0b10 || tag == 0b01);
@@ -242,6 +244,7 @@ void traverse_term(T e, U &&do_each_block, V &&combine)
 }
 
 size_t get_heap_size(const ErlTerm e) {
+  PROFILE();
   auto count = 0;
 
   struct out {
@@ -280,6 +283,7 @@ size_t get_heap_size(const ErlTerm e) {
 // Copies anything necessary to to_loc and returns the the word representing
 // the whole type
 ErlTerm deepcopy(ErlTerm e, ErlTerm *const to_loc) {
+  PROFILE();
   std::unordered_map<uint64_t, ErlTerm> alr_copied;
 
   auto current = to_loc;
@@ -398,6 +402,7 @@ ErlTerm parse_int(const std::string &term, size_t &from,
 
 std::vector<ErlTerm> collect_till(const std::string &term, char end,
                                   size_t &from, ProcessControlBlock *pcb) {
+  PROFILE();
   std::vector<ErlTerm> terms;
 
   // TODO make it work for empty array...
@@ -500,6 +505,7 @@ ErlTerm parse_term(const std::string &term, size_t &from,
 
 ErlTerm parse_terms_into_list(const std::string &term,
                               ProcessControlBlock *pcb) {
+  PROFILE();
   size_t from = 0;
   auto terms = collect_till(term, '.', from, pcb);
 
@@ -507,12 +513,14 @@ ErlTerm parse_terms_into_list(const std::string &term,
 }
 
 ErlTerm parse_term(const std::string &term) {
+  PROFILE();
   auto pcb = emulator_main.scheduler.get_current_process();
   size_t count = 0;
   return parse_term(term, count, pcb);
 }
 
 ErlTerm parse_multiple_terms(const std::string &terms) {
+  PROFILE();
   auto pcb = emulator_main.scheduler.get_current_process();
   return parse_terms_into_list(terms, pcb);
 }

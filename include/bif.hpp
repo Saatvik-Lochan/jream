@@ -27,16 +27,20 @@ static_assert(sizeof(BIFReturn) == 16, "BIFReturn must be 16 bytes");
 
 inline BIFReturn fail() { return BIFReturn(); }
 
-BIFReturn add(uint64_t a, uint64_t b);
-BIFReturn mul10(uint64_t a);
+BIFReturn test_add(uint64_t a, uint64_t b);
+BIFReturn test_mul10(uint64_t a);
 BIFReturn ret100();
 BIFReturn test_fail(uint64_t a, uint64_t b);
 
 BIFReturn spawn_1(uint64_t fun_raw);
 BIFReturn length(uint64_t list_raw);
 BIFReturn self();
-BIFReturn erl_div(uint64_t a, uint64_t b);
-BIFReturn erl_sub(uint64_t a, uint64_t b);
+BIFReturn erl_div(int64_t a, int64_t b);
+BIFReturn erl_sub(int64_t a, int64_t b);
+BIFReturn erl_add(int64_t a, int64_t b);
+BIFReturn erl_bxor(int64_t a, int64_t b);
+BIFReturn erl_bsr(int64_t a, int64_t amount);
+
 BIFReturn list_split(uint64_t first_size_raw, uint64_t list_raw, uint64_t xregs);
 
 BIFReturn file_consult(uint64_t file_name, uint64_t xregs);
@@ -48,8 +52,8 @@ BIFReturn io_write(uint64_t term);
 const inline std::unordered_map<std::string, uintptr_t> name_bif_map = {
     // testing BIFs
     MAP("erlang:test/0", ret100), 
-    MAP("erlang:test/1", mul10), 
-    MAP("erlang:test/2", add),
+    MAP("erlang:test/1", test_mul10), 
+    MAP("erlang:test/2", test_add),
     MAP("erlang:test_fail/2", test_fail),
 
     MAP("erlang:spawn/1", spawn_1),
@@ -57,7 +61,10 @@ const inline std::unordered_map<std::string, uintptr_t> name_bif_map = {
     MAP("erlang:self/0", self),
     MAP("erlang:div/2", erl_div),
 
+    MAP("erlang:+/2", erl_add),
     MAP("erlang:-/2", erl_sub),
+    MAP("erlang:bsr/2", erl_bsr),
+    MAP("erlang:bxor/2", erl_bxor),
 
     MAP("file:consult/1", file_consult),
     MAP("io:write/1", io_write),

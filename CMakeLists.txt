@@ -9,6 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Compiler flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic")
+set(CMAKE_CXX_FLAG)
 
 # Want to support cross compilation, so must prefer static libs
 # and building from source with FetchContent
@@ -44,6 +45,7 @@ set(MI_BUILD_STATIC ON CACHE BOOL "" FORCE)
 set(MI_BUILD_SHARED ON CACHE BOOL "" FORCE)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message(STATUS "Enabling mimalloc debug mode in Debug")
     set(MI_DEBUG_FULL ON CACHE BOOL "" FORCE)
 else()
     set(MI_DEBUG_FULL OFF CACHE BOOL "" FORCE)
@@ -51,9 +53,16 @@ endif()
 
 FetchContent_MakeAvailable(mimalloc)
 
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message(STATUS "Enabling gprof profiling in Debug mode")
+    add_compile_options(-pg)
+    add_link_options(-pg)
+endif()
+
 # main library
 add_library(jreamlib 
   src/garbage_collection.cpp
+  src/profiler.cpp
   src/beamparser.cpp
   src/translation.cpp
   src/bif.cpp
@@ -73,7 +82,8 @@ target_link_libraries(jreamlib PRIVATE
   zlib
 )
 target_compile_definitions(jreamlib PRIVATE
-  $<$<CONFIG:Debug>:EXEC_LOG=1>
+  $<$<CONFIG:Debug>:EXEC_LOG=0>
+  $<$<CONFIG:Debug>:ENABLE_PROFILING=1>
 )
 target_include_directories(jreamlib PRIVATE
   ${PROJECT_SOURCE_DIR}/include

@@ -1,6 +1,8 @@
 #include "../include/beamparser.hpp"
 #include "../include/execution.hpp"
 #include "../include/setup_logging.hpp"
+#include "../include/profiler.hpp"
+#include <cstring>
 #include <stdexcept>
 
 #ifdef EXEC_LOG
@@ -8,6 +10,9 @@
 #endif
 
 int main(int argc, char *argv[]) {
+  PROFILE_INIT();
+  PROFILE();
+
   setup_logging(argv[0]);
   DLOG(INFO) << "Logging Enabled";
 
@@ -16,7 +21,9 @@ int main(int argc, char *argv[]) {
                            "<func_name>");
   }
 
-  auto beamfile = read_chunks(argv[1]);
+  auto file_name = argv[1];
+
+  auto beamfile = read_chunks(file_name);
   beamfile.log();
 
 #ifdef EXEC_LOG
@@ -27,8 +34,15 @@ int main(int argc, char *argv[]) {
 
   emulator_main.register_beam_sources({&beamfile});
 
+  // get the file name
+  auto last_dot = strrchr(file_name, '.');
+  *last_dot = '\0';
+  auto last_sep = strrchr(file_name, '/');
+
+  char *module = last_sep == NULL ? file_name : last_sep + 1;
+
   GlobalFunctionId start_function = {
-      .module = "merge", .function_name = argv[2], .arity = 0};
+      .module = module, .function_name = argv[2], .arity = 0};
 
   emulator_main.run(start_function);
 

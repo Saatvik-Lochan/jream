@@ -16,8 +16,10 @@
 #include "external_term.hpp"
 #include "pcb.hpp"
 #include "precompiled.hpp"
+#include "profiler.hpp"
 
 ErlReturnCode setup_and_go_label(ProcessControlBlock *pcb, uint64_t label_num) {
+  PROFILE();
 
   auto code_chunk = pcb->get_shared<CODE_CHUNK_P>();
 
@@ -37,6 +39,7 @@ ErlReturnCode resume_process(ProcessControlBlock *pcb) {
 
 ProcessControlBlock *Emulator::create_process(EntryPoint entry_point,
                                               size_t heap_size) {
+  PROFILE();
   ProcessControlBlock *pcb;
 
   if (dead_processes.empty()) {
@@ -71,6 +74,7 @@ ProcessControlBlock *Emulator::create_process(EntryPoint entry_point,
 }
 
 ProcessControlBlock *Scheduler::pick_next() {
+  PROFILE();
   auto chosen_it = runnable.begin();
 
   if (chosen_it == runnable.end()) {
@@ -158,6 +162,7 @@ std::string Emulator::get_atom_string_current(ErlTerm e) {
 }
 
 ErlTerm Emulator::run(GlobalFunctionId initial_func) {
+  PROFILE();
 
   assert(initial_func.arity == 0);
 

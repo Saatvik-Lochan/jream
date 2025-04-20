@@ -16,11 +16,13 @@
 #include "external_term.hpp"
 #include "generated/instr_code.hpp"
 #include "op_arity.hpp"
+#include "profiler.hpp"
 #include "riscv_gen.hpp"
 #include "translation.hpp"
 
 std::optional<uintptr_t> bif_from_id(ExternalFunctionId id,
                                      const AtomChunk &atom_chunk) {
+  PROFILE();
 
   auto &atoms = atom_chunk.atoms;
 
@@ -38,6 +40,7 @@ std::optional<uintptr_t> bif_from_id(ExternalFunctionId id,
 // garbage collection is tricky
 inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
                                                    CodeSection code_sec) {
+  PROFILE();
   std::vector<uint8_t> compiled;
   auto &label_offsets = code_chunk.label_offsets;
 
@@ -929,6 +932,7 @@ std::vector<uint8_t> translate_function(CodeChunk &code_chunk,
 }
 
 uint8_t *move_code_to_memory(const std::vector<uint8_t> &code) {
+  PROFILE();
   // allocate page aligned memory
   void *const allocated_mem = mmap(0, code.size(), PROT_READ | PROT_WRITE,
                                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);

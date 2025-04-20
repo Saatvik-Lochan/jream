@@ -3,6 +3,7 @@
 #include "execution.hpp"
 #include "external_term.hpp"
 #include "pcb.hpp"
+#include "profiler.hpp"
 #include <cassert>
 #include <cstdint>
 #include <fstream>
@@ -22,13 +23,14 @@ ProcessControlBlock *get_pcb() {
 
 BIFReturn ret100() { return 100; }
 
-BIFReturn mul10(uint64_t a) { return a * 10; }
+BIFReturn test_mul10(uint64_t a) { return a * 10; }
 
-BIFReturn add(uint64_t a, uint64_t b) { return a + b; }
+BIFReturn test_add(uint64_t a, uint64_t b) { return a + b; }
 
 BIFReturn test_fail(uint64_t a, uint64_t b) { return fail(); }
 
 BIFReturn spawn_1(uint64_t fun_raw) {
+  PROFILE();
 
   auto fun = ErlTerm(fun_raw);
   auto code_chunk_p = get_pcb()->get_shared<CODE_CHUNK_P>();
@@ -85,20 +87,41 @@ BIFReturn self() {
   return make_pid(pcb);
 }
 
-template <typename T>
-ErlTerm do_arith(uint64_t a, uint64_t b, T&& f) {
+template <typename T> ErlTerm do_arith(uint64_t a, uint64_t b, T &&f) {
   assert(ErlTerm(a).getTagType() == SMALL_INT_T);
   assert(ErlTerm(b).getTagType() == SMALL_INT_T);
 
   return make_small_int(f((a >> 4), (b >> 4)));
 }
 
-BIFReturn erl_div(uint64_t a, uint64_t b) {
-  return do_arith(a, b, [](auto a, auto b){ return a / b; });
+BIFReturn erl_div(int64_t a, int64_t b) {
+  return do_arith(a, b, [](auto a, auto b) { return a / b; });
 }
 
-BIFReturn erl_sub(uint64_t a, uint64_t b) {
-  return do_arith(a, b, [](auto a, auto b){ return a - b; });
+BIFReturn erl_sub(int64_t a, int64_t b) {
+  PROFILE();
+  // the 0b1111 for each a and b cancel out
+  // we just reapply it after
+  return (a - b) | 0b1111;
+}
+
+BIFReturn erl_add(int64_t a, int64_t b) {
+  PROFILE();
+  // Since we add an extra 0b1111 twice, we subtract it so it's equal to only
+  // once
+  return (a + b - 0b1111);
+}
+
+BIFReturn erl_bsr(int64_t a, int64_t amount) {
+  PROFILE();
+  // we don't have to unshift it first and then reshift
+  return (a >> (amount >> 4)) | 0b1111;
+}
+
+BIFReturn erl_bxor(int64_t a, int64_t b) {
+  PROFILE();
+  // the 0b1111 at the end doesn't change anything
+  return a | b;
 }
 
 // WARNING: This can not be used in erlang because it is inplace!
@@ -134,6 +157,7 @@ BIFReturn list_split(uint64_t first_size_raw, uint64_t list_raw,
 }
 
 BIFReturn file_consult(uint64_t file_name_raw, uint64_t xregs) {
+  PROFILE();
   assert(ErlTerm(file_name_raw).getErlMajorType() == LIST_ET);
   ErlList file_list(file_name_raw);
 
@@ -173,6 +197,7 @@ BIFReturn file_consult(uint64_t file_name_raw, uint64_t xregs) {
 
 // TODO make general
 BIFReturn io_write(uint64_t term) {
+  PROFILE();
   std::cout << to_string(ErlTerm(term)) << "\n";
   return 0;
 }

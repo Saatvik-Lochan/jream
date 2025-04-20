@@ -1,6 +1,7 @@
 #include "pcb.hpp"
 #include "external_term.hpp"
 #include "garbage_collection.hpp"
+#include "profiler.hpp"
 #include <algorithm>
 #include <glog/logging.h>
 #include <iterator>
@@ -16,6 +17,7 @@ ProcessControlBlock *from_pid(ErlTerm term) {
 }
 
 void ProcessControlBlock::queue_message(Message *msg) {
+  PROFILE();
   auto mbox_tail = get_shared<MBOX_TAIL>();
   *mbox_tail = msg;
   set_shared<MBOX_TAIL>(msg->get_next_address());
@@ -31,6 +33,7 @@ ErlTerm *ProcessControlBlock::allocate_tuple(size_t size, size_t xregs) {
 }
 
 std::span<ErlTerm> ProcessControlBlock::get_next_to_space(size_t alloc_amount) {
+  PROFILE();
   // in words
   auto highwater_num = std::distance(heap.data(), highwater);
   auto required_amount = heap.size() + alloc_amount - highwater_num;
@@ -78,6 +81,7 @@ ProcessControlBlock::get_root_set(size_t xregs, std::span<ErlTerm> stack) {
 }
 
 ErlTerm *ProcessControlBlock::do_gc(size_t size, size_t xregs) {
+  PROFILE();
 
 #ifdef EXEC_LOG
   LOG(INFO) << "Starting a gc, heap size: " << heap.size();

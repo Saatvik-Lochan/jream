@@ -1,5 +1,6 @@
 #include "garbage_collection.hpp"
 #include "external_term.hpp"
+#include "profiler.hpp"
 #include <algorithm>
 #include <glog/logging.h>
 #include <span>
@@ -16,6 +17,7 @@ constexpr uint64_t MOVED_CONS_MARKER = 37 << 2;
 YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
                    ErlTerm *to_space, const YoungHeap current_young,
                    GeneralPurposeHeap &old_heap) {
+  PROFILE();
 
   ErlTerm *new_top = to_space;
 

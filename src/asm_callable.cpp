@@ -3,6 +3,7 @@
 #include "external_term.hpp"
 #include "op_arity.hpp"
 #include "pcb.hpp"
+#include "profiler.hpp"
 #include "translation.hpp"
 #include <compare>
 #include <glog/logging.h>
@@ -11,6 +12,7 @@
 void print_int(uint64_t a) { std::cout << a << std::endl; }
 
 const uint8_t *get_or_compile_label(CodeChunk *code_chunk, uint64_t label) {
+  PROFILE();
   uint64_t func_index = code_chunk->label_func_table[label];
 
   auto &compiled_code = code_chunk->compiled_functions[func_index];
@@ -56,6 +58,7 @@ void update_code_chunk_registers(CodeChunk *code_chunk) {
 }
 
 void send_message(ErlTerm *xregs) {
+  PROFILE();
 
   uint64_t destination_pid = xregs[0];
   uint64_t message = xregs[1];
@@ -73,6 +76,7 @@ void send_message(ErlTerm *xregs) {
 }
 
 uint64_t compare(uint64_t term1, uint64_t term2) {
+  PROFILE();
   auto result = ErlTerm(term1) <=> ErlTerm(term2);
 
   if (result == std::strong_ordering::less)

@@ -1,6 +1,7 @@
 #include "beam_defs.hpp"
 #include "op_arity.hpp"
 #include "precompiled.hpp"
+#include "profiler.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <glog/logging.h>
@@ -10,6 +11,8 @@ CodeChunk::CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
                      uint32_t label_count)
     : instructions(std::move(instrs)), function_count(function_count),
       label_count(label_count) {
+
+  PROFILE();
 
   assert(function_count > 0);
   assert(label_count > 0);
@@ -178,8 +181,8 @@ void CodeChunk::log(const AtomChunk &atom_chunk,
   }
 }
 
-void LiteralChunk::log() { 
-  LOG(INFO) << "Literal Chunk"; 
+void LiteralChunk::log() {
+  LOG(INFO) << "Literal Chunk";
 
   for (auto literal : literals) {
     LOG(INFO) << "    " << to_string(literal);

@@ -5,6 +5,7 @@
 #include "external_term.hpp"
 #include "int_from_bytes.hpp"
 #include "op_arity.hpp"
+#include "profiler.hpp"
 
 #include <cassert>
 #include <cstdint>
@@ -321,6 +322,7 @@ Argument parse_argument(std::ifstream &stream) {
 }
 
 CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
+  PROFILE();
 
   // TODO use these for optimising allocations
   const uint32_t sub_size = read_big_endian(stream);
@@ -510,6 +512,8 @@ FunctionTableChunk parse_function_table_chunk(std::ifstream &stream) {
 }
 
 BeamSrc read_chunks(const std::string &filename) {
+  PROFILE();
+
   std::ifstream input(filename, std::ios::binary);
   input.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 

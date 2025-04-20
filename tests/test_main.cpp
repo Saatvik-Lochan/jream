@@ -2147,6 +2147,45 @@ TEST(BuiltInFunction, ErlSub) {
   ASSERT_EQ(result.a1, 0);
 }
 
+TEST(BuiltInFunction, ErlAdd) {
+  auto a = make_small_int(25);
+  auto b = make_small_int(4);
+
+  // when
+  auto result = erl_add(a, b);
+
+  // then
+  ASSERT_EQ(result.a0 >> 4, 29);
+  ASSERT_EQ(ErlTerm(result.a0).getTagType(), SMALL_INT_T);
+  ASSERT_EQ(result.a1, 0);
+}
+
+TEST(BuiltInFunction, ErlBXor) {
+  auto a = make_small_int(25);
+  auto b = make_small_int(4);
+
+  // when
+  auto result = erl_bxor(a, b);
+
+  // then
+  ASSERT_EQ(result.a0 >> 4, 25 | 4);
+  ASSERT_EQ(ErlTerm(result.a0).getTagType(), SMALL_INT_T);
+  ASSERT_EQ(result.a1, 0);
+}
+
+TEST(BuiltInFunction, ErlBsr) {
+  auto a = make_small_int(25);
+  auto b = make_small_int(2);
+
+  // when
+  auto result = erl_bsr(a, b);
+
+  // then
+  ASSERT_EQ(result.a0 >> 4, 25 >> 2);
+  ASSERT_EQ(ErlTerm(result.a0).getTagType(), SMALL_INT_T);
+  ASSERT_EQ(result.a1, 0);
+}
+
 int main(int argc, char **argv) {
   setup_logging(argv[0]);
   testing::InitGoogleTest(&argc, argv);
