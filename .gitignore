@@ -40,7 +40,7 @@ build
 debug_build
 release_build
 clang_build
-release_debug_build
+reldeb_build
 **/__pycache__
 
 # binaries
