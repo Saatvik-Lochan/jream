@@ -10,6 +10,7 @@
 
 // debugging utility
 uintptr_t curr_cp();
+size_t num_highwater();
 
 struct BIFReturn {
   uint64_t a0;

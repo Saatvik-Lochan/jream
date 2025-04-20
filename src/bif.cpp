@@ -187,3 +187,8 @@ size_t stack_space() {
   auto code_pointer = get_pcb()->get_stack().data()[0];
   return code_pointer.term;
 }
+
+size_t num_highwater() {
+  auto pcb = get_pcb();
+  return pcb->highwater - pcb->heap.data();
+}

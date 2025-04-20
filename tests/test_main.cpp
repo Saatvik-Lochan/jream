@@ -42,11 +42,13 @@ CodeChunk create_code_chunk(std::vector<Instruction> instructions) {
 }
 
 ProcessControlBlock *get_process(CodeChunk *code_chunk) {
-  return emulator_main.create_process({.code_chunk = code_chunk, .label = 1});
+  return emulator_main.create_process({.code_chunk = code_chunk, .label = 1},
+                                      50);
 }
 
-ProcessControlBlock *get_process(CodeChunk &code_chunk) {
-  return emulator_main.create_process({.code_chunk = &code_chunk, .label = 1});
+ProcessControlBlock *get_process(CodeChunk &code_chunk, size_t heap_size = 50) {
+  return emulator_main.create_process({.code_chunk = &code_chunk, .label = 1},
+                                      heap_size);
 }
 
 Argument get_lit(uint64_t arg) {
@@ -360,7 +362,7 @@ TEST(ErlTerm, ToStringList) {
 }
 
 TEST(ErlTerm, ToStringNilPair) {
-  ErlTerm tuple[3] = { 2 << 6, get_nil_term(), get_nil_term() };
+  ErlTerm tuple[3] = {2 << 6, get_nil_term(), get_nil_term()};
   auto handle = make_boxed(tuple);
 
   // when
@@ -368,7 +370,6 @@ TEST(ErlTerm, ToStringNilPair) {
 
   // then
   ASSERT_EQ(result, "{[], []}");
-
 }
 
 TEST(ErlTerm, ToStringTupleListAtom) {
@@ -400,12 +401,12 @@ TEST(ErlTerm, ToStringTupleListAtom) {
 }
 
 TEST(Parsing, FromBinary) {
-  uint8_t data[] = { 131, 108, 0, 0, 0, 1, 97, 55, 106 };
+  uint8_t data[] = {131, 108, 0, 0, 0, 1, 97, 55, 106};
   auto result = ErlTerm::from_binary(data, true);
   ErlTerm parsed = result.first;
 
   auto parsed_vec = vec_from_erl_list(parsed);
-  std::vector<ErlTerm> expected = { make_small_int(55) };
+  std::vector<ErlTerm> expected = {make_small_int(55)};
 
   ASSERT_EQ(parsed_vec, expected);
 }
@@ -670,7 +671,7 @@ TEST(RISCV, Trim) {
   ASSERT_EQ(new_stop[1], 2);
 }
 
-template <uint64_t space> ErlReturnCode test_heap(Argument arg) {
+ErlReturnCode test_heap(Argument arg, size_t heap_size) {
   // given
   std::vector<Instruction> instructions = {
       Instruction{TEST_HEAP_OP, {arg, get_lit(0)}},
@@ -679,11 +680,8 @@ template <uint64_t space> ErlReturnCode test_heap(Argument arg) {
   wrap_in_function(instructions);
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
-  ErlTerm heap[space];
-
-  auto pcb = get_process(code_chunk);
-  pcb->set_shared<STOP>(heap + space);
-  pcb->set_shared<HTOP>(heap);
+  auto pcb = get_process(code_chunk, heap_size);
+  set_current_pcb(*pcb);
 
   // when
   return resume_process(pcb);
@@ -691,7 +689,7 @@ template <uint64_t space> ErlReturnCode test_heap(Argument arg) {
 
 TEST(RISCV, TestHeapNoGCLiteralYes) {
   // given
-  auto result = test_heap<4>(get_lit(4));
+  auto result = test_heap(get_lit(4), 4);
 
   // then
   ASSERT_EQ(result, FINISH);
@@ -699,7 +697,7 @@ TEST(RISCV, TestHeapNoGCLiteralYes) {
 
 TEST(RISCV, TestHeapNoGCLiteralNo) {
   // given
-  auto result = test_heap<4>(get_lit(5));
+  auto result = test_heap(get_lit(5), 4);
 
   // then
   ASSERT_EQ(result, FINISH);
@@ -708,7 +706,7 @@ TEST(RISCV, TestHeapNoGCLiteralNo) {
 TEST(RISCV, TestHeapNoGCAllocListYes) {
   // given
   AllocList a = {.words = 2, .floats = 0, .funs = 1};
-  auto result = test_heap<4>(Argument(EXT_ALLOC_LIST_TAG, {.alloc_list = &a}));
+  auto result = test_heap(Argument(EXT_ALLOC_LIST_TAG, {.alloc_list = &a}), 4);
 
   // then
   ASSERT_EQ(result, FINISH);
@@ -717,7 +715,7 @@ TEST(RISCV, TestHeapNoGCAllocListYes) {
 TEST(RISCV, TestHeapNoGCAllocListNo) {
   // given
   AllocList a = {.words = 2, .floats = 0, .funs = 1};
-  auto result = test_heap<3>(Argument(EXT_ALLOC_LIST_TAG, {.alloc_list = &a}));
+  auto result = test_heap(Argument(EXT_ALLOC_LIST_TAG, {.alloc_list = &a}), 3);
 
   // then
   ASSERT_EQ(result, FINISH);
@@ -1186,9 +1184,9 @@ TEST(RISCV, GCBif1) {
   std::vector<Instruction> instructions = {
       Instruction{GC_BIF1_OP,
                   {
-                      get_tag(LABEL_TAG, 2),   // fail label
-                      get_tag(LITERAL_TAG, 0), // Live X regs 
-                      get_tag(LITERAL_TAG, 0), // bif_num (import index)
+                      get_tag(LABEL_TAG, 2),      // fail label
+                      get_tag(LITERAL_TAG, 0),    // Live X regs
+                      get_tag(LITERAL_TAG, 0),    // bif_num (import index)
                       get_tag(X_REGISTER_TAG, 3), // arg_1
                       get_tag(X_REGISTER_TAG, 2), // destination
                   }},
@@ -2222,7 +2220,7 @@ TEST(GC, AllocateEnough) {
 
 TEST(GC, CopyFirstPass) {
   auto code_chunk = get_minimal_code_chunk();
-  auto pcb = get_process(code_chunk);
+  auto pcb = get_process(code_chunk, 10);
 
   set_current_pcb(*pcb);
   auto xregs = pcb->get_shared<XREG_ARRAY>();

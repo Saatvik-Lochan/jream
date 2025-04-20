@@ -35,7 +35,8 @@ ErlReturnCode resume_process(ProcessControlBlock *pcb) {
   return setup_and_go_label(pcb, pcb->get_shared<RESUME_LABEL>());
 }
 
-ProcessControlBlock *Emulator::create_process(EntryPoint entry_point) {
+ProcessControlBlock *Emulator::create_process(EntryPoint entry_point,
+                                              size_t heap_size) {
   ProcessControlBlock *pcb;
 
   if (dead_processes.empty()) {
@@ -54,11 +55,10 @@ ProcessControlBlock *Emulator::create_process(EntryPoint entry_point) {
   // TODO make xreg amount dynamic
   pcb->set_shared<XREG_ARRAY>(new ErlTerm[5]);
 
-  const auto HEAP_SIZE = 4;
-  auto heap = new ErlTerm[HEAP_SIZE];
+  auto heap = new ErlTerm[heap_size];
   pcb->set_shared<HTOP>(heap);
-  pcb->set_shared<STOP>(heap + HEAP_SIZE);
-  pcb->heap = {heap, HEAP_SIZE};
+  pcb->set_shared<STOP>(heap + heap_size);
+  pcb->heap = {heap, heap_size};
   pcb->highwater = heap;
 
   // message passing
