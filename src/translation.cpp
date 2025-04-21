@@ -11,6 +11,7 @@
 #include <sys/mman.h>
 #include <unordered_set>
 
+#include "asm_callable.hpp"
 #include "beam_defs.hpp"
 #include "bif.hpp"
 #include "external_term.hpp"
@@ -347,6 +348,13 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     }
   };
 
+  auto add_log_xregs = [&](uint8_t num_xregs) {
+#ifdef EXEC_LOG
+    add_riscv_instr(create_add_immediate(10, 0, num_xregs));
+    add_code(get_riscv(LOG_XREGS_SNIP));
+#endif
+  };
+
   std::unordered_set<uint64_t> local_labels;
 
   // main loop
@@ -523,6 +531,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto label = instr.arguments[1];
       assert(label.tag == LABEL_TAG);
 
+      add_log_xregs(arity.arg_raw.arg_num);
+
       add_setup_args_code({label.arg_raw.arg_num});
 
       // check reductions and maybe yield
@@ -538,6 +548,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto label = instr.arguments[1];
       assert(label.tag == LABEL_TAG);
 
+      add_log_xregs(arity.arg_raw.arg_num);
       add_setup_args_code({label.arg_raw.arg_num});
 
       add_code(get_riscv(CALL_ONLY_SNIP));
@@ -555,6 +566,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto deallocate = instr.arguments[2];
       assert(deallocate.tag == LITERAL_TAG);
 
+      add_log_xregs(arity.arg_raw.arg_num);
       add_setup_args_code({label.arg_raw.arg_num, deallocate.arg_raw.arg_num});
 
       add_code(get_riscv(CALL_LAST_SNIP));
@@ -590,7 +602,6 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_call_bif(args, label_val, destination, bif_num_val, instr_index);
       break;
     }
-
 
       // BIF1 and 2 are quite similar, maybe refactor
     case GC_BIF1_OP: {
@@ -697,6 +708,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     }
 
     case RETURN_OP: {
+      // we log the return value
+      add_log_xregs(1);
       // load code pointer and jump
       add_code(get_riscv(RETURN_SNIP));
       break;

@@ -14,7 +14,6 @@
 #include <numeric>
 #include <optional>
 #include <ranges>
-#include <string_view>
 #include <unistd.h>
 
 struct BeamFileConstructor {

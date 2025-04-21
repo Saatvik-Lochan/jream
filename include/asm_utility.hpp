@@ -1,3 +1,5 @@
+#include "execution.hpp"
+#include "pcb.hpp"
 #include <cstdint>
 #include <format>
 #include <ostream>
@@ -15,6 +17,10 @@ inline std::ostream &operator<<(std::ostream &os,
   }
 
   return os;
+}
+
+inline ProcessControlBlock *get_pcb() {
+  return emulator_main.scheduler.get_current_process();
 }
 
 #endif

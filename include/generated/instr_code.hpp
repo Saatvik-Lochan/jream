@@ -10,6 +10,7 @@ enum AsmSnippet {
   DEALLOCATE_SNIP, // assembly/build/deallocate.S
   ENTER_FUNC_SNIP, // assembly/build/enter_func.S
   GOTO_LABEL_SNIP, // assembly/build/goto_label.S
+  LOG_XREGS_SNIP, // assembly/build/log_xregs.S
   CALL_EXT_BIF_SNIP, // assembly/build/call_ext_bif.S
   BIF_SNIP, // assembly/build/bif.S
   ERL_ADD_SNIP, // assembly/build/erl_add.S

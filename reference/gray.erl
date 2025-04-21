@@ -2,7 +2,7 @@
 -export([main/0]).
 
 main() ->
-  io:write(gray_burn(0, 0, 100000)).
+  io:write(gray_burn(0, 0, 5000)).
 
 gray(N) -> N bxor (N bsr 1).
 

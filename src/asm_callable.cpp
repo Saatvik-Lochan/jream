@@ -1,4 +1,5 @@
 #include "asm_callable.hpp"
+#include "asm_utility.hpp"
 #include "execution.hpp"
 #include "external_term.hpp"
 #include "op_arity.hpp"
@@ -87,19 +88,24 @@ uint64_t compare(uint64_t term1, uint64_t term2) {
   return 0;
 }
 
-void free_msg(Message *msg) {
-  delete msg;
-}
+void free_msg(Message *msg) { delete msg; }
 
 void print_op_name(uint64_t op_code) {
   LOG(INFO) << op_names[op_code] << ": " << op_code;
 }
 
 void execute_minor_gc(size_t new_term_size, size_t xregs) {
-  auto pcb = emulator_main.scheduler.get_current_process();
+  auto pcb = get_pcb();
   pcb->do_gc(new_term_size, xregs);
 }
 
-void log_label(uint64_t label) {
-  LOG(INFO) << "|-> AT LABEL: " << label;
+void log_label(uint64_t label) { LOG(INFO) << "|-> AT LABEL: " << label; }
+
+void log_xregs(size_t num_xregs) {
+  auto xregs = get_pcb()->get_shared<XREG_ARRAY>();
+
+  LOG(INFO) << "x registers at this moment:";
+  for (size_t i = 0; i < num_xregs; i++) {
+    LOG(INFO) << "  " << i << ". " << to_string(xregs[i]);
+  }
 }

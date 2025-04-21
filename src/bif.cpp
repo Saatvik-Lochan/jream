@@ -4,15 +4,12 @@
 #include "external_term.hpp"
 #include "pcb.hpp"
 #include "profiler.hpp"
+#include "asm_utility.hpp"
 #include <cassert>
 #include <cstdint>
 #include <fstream>
 #include <glog/logging.h>
 #include <iostream>
-
-ProcessControlBlock *get_pcb() {
-  return emulator_main.scheduler.get_current_process();
-}
 
 /* The functions here define the BIFs
  *

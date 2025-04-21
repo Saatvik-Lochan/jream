@@ -82,7 +82,7 @@ target_link_libraries(jreamlib PRIVATE
   zlib
 )
 target_compile_definitions(jreamlib PRIVATE
-  $<$<CONFIG:Debug>:EXEC_LOG=0>
+  $<$<CONFIG:Debug>:EXEC_LOG=1>
   $<$<CONFIG:Debug>:ENABLE_PROFILING=1>
 )
 target_include_directories(jreamlib PRIVATE
