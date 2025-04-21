@@ -217,10 +217,10 @@ struct BeamSrc {
   ExportTableChunk export_table_chunk;
   FunctionTableChunk function_table_chunk;
 
-  BeamSrc(const BeamSrc &) = delete;            
-  BeamSrc &operator=(const BeamSrc &) = delete; 
-  BeamSrc(BeamSrc &&) = delete;                  
-  BeamSrc &operator=(BeamSrc &&) = delete;       
+  BeamSrc(const BeamSrc &) = delete;
+  BeamSrc &operator=(const BeamSrc &) = delete;
+  BeamSrc(BeamSrc &&) = delete;
+  BeamSrc &operator=(BeamSrc &&) = delete;
 
   BeamSrc(AtomChunk atom_chunk_, CodeChunk code_chunk_,
           LiteralChunk literal_chunk_, ImportTableChunk import_table_chunk_,
@@ -248,7 +248,8 @@ struct BeamSrc {
     // link Export chunk
     for (auto exp : export_table_chunk.exports) {
       auto func_name = atom_chunk.atoms[exp.function_name];
-      export_table_chunk.func_to_export[func_name] = exp;
+      export_table_chunk
+          .func_to_export[func_name + "/" + std::to_string(exp.arity)] = exp;
     }
   }
 

@@ -1,10 +1,10 @@
 #include "../include/allocator.hpp"
 #include "../include/beam_defs.hpp"
 #include "../include/bif.hpp"
-#include "../include/parsing.hpp"
 #include "../include/execution.hpp"
 #include "../include/external_term.hpp"
 #include "../include/generated/instr_code.hpp"
+#include "../include/parsing.hpp"
 #include "../include/riscv_gen.hpp"
 #include "../include/setup_logging.hpp"
 #include <cassert>
@@ -536,6 +536,26 @@ TEST(JIT, SetupAndTeardown) {
   resume_process(pcb);
 
   SUCCEED();
+}
+
+TEST(JIT, ExportTableSameNameDiffArity) {
+  auto code_chunk = get_minimal_code_chunk();
+  AtomChunk atoms({"dummy", "module", "function"});
+
+  auto inital_arity0_id = ExportFunctionId{2, 0, 0}; // function/0
+  auto inital_arity2_id = ExportFunctionId{2, 2, 0}; // function/2
+
+  ExportTableChunk e({inital_arity0_id, inital_arity2_id});
+  auto file = get_beam_file({.c = code_chunk, .a = atoms, .e = e});
+
+  auto found_arity0_id = file->get_external_id(GlobalFunctionId{
+      .module = "module", .function_name = "function", .arity = 0});
+
+  auto found_arity2_id = file->get_external_id(GlobalFunctionId{
+      .module = "module", .function_name = "function", .arity = 2});
+
+  ASSERT_EQ(inital_arity0_id, found_arity0_id);
+  ASSERT_EQ(inital_arity2_id, found_arity2_id);
 }
 
 TEST(RISCV, Move) {

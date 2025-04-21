@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <glog/logging.h>
 #include <stdexcept>
+#include <string>
 
 CodeChunk::CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
                      uint32_t label_count)
@@ -248,12 +249,12 @@ ExportFunctionId BeamSrc::get_external_id(GlobalFunctionId global) {
   assert(module == global.module);
 
   const auto &map = export_table_chunk.func_to_export;
-  auto id_it = map.find(global.function_name);
+  auto id_it = map.find(global.function_name + "/" + std::to_string(global.arity));
 
   if (id_it == map.end()) {
     throw std::logic_error(
-        std::format("Could not find function '{}' in module '{}'",
-                    global.function_name, module));
+        std::format("Could not find function '{}/{}' in module '{}'",
+                    global.function_name, global.arity, module));
   }
 
   return id_it->second;

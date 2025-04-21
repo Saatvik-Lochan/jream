@@ -352,5 +352,4 @@ ErlTerm erl_list_from_range(std::initializer_list<T> terms, ErlTerm end) {
   return erl_list_from_range(std::views::all(terms), end);
 }
 
-
 #endif
