@@ -25,7 +25,7 @@ struct BeamFileConstructor {
   std::optional<FunctionTableChunk> f = std::nullopt;
 };
 
-BeamSrc get_beam_file(BeamFileConstructor b) {
+std::unique_ptr<BeamSrc> get_beam_file(BeamFileConstructor b) {
 
   AtomChunk a_({});
   ImportTableChunk i_({});
@@ -33,18 +33,26 @@ BeamSrc get_beam_file(BeamFileConstructor b) {
   LiteralChunk l_({});
   FunctionTableChunk f_({});
 
-  return BeamSrc(b.a ? *b.a : a_, b.c, b.l ? *b.l : l_, b.i ? *b.i : i_,
-                 b.e ? *b.e : e_, b.f ? *b.f : f_);
+  return std::make_unique<BeamSrc>(b.a ? *b.a : a_, b.c, b.l ? *b.l : l_,
+                                   b.i ? *b.i : i_, b.e ? *b.e : e_,
+                                   b.f ? *b.f : f_);
 }
 
-ProcessControlBlock *get_process(CodeChunk *code_chunk) {
-  return emulator_main.create_process({.code_chunk = code_chunk, .label = 1},
-                                      50);
+void set_current_pcb(ProcessControlBlock &pcb) {
+  emulator_main.scheduler.runnable.insert(&pcb);
+  emulator_main.scheduler.pick_next();
+}
+
+ProcessControlBlock *get_process(CodeChunk *code_chunk, size_t heap_size = 50) {
+
+  auto pcb = emulator_main.create_process(
+      {.code_chunk = code_chunk, .label = 1}, heap_size);
+  set_current_pcb(*pcb);
+  return pcb;
 }
 
 ProcessControlBlock *get_process(CodeChunk &code_chunk, size_t heap_size = 50) {
-  return emulator_main.create_process({.code_chunk = &code_chunk, .label = 1},
-                                      heap_size);
+  return get_process(&code_chunk, heap_size);
 }
 
 Argument get_lit(uint64_t arg) {
@@ -54,6 +62,8 @@ Argument get_lit(uint64_t arg) {
 Argument get_tag(Tag tag, uint64_t num) {
   return Argument{tag, {.arg_num = num}};
 }
+
+ErlTerm mi(uint64_t a) { return make_small_int(a); }
 
 void wrap_in_function(std::vector<Instruction> &instructions,
                       uint64_t label = 1, bool include_return = true) {
@@ -77,11 +87,6 @@ CodeChunk get_minimal_code_chunk() {
   return CodeChunk({{RETURN_OP, {}}}, 1, 1);
 }
 
-void set_current_pcb(ProcessControlBlock &pcb) {
-  emulator_main.scheduler.runnable.insert(&pcb);
-  emulator_main.scheduler.pick_next();
-}
-
 TEST(Parsing, GetAtomCurrent) {
   CodeChunk code_chunk({Instruction{RETURN_OP}}, 1, 1);
   AtomChunk atoms({"dummy", "module", "ok", "error"});
@@ -89,9 +94,9 @@ TEST(Parsing, GetAtomCurrent) {
   auto file = get_beam_file({.c = code_chunk, .a = atoms});
 
   Emulator emulator;
-  emulator.register_beam_sources({&file});
+  emulator.register_beam_sources({file.get()});
 
-  auto pcb = get_process(file.code_chunk);
+  auto pcb = get_process(file->code_chunk);
   emulator.scheduler.runnable.insert(pcb);
   emulator.scheduler.pick_next();
 
@@ -509,15 +514,15 @@ TEST(RISCV, Move) {
   auto pcb = get_process(code_chunk);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
 
-  xregs[0] = 25;
-  xregs[1] = 30;
+  xregs[0] = mi(25);
+  xregs[1] = mi(30);
 
   // when
   resume_process(pcb);
 
   // then
-  ASSERT_EQ(xregs[0], 25);
-  ASSERT_EQ(xregs[1], 25);
+  ASSERT_EQ(xregs[0], mi(25));
+  ASSERT_EQ(xregs[1], mi(25));
 }
 
 TEST(RISCV, MoveYRegs) {
@@ -560,7 +565,7 @@ TEST(RISCV, MoveLiteral) {
 
   auto file = get_beam_file(
       BeamFileConstructor{.c = code_chunk, .a = atom_chunk, .l = literals});
-  auto pcb = get_process(file.code_chunk);
+  auto pcb = get_process(file->code_chunk);
 
   // when
   resume_process(pcb);
@@ -585,15 +590,15 @@ TEST(RISCV, Swap) {
   auto pcb = get_process(code_chunk);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
 
-  xregs[0] = 25;
-  xregs[1] = 30;
+  xregs[0] = mi(25);
+  xregs[1] = mi(30);
 
   // when
   resume_process(pcb);
 
   // then
-  ASSERT_EQ(xregs[0], 30);
-  ASSERT_EQ(xregs[1], 25);
+  ASSERT_EQ(xregs[0], mi(30));
+  ASSERT_EQ(xregs[1], mi(25));
 }
 
 TEST(RISCV, Allocate) {
@@ -733,14 +738,14 @@ TEST(RISCV, TestGetTupleElement) {
   auto xregs = pcb->get_shared<XREG_ARRAY>();
 
   // tuple of arity 3, elements (0, 1, 2)
-  ErlTerm heap[] = {3 << 6, 0, 10, 20};
+  ErlTerm heap[] = {3 << 6, 0, mi(10), 20};
   xregs[0] = make_boxed(heap);
 
   // when
   resume_process(pcb);
 
   // then
-  ASSERT_EQ(xregs[1], 10);
+  ASSERT_EQ(xregs[1], mi(10));
 }
 
 void assert_tuple(ErlTerm term, std::initializer_list<ErlTerm> elements) {
@@ -776,14 +781,14 @@ TEST(RISCV, PutTuple2) {
   auto pcb = get_process(code_chunk);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
-  xregs[1] = 10;
-  xregs[2] = 20;
+  xregs[1] = mi(10);
+  xregs[2] = mi(20);
 
   // when
   resume_process(pcb);
 
   // then
-  assert_tuple(xregs[0], {10, 20});
+  assert_tuple(xregs[0], {mi(10), mi(20)});
 }
 
 TEST(RISCV, GetList) {
@@ -803,16 +808,16 @@ TEST(RISCV, GetList) {
   ErlTerm xreg[1001];
   pcb->set_shared<XREG_ARRAY>(xreg);
 
-  auto list = erl_list_from_range({20, 30}, get_nil_term());
+  auto list = erl_list_from_range({mi(20), mi(30)}, get_nil_term());
   xreg[0] = list;
 
   // when
   resume_process(pcb);
 
   // then
-  ASSERT_EQ(xreg[1], 20);
+  ASSERT_EQ(xreg[1], mi(20));
   auto other_list = vec_from_erl_list(xreg[2]);
-  std::vector<ErlTerm> expected_list = {30};
+  std::vector<ErlTerm> expected_list = {mi(30)};
   ASSERT_EQ(other_list, expected_list);
 }
 
@@ -831,7 +836,7 @@ TEST(RISCV, GetTail) {
 
   auto xreg = pcb->get_shared<XREG_ARRAY>();
 
-  auto list = erl_list_from_range({20, 30}, get_nil_term());
+  auto list = erl_list_from_range({mi(20), mi(30)}, get_nil_term());
   xreg[0] = list;
 
   // when
@@ -839,7 +844,7 @@ TEST(RISCV, GetTail) {
 
   // then
   auto tail = vec_from_erl_list(xreg[1]);
-  std::vector<ErlTerm> expected_tail = {30};
+  std::vector<ErlTerm> expected_tail = {mi(30)};
   ASSERT_EQ(tail, expected_tail);
 }
 
@@ -1004,10 +1009,10 @@ TEST(RISCV, CallNoReductions) {
   ASSERT_EQ(resume_label, 2); // resume at label 2
 }
 
-BeamSrc get_file_with_import(std::string module_name, std::string function_name,
-                             uint32_t arity,
-                             std::optional<FunctionTableChunk> f,
-                             std::vector<Instruction> instructions) {
+std::unique_ptr<BeamSrc>
+get_file_with_import(std::string module_name, std::string function_name,
+                     uint32_t arity, std::optional<FunctionTableChunk> f,
+                     std::vector<Instruction> instructions) {
 
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
@@ -1041,16 +1046,14 @@ TEST(RISCV, CallExtBif) {
   auto file = get_file_with_import("erlang", "test", arity, std::nullopt,
                                    std::move(instructions));
 
-  auto pcb = get_process(file.code_chunk);
-
-  pcb->get_shared<XREG_ARRAY>()[0] = 0;
+  auto pcb = get_process(file->code_chunk);
 
   // when
   resume_process(pcb);
 
   // then
   auto x_reg = pcb->get_shared<XREG_ARRAY>();
-  ASSERT_EQ(x_reg[0], 100); // this is what the test bif does
+  ASSERT_EQ(x_reg[0], mi(100)); // this is what the test bif does
 }
 
 TEST(RISCV, CallExtBif2Args) {
@@ -1069,7 +1072,7 @@ TEST(RISCV, CallExtBif2Args) {
   auto file = get_file_with_import("erlang", "test", arity, std::nullopt,
                                    std::move(instructions));
 
-  auto pcb = get_process(file.code_chunk);
+  auto pcb = get_process(file->code_chunk);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
 
   xregs[0] = 12;
@@ -1079,7 +1082,7 @@ TEST(RISCV, CallExtBif2Args) {
   resume_process(pcb);
 
   // then
-  ASSERT_EQ(xregs[0], 12 + 134);
+  ASSERT_EQ(xregs[0], make_small_int(12 + 134));
 }
 
 TEST(RISCV, CallExtOnlyBif) {
@@ -1098,15 +1101,14 @@ TEST(RISCV, CallExtOnlyBif) {
   auto file = get_file_with_import("erlang", "test", arity, std::nullopt,
                                    std::move(instructions));
 
-  auto pcb = get_process(file.code_chunk);
-  auto xregs = pcb->get_shared<XREG_ARRAY>();
-  xregs[0] = 0;
+  auto pcb = get_process(file->code_chunk);
 
   // when
   auto result = resume_process(pcb);
 
   // then
-  ASSERT_EQ(xregs[0], 100); // this is what the test bif does
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  ASSERT_EQ(xregs[0], make_small_int(100)); // this is what the test bif does
 
   // the thing about ONLY is that it should finish
   ASSERT_EQ(result, FINISH);
@@ -1130,7 +1132,7 @@ TEST(RISCV, CallExtLastBif) {
   auto file = get_file_with_import("erlang", "test", arity, std::nullopt,
                                    std::move(instructions));
 
-  auto pcb = get_process(file.code_chunk);
+  auto pcb = get_process(file->code_chunk);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
 
   xregs[0] = 12;
@@ -1144,7 +1146,7 @@ TEST(RISCV, CallExtLastBif) {
   auto result = resume_process(pcb);
 
   // then
-  ASSERT_EQ(xregs[0], 12 + 134);
+  ASSERT_EQ(xregs[0], mi(12 + 134));
   ASSERT_EQ(result, FINISH);
 
   auto new_stop = pcb->get_shared<STOP>();
@@ -1155,22 +1157,22 @@ TEST(RISCV, Bif0) {
   std::vector<Instruction> instructions = {
       Instruction{BIF0_OP,
                   {Argument{LITERAL_TAG, {.arg_num = 0}}, // import index
-                   Argument{X_REGISTER_TAG, {.arg_num = 2}}}},
+                   Argument{X_REGISTER_TAG, {.arg_num = 0}}}},
   };
 
   wrap_in_function(instructions);
   auto file = get_file_with_import("erlang", "test", 0, std::nullopt,
                                    std::move(instructions));
 
-  auto pcb = get_process(file.code_chunk);
+  auto pcb = get_process(file->code_chunk);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
-  xregs[2] = 0;
+  xregs[0] = 0;
 
   // when
   resume_process(pcb);
 
   // then
-  ASSERT_EQ(xregs[2], 100);
+  ASSERT_EQ(xregs[0], mi(100));
 }
 
 TEST(RISCV, GCBif1) {
@@ -1196,7 +1198,7 @@ TEST(RISCV, GCBif1) {
   auto file = get_file_with_import("erlang", "test", 1, std::nullopt,
                                    std::move(instructions));
 
-  auto pcb = get_process(file.code_chunk);
+  auto pcb = get_process(file->code_chunk);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
   xregs[3] = 35;
 
@@ -1204,7 +1206,7 @@ TEST(RISCV, GCBif1) {
   resume_process(pcb);
 
   // then
-  ASSERT_EQ(xregs[2], 35 * 10);
+  ASSERT_EQ(xregs[2], mi(35 * 10));
   ASSERT_TRUE(a);
   ASSERT_FALSE(b);
 }
@@ -1233,7 +1235,7 @@ TEST(RISCV, GCBif2) {
   auto file = get_file_with_import("erlang", "test", 2, std::nullopt,
                                    std::move(instructions));
 
-  auto pcb = get_process(file.code_chunk);
+  auto pcb = get_process(file->code_chunk);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
   xregs[1] = 25;
   xregs[3] = 37;
@@ -1242,7 +1244,7 @@ TEST(RISCV, GCBif2) {
   resume_process(pcb);
 
   // then
-  ASSERT_EQ(xregs[2], 25 + 37);
+  ASSERT_EQ(xregs[2], mi(25 + 37));
   ASSERT_TRUE(a);
   ASSERT_FALSE(b);
 }
@@ -1272,7 +1274,7 @@ TEST(RISCV, GCBif2Fail) {
   auto file = get_file_with_import("erlang", "test_fail", 2, std::nullopt,
                                    std::move(instructions));
 
-  auto pcb = get_process(file.code_chunk);
+  auto pcb = get_process(file->code_chunk);
 
   // when
   resume_process(pcb);
@@ -1307,7 +1309,7 @@ TEST(RISCV, FastBif) {
   auto file = get_file_with_import("erlang", "+", 2, std::nullopt,
                                    std::move(instructions));
 
-  auto pcb = get_process(file.code_chunk);
+  auto pcb = get_process(file->code_chunk);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
   xregs[1] = make_small_int(222);
   xregs[3] = make_small_int(1000);
@@ -1343,7 +1345,7 @@ TEST(RISCV, Spawn) {
 
   auto file = get_file_with_import("erlang", "spawn", arity, lambdas,
                                    std::move(instructions));
-  auto pcb = get_process(file.code_chunk);
+  auto pcb = get_process(file->code_chunk);
 
   auto header = 0b100010100;
   auto index = 0;
@@ -1415,7 +1417,7 @@ TEST(RISCV, LoopRec) {
 
   auto pcb = get_process(code_chunk);
 
-  Message new_msg(10);
+  Message new_msg(mi(10));
   pcb->queue_message(&new_msg);
 
   // when
@@ -1426,7 +1428,7 @@ TEST(RISCV, LoopRec) {
   ASSERT_FALSE(flag_b);
 
   auto x0 = pcb->get_shared<XREG_ARRAY>()[0];
-  ASSERT_EQ(x0, 10);
+  ASSERT_EQ(x0, mi(10));
 }
 
 TEST(RISCV, RemoveLastMessage) {
@@ -1550,25 +1552,26 @@ std::vector<Instruction> get_test_instrs(Instruction instr, bool *a, bool *b) {
   return out;
 }
 
-ProcessControlBlock *setup_is_tuple(bool *a, bool *b) {
+std::unique_ptr<CodeChunk> setup_is_tuple(bool *a, bool *b) {
   auto instructions =
       get_test_instrs(Instruction{IS_TUPLE_OP,
                                   {Argument{LABEL_TAG, {.arg_num = 2}},
                                    Argument{X_REGISTER_TAG, {.arg_num = 0}}}},
                       a, b);
 
-  auto code_chunk = new CodeChunk(std::move(instructions), 1, 2);
+  auto code_chunk = std::make_unique<CodeChunk>(std::move(instructions), 1, 2);
 
-  return get_process(code_chunk);
+  return code_chunk;
 }
 
 TEST(RISCV, IsTupleOp) {
   bool a, b;
 
-  auto pcb = setup_is_tuple(&a, &b);
+  auto code_chunk = setup_is_tuple(&a, &b);
+  auto pcb = get_process(code_chunk.get());
   auto xregs = pcb->get_shared<XREG_ARRAY>();
 
-  ErlTerm e[3] = {0b11000000, 1, 2};
+  ErlTerm e[3] = {0b11000000, mi(1), mi(2)};
   xregs[0] = make_boxed(e);
 
   // when
@@ -1582,7 +1585,8 @@ TEST(RISCV, IsTupleOp) {
 TEST(RISCV, IsTupleOpNotBoxed) {
   bool a, b;
 
-  auto pcb = setup_is_tuple(&a, &b);
+  auto code_chunk = setup_is_tuple(&a, &b);
+  auto pcb = get_process(code_chunk.get());
   auto xregs = pcb->get_shared<XREG_ARRAY>();
 
   xregs[0] = 0b1011111; // 5 as a small integer
@@ -1598,7 +1602,9 @@ TEST(RISCV, IsTupleOpNotBoxed) {
 TEST(RISCV, IsTupleOpWrongBoxed) {
   bool a, b;
 
-  auto pcb = setup_is_tuple(&a, &b);
+  auto code_chunk = setup_is_tuple(&a, &b);
+  auto pcb = get_process(code_chunk.get());
+
   auto xregs = pcb->get_shared<XREG_ARRAY>();
 
   ErlTerm e[1] = {0b11010100}; // is a function now
@@ -1612,28 +1618,32 @@ TEST(RISCV, IsTupleOpWrongBoxed) {
   ASSERT_TRUE(b);
 }
 
-ProcessControlBlock *setup_is_tagged_tuple(bool *a, bool *b) {
+std::unique_ptr<BeamSrc> setup_is_tagged_tuple(bool *a, bool *b) {
   auto instructions = get_test_instrs(
       Instruction{
           IS_TAGGED_TUPLE_OP,
           {Argument{LABEL_TAG, {.arg_num = 2}},
            Argument{X_REGISTER_TAG, {.arg_num = 0}},
            Argument{LITERAL_TAG, {.arg_num = 2}}, // arity
-           Argument{ATOM_TAG, {.arg_num = 3}}},
+           Argument{ATOM_TAG, {.arg_num = 0}}},
       },
       a, b);
 
-  auto code_chunk = new CodeChunk(std::move(instructions), 1, 2);
+  CodeChunk code_chunk(std::move(instructions), 1, 2);
+  AtomChunk atom_chunk({"dummy", "atom1"});
+  auto file =
+      get_beam_file({.c = std::move(code_chunk), .a = std::move(atom_chunk)});
 
-  return get_process(code_chunk);
+  return file;
 }
 
 TEST(RISCV, IsTaggedTuple) {
   bool a, b;
-  auto pcb = setup_is_tagged_tuple(&a, &b);
+  auto file = setup_is_tagged_tuple(&a, &b);
+  auto pcb = get_process(file->code_chunk);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
-  ErlTerm heap[] = {2 << 6, make_atom(3), 2};
+  ErlTerm heap[] = {2 << 6, make_atom(0), mi(2)};
   xregs[0] = make_boxed(heap);
 
   // when
@@ -1646,10 +1656,11 @@ TEST(RISCV, IsTaggedTuple) {
 
 TEST(RISCV, IsTaggedTupleWrongArity) {
   bool a, b;
-  auto pcb = setup_is_tagged_tuple(&a, &b);
+  auto file = setup_is_tagged_tuple(&a, &b);
+  auto pcb = get_process(file->code_chunk);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
-  ErlTerm heap[] = {3 << 6, make_atom(3), 2, 4};
+  ErlTerm heap[] = {3 << 6, make_atom(0), mi(2), mi(4)};
   xregs[0] = make_boxed(heap);
 
   // when
@@ -1660,12 +1671,13 @@ TEST(RISCV, IsTaggedTupleWrongArity) {
   ASSERT_TRUE(b);
 }
 
-TEST(RISCV, IsTaggedTupleWrongWrongAtom) {
+TEST(RISCV, IsTaggedTupleWrongAtom) {
   bool a, b;
-  auto pcb = setup_is_tagged_tuple(&a, &b);
+  auto file = setup_is_tagged_tuple(&a, &b);
+  auto pcb = get_process(file->code_chunk);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
-  ErlTerm heap[] = {2 << 6, make_atom(4), 2};
+  ErlTerm heap[] = {2 << 6, make_atom(1), mi(2)};
   xregs[0] = make_boxed(heap);
 
   // when
@@ -1678,10 +1690,11 @@ TEST(RISCV, IsTaggedTupleWrongWrongAtom) {
 
 TEST(RISCV, IsTaggedTupleNotBoxed) {
   bool a, b;
-  auto pcb = setup_is_tagged_tuple(&a, &b);
+  auto file = setup_is_tagged_tuple(&a, &b);
+  auto pcb = get_process(file->code_chunk);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
-  ErlTerm heap[] = {2 << 6, make_atom(3), 2};
+  ErlTerm heap[] = {2 << 6, make_atom(3), mi(2)};
   xregs[0] = ErlTerm(reinterpret_cast<uint64_t>(heap));
 
   // when
@@ -1780,7 +1793,7 @@ TEST(RISCV, TestArityTrue) {
   auto pcb = get_process(code_chunk);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
-  ErlTerm heap[] = {3 << 6, 1, 2, 3}; // arity 3
+  ErlTerm heap[] = {3 << 6, mi(1), mi(2), mi(3)}; // arity 3
   xregs[0] = make_boxed(heap);
 
   // when
@@ -1805,7 +1818,7 @@ TEST(RISCV, TestArityFalse) {
   auto pcb = get_process(code_chunk);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
-  ErlTerm heap[] = {4 << 6, 1, 2, 3, 4}; // arity 4
+  ErlTerm heap[] = {4 << 6, mi(1), mi(2), mi(3), mi(4)}; // arity 4
   xregs[0] = make_boxed(heap);
 
   // when
@@ -1830,7 +1843,7 @@ TEST(RISCV, TestIsNonEmptyListTrue) {
   auto pcb = get_process(code_chunk);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
-  xregs[0] = erl_list_from_range({1, 2, 3}, get_nil_term());
+  xregs[0] = erl_list_from_range({mi(1), mi(2), mi(3)}, get_nil_term());
 
   // when
   resume_process(pcb);
@@ -1926,7 +1939,7 @@ TEST(RISCV, TestIsNilFalse) {
   auto pcb = get_process(code_chunk);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
-  xregs[0] = erl_list_from_range({1, 2, 3}, get_nil_term());
+  xregs[0] = erl_list_from_range({mi(1), mi(2), mi(3)}, get_nil_term());
 
   // when
   resume_process(pcb);
@@ -2237,7 +2250,7 @@ ErlTerm test_fast_bif2(std::string name, ErlTerm a, ErlTerm b) {
   wrap_in_function(instructions);
   auto file = get_file_with_import("erlang", name, 2, std::nullopt,
                                    std::move(instructions));
-  auto pcb = get_process(file.code_chunk);
+  auto pcb = get_process(file->code_chunk);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
   xregs[0] = a;
@@ -2256,25 +2269,29 @@ TEST(FastBif, ErlBxor) {
   ASSERT_EQ(result, make_small_int(2314 ^ 4231));
 }
 
+TEST(FastBif, ErlBxorWith0) {
+  auto result = test_fast_bif2("bxor", make_small_int(23), make_small_int(0));
+
+  // then
+  ASSERT_EQ(result, make_small_int(23 ^ 0));
+}
+
 TEST(FastBif, ErlBsr) {
-  auto result =
-      test_fast_bif2("bsr", make_small_int(1234), make_small_int(4));
+  auto result = test_fast_bif2("bsr", make_small_int(1234), make_small_int(4));
 
   // then
   ASSERT_EQ(result, make_small_int(1234 >> 4));
 }
 
 TEST(FastBif, ErlAdd) {
-  auto result =
-      test_fast_bif2("+", make_small_int(1234), make_small_int(5555));
+  auto result = test_fast_bif2("+", make_small_int(1234), make_small_int(5555));
 
   // then
   ASSERT_EQ(result, make_small_int(1234 + 5555));
 }
 
 TEST(FastBif, ErlSub) {
-  auto result =
-      test_fast_bif2("-", make_small_int(1234), make_small_int(234));
+  auto result = test_fast_bif2("-", make_small_int(1234), make_small_int(234));
 
   // then
   ASSERT_EQ(result, make_small_int(1234 - 234));

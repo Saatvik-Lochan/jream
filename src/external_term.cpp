@@ -570,6 +570,9 @@ std::string to_string(ErlTerm erl_term) {
 
       return to_string(out, "{", "}");
     }
+    case 0b0101: {
+      return "Closure";
+    }
     default:
       throw std::logic_error(std::format(
           "Cannot yet print the boxed type with tag {:04b}", header_tag));
@@ -587,9 +590,7 @@ std::string to_string(ErlTerm erl_term) {
   case HEADER_T:
   case CATCH_T:
   default: {
-    throw std::logic_error(
-        std::format("Cannot yet print term with tag '{}'",
-                    static_cast<int>(erl_term.getTagType())));
+    return std::format("<{:x}>", erl_term.term);
   }
   }
 }

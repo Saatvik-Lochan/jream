@@ -18,11 +18,11 @@
  * If they are going to return they return an BIFReturn
  */
 
-BIFReturn ret100() { return 100; }
+BIFReturn ret100() { return make_small_int(100); }
 
-BIFReturn test_mul10(uint64_t a) { return a * 10; }
+BIFReturn test_mul10(uint64_t a) { return make_small_int(a * 10); }
 
-BIFReturn test_add(uint64_t a, uint64_t b) { return a + b; }
+BIFReturn test_add(uint64_t a, uint64_t b) { return make_small_int(a + b); }
 
 BIFReturn test_fail(uint64_t a, uint64_t b) { return fail(); }
 

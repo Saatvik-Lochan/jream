@@ -11,7 +11,6 @@
 #include <sys/mman.h>
 #include <unordered_set>
 
-#include "asm_callable.hpp"
 #include "beam_defs.hpp"
 #include "bif.hpp"
 #include "external_term.hpp"

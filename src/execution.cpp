@@ -84,7 +84,7 @@ ProcessControlBlock *Scheduler::pick_next() {
   auto value = runnable.extract(chosen_it);
   auto pcb = value.value();
 
-  pcb->set_shared<REDUCTIONS>(5);
+  pcb->set_shared<REDUCTIONS>(1000);
 
   executing_process = pcb;
   return pcb;

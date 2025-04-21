@@ -120,7 +120,7 @@ struct AtomChunk {
 
   AtomChunk(std::vector<std::string> atoms_) : atoms(std::move(atoms_)) {
     uint64_t count = 0;
-    for (auto &atom: atoms) {
+    for (auto &atom : atoms) {
       atom_index[atom] = count++;
     }
   }
@@ -224,6 +224,11 @@ struct BeamSrc {
   ImportTableChunk import_table_chunk;
   ExportTableChunk export_table_chunk;
   FunctionTableChunk function_table_chunk;
+
+  BeamSrc(const BeamSrc &) = delete;            
+  BeamSrc &operator=(const BeamSrc &) = delete; 
+  BeamSrc(BeamSrc &&) = delete;                  
+  BeamSrc &operator=(BeamSrc &&) = delete;       
 
   BeamSrc(AtomChunk atom_chunk_, CodeChunk code_chunk_,
           LiteralChunk literal_chunk_, ImportTableChunk import_table_chunk_,
