@@ -14,11 +14,11 @@
   {label,2}.
     {allocate,0,0}.
     {move,{integer,0},{x,1}}.
-    {move,{integer,10},{x,2}}.
+    {move,{integer,5000},{x,2}}.
     {move,{integer,0},{x,0}}.
     {line,[{location,"gray.erl",5}]}.
     {call,3,{f,6}}. % gray_burn/3
-    {'%',{var_info,{x,0},[{type,{t_integer,{0,15}}}]}}.
+    {'%',{var_info,{x,0},[{type,{t_integer,{0,8191}}}]}}.
     {call_ext_last,1,{extfunc,io,write,1},0}.
 
 
@@ -27,12 +27,12 @@
     {line,[{location,"gray.erl",7}]}.
     {func_info,{atom,gray},{atom,gray},1}.
   {label,4}.
-    {'%',{var_info,{x,0},[{type,{t_integer,{0,10}}}]}}.
-    {gc_bif,'bsr',{f,0},1,[{tr,{x,0},{t_integer,{0,10}}},{integer,1}],{x,1}}.
+    {'%',{var_info,{x,0},[{type,{t_integer,{0,5000}}}]}}.
+    {gc_bif,'bsr',{f,0},1,[{tr,{x,0},{t_integer,{0,5000}}},{integer,1}],{x,1}}.
     {gc_bif,'bxor',
             {f,0},
             2,
-            [{tr,{x,0},{t_integer,{0,10}}},{tr,{x,1},{t_integer,{0,5}}}],
+            [{tr,{x,0},{t_integer,{0,5000}}},{tr,{x,1},{t_integer,{0,2500}}}],
             {x,0}}.
     return.
 
@@ -43,9 +43,9 @@
     {func_info,{atom,gray},{atom,gray_burn},3}.
   {label,6}.
     {'%',{var_info,{x,0},[{type,{t_integer,{0,'+inf'}}}]}}.
-    {'%',{var_info,{x,1},[{type,{t_integer,{0,15}}}]}}.
-    {'%',{var_info,{x,2},[{type,{t_integer,{10,10}}}]}}.
-    {test,is_ge,{f,7},[{tr,{x,0},{t_integer,{0,'+inf'}}},{integer,11}]}.
+    {'%',{var_info,{x,1},[{type,{t_integer,{0,8191}}}]}}.
+    {'%',{var_info,{x,2},[{type,{t_integer,{5000,5000}}}]}}.
+    {test,is_ge,{f,7},[{tr,{x,0},{t_integer,{0,'+inf'}}},{integer,5001}]}.
     {move,{x,1},{x,0}}.
     return.
   {label,7}.
@@ -53,15 +53,15 @@
     {init_yregs,{list,[{y,0}]}}.
     {move,{x,1},{y,1}}.
     {line,[{location,"gray.erl",11}]}.
-    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,{0,10}}},{integer,1}],{y,0}}.
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,{0,5000}}},{integer,1}],{y,0}}.
     {call,1,{f,4}}. % gray/1
-    {'%',{var_info,{x,0},[{type,{t_integer,{0,15}}}]}}.
+    {'%',{var_info,{x,0},[{type,{t_integer,{0,7167}}}]}}.
     {gc_bif,'bxor',
             {f,0},
             1,
-            [{tr,{y,1},{t_integer,{0,15}}},{tr,{x,0},{t_integer,{0,15}}}],
+            [{tr,{y,1},{t_integer,{0,8191}}},{tr,{x,0},{t_integer,{0,7167}}}],
             {x,1}}.
-    {move,{integer,10},{x,2}}.
+    {move,{integer,5000},{x,2}}.
     {move,{y,0},{x,0}}.
     {call_last,3,{f,6},2}. % gray_burn/3
 

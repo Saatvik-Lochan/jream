@@ -2088,6 +2088,24 @@ TEST(RISCV, CompIntLT) {
   do_compare_test(IS_LT_OP, arg1, arg2, !should_ge_jump);
 }
 
+TEST(RISCV, CompLTGTIntEqual) {
+  auto arg1 = make_small_int(1000);
+  auto arg2 = make_small_int(1000);
+
+  auto should_ge_jump = false;
+  do_compare_test(IS_GE_OP, arg1, arg2, should_ge_jump);
+  do_compare_test(IS_LT_OP, arg1, arg2, !should_ge_jump);
+}
+
+TEST(RISCV, CompGTClose) {
+  auto arg1 = make_small_int(5000);
+  auto arg2 = make_small_int(5001);
+
+  auto should_ge_jump = true;
+  do_compare_test(IS_GE_OP, arg1, arg2, should_ge_jump);
+  do_compare_test(IS_LT_OP, arg1, arg2, !should_ge_jump);
+}
+
 TEST(RISCV, CompEqExactTrue) {
   auto arg1 = make_small_int(0);
   auto arg2 = make_small_int(0);
