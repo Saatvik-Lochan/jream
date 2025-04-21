@@ -361,6 +361,16 @@ TEST(ErlTerm, ParseMultiple) {
   ASSERT_EQ(received_vec, expected_vec);
 }
 
+TEST(ErlTerm, ParseUnderscoreInt) {
+  std::string test = "10_000";
+
+  // when
+  auto result = try_parse(test);
+
+  // then
+  ASSERT_EQ(result, mi(10000));
+}
+
 TEST(ErlTerm, ParseFunctionString) {
   std::string mfa = "gray:main(5000, {2001})";
 

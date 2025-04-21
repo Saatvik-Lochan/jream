@@ -75,7 +75,11 @@ ErlTerm parse_int(const std::string &term, size_t &from, T *pcb) {
 
   char curr;
 
-  for (; is_num(curr = term[from]); from++) {
+  for (; is_num(curr = term[from]) || term[from] == '_'; from++) {
+    if (term[from] == '_') {
+      continue;
+    }
+
     num *= 10;
     num += curr - 48;
   }
