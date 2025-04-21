@@ -83,14 +83,6 @@ struct ExportFunctionId {
   bool operator==(const ExportFunctionId &other) const = default;
 };
 
-struct GlobalFunctionId {
-  std::string module;
-  std::string function_name;
-  uint32_t arity;
-
-  bool operator==(const GlobalFunctionId &other) const = default;
-};
-
 template <> struct std::hash<ExternalFunctionId> {
   size_t operator()(const ExternalFunctionId &id) const {
     size_t h1 = std::hash<uint64_t>{}(id.module);

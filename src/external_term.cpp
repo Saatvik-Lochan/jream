@@ -5,8 +5,8 @@
 #include "execution.hpp"
 #include "external_term.hpp"
 #include "int_from_bytes.hpp"
-#include "pcb.hpp"
 #include "profiler.hpp"
+#include "parsing.hpp"
 #include <cassert>
 #include <cstdint>
 #include <format>
@@ -380,137 +380,6 @@ ErlTerm make_atom(uint64_t index) {
   return ErlTerm((index << 6) + 0b1011);
 }
 
-bool is_num(char c) { return 48 <= c && c < 58; }
-
-ErlTerm parse_term(const std::string &term, size_t &from,
-                   ProcessControlBlock *pcb);
-
-ErlTerm parse_int(const std::string &term, size_t &from,
-                  ProcessControlBlock *pcb) {
-
-  auto num = 0;
-
-  char curr;
-
-  for (; is_num(curr = term[from]); from++) {
-    num *= 10;
-    num += curr - 48;
-  }
-
-  return make_small_int(num);
-}
-
-std::vector<ErlTerm> collect_till(const std::string &term, char end,
-                                  size_t &from, ProcessControlBlock *pcb) {
-  PROFILE();
-  std::vector<ErlTerm> terms;
-
-  // TODO make it work for empty array...
-  terms.push_back(parse_term(term, from, pcb));
-
-  while (term[from] != end) {
-    switch (term[from]) {
-    case ',': {
-      from++;
-      terms.push_back(parse_term(term, from, pcb));
-      break;
-    }
-    case ' ': {
-      from++;
-      break;
-    }
-    default: {
-      throw std::logic_error(
-          std::format("Invalid parsing. Did not expect '{}'.", term[from]));
-    }
-    }
-  }
-
-  from++;
-  return terms;
-}
-
-ErlTerm terms_to_list(const std::vector<ErlTerm> &terms,
-                      ProcessControlBlock *pcb) {
-  ErlListBuilder builder;
-
-  auto curr = pcb->allocate_and_gc(terms.size() * 2, 0);
-
-  for (auto term : terms) {
-    builder.add_term(term, curr);
-    curr += 2;
-  }
-
-  builder.set_end(get_nil_term());
-  return builder.get_list();
-}
-
-void check_start(std::string term_name, char c, char needed) {
-  if (c != needed) {
-    throw std::logic_error(
-        std::format("parse {} but incorrect opening {}", term_name, c));
-  }
-}
-
-ErlTerm parse_erl_list(const std::string &term, size_t &from,
-                       ProcessControlBlock *pcb) {
-
-  check_start("list", term[from], '[');
-  from++;
-
-  auto terms = collect_till(term, ']', from, pcb);
-
-  return terms_to_list(terms, pcb);
-}
-
-ErlTerm parse_tuple(const std::string &term, size_t &from,
-                    ProcessControlBlock *pcb) {
-
-  check_start("tuple", term[from], '{');
-  from++;
-
-  auto terms = collect_till(term, '}', from, pcb);
-
-  auto alloced = pcb->allocate_tuple(terms.size());
-  for (size_t i = 0; i < terms.size(); i++) {
-    alloced[i + 1] = terms[i];
-  }
-
-  return make_boxed(alloced);
-}
-
-ErlTerm parse_term(const std::string &term, size_t &from,
-                   ProcessControlBlock *pcb) {
-
-  while (true) {
-    switch (term[from]) {
-    case '{':
-      return parse_tuple(term, from, pcb);
-    case '[':
-      return parse_erl_list(term, from, pcb);
-    case ' ': {
-      from++;
-      break;
-    }
-    default: {
-      if (is_num(term[from])) {
-        return parse_int(term, from, pcb);
-      } else {
-        throw std::logic_error("Unexpected type when parsing");
-      }
-    }
-    }
-  }
-}
-
-ErlTerm parse_terms_into_list(const std::string &term,
-                              ProcessControlBlock *pcb) {
-  PROFILE();
-  size_t from = 0;
-  auto terms = collect_till(term, '.', from, pcb);
-
-  return terms_to_list(terms, pcb);
-}
 
 ErlTerm parse_term(const std::string &term) {
   PROFILE();

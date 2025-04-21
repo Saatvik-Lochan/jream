@@ -1,13 +1,17 @@
-num = 5000
-
-
 def gray(a):
     return a ^ (a >> 1)
 
 
-accumulator = 0
+def gray_burn(num):
+    accumulator = 0
+    curr = 0
 
-for i in range(num + 1):
-    accumulator ^= gray(i)
+    while curr <= num:
+        accumulator ^= gray(curr)
+        curr += 1
 
-print(accumulator)
+    return accumulator
+
+
+for i in range(5001):
+    print(gray_burn(i))

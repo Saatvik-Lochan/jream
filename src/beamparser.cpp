@@ -34,10 +34,11 @@ uint8_t read_byte(std::ifstream &stream) {
   return out;
 }
 
-std::uint32_t read_big_endian(std::ifstream &stream) {
-  uint8_t buffer[4];
-  stream.read(reinterpret_cast<char *>(buffer), 4);
-  return big_endian_from_bytes<uint32_t>(buffer);
+template <typename T = uint32_t> T read_big_endian(std::ifstream &stream) {
+  constexpr size_t size = sizeof(T);
+  uint8_t buffer[size];
+  stream.read(reinterpret_cast<char *>(buffer), size);
+  return big_endian_from_bytes<T>(buffer);
 }
 
 std::string TagToString(Tag tag) {
@@ -76,7 +77,7 @@ AtomChunk parse_atom_chunk(std::ifstream &stream) {
   uint32_t num_atoms = read_big_endian(stream);
   std::vector<std::string> atoms;
 
-  atoms.push_back("NIL (not atom)"); 
+  atoms.push_back("NIL (not atom)");
   // 0th atom index represents nil
   // however this value should not be used
 
@@ -161,8 +162,7 @@ uint64_t parse_argument_number(std::ifstream &stream, uint8_t tag_byte) {
 
       uint64_t value = 0;
 
-      // TODO check endianess!
-      for (int i = 0; i < num_following_bytes; i++) {
+      for (int i = num_following_bytes - 1; i >= 0; i--) {
         uint8_t next_byte = read_byte(stream);
         value |= static_cast<uint64_t>(next_byte) << (i * 8);
       }

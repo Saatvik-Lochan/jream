@@ -44,7 +44,8 @@ struct Emulator {
   ErlTerm get_atom_current(std::string atom_name);
   std::string get_atom_string_current(ErlTerm e);
 
-  ErlTerm run(GlobalFunctionId id);
+  ErlTerm read_and_execute(std::string func_string);
+  ErlTerm run(ProcessControlBlock *);
 };
 
 inline Emulator emulator_main;

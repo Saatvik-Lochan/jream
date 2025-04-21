@@ -1,6 +1,7 @@
 #include "../include/allocator.hpp"
 #include "../include/beam_defs.hpp"
 #include "../include/bif.hpp"
+#include "../include/parsing.hpp"
 #include "../include/execution.hpp"
 #include "../include/external_term.hpp"
 #include "../include/generated/instr_code.hpp"
@@ -85,6 +86,20 @@ void wrap_in_function(std::vector<Instruction> &instructions,
 
 CodeChunk get_minimal_code_chunk() {
   return CodeChunk({{RETURN_OP, {}}}, 1, 1);
+}
+
+void assert_tuple(ErlTerm term, std::initializer_list<ErlTerm> elements) {
+  ASSERT_EQ(term.getErlMajorType(), TUPLE_ET);
+
+  auto ptr = term.as_ptr();
+  const auto header = *ptr;
+
+  const auto size = header >> 6;
+  ASSERT_EQ(size, elements.size());
+
+  for (auto e : elements) {
+    ASSERT_EQ(e, *++ptr);
+  }
 }
 
 TEST(Parsing, GetAtomCurrent) {
@@ -344,6 +359,30 @@ TEST(ErlTerm, ParseMultiple) {
   }
 
   ASSERT_EQ(received_vec, expected_vec);
+}
+
+TEST(ErlTerm, ParseFunctionString) {
+  std::string mfa = "gray:main(5000, {2001})";
+
+  auto [func_id, terms] = parse_func_call(mfa, ArgumentAllocator{});
+
+  GlobalFunctionId expected{
+      .module = "gray", .function_name = "main", .arity = 2};
+
+  ASSERT_EQ(func_id, expected);
+  ASSERT_EQ(terms[0], mi(5000));
+  assert_tuple(terms[1], {mi(2001)});
+}
+
+TEST(ErlTerm, ParseNoArgsFunctionString) {
+  std::string mfa = "gray:main()";
+
+  auto [func_id, terms] = parse_func_call(mfa, ArgumentAllocator{});
+
+  GlobalFunctionId expected{
+      .module = "gray", .function_name = "main", .arity = 0};
+
+  ASSERT_EQ(func_id, expected);
 }
 
 TEST(ErlTerm, ToStringList) {
@@ -746,20 +785,6 @@ TEST(RISCV, TestGetTupleElement) {
 
   // then
   ASSERT_EQ(xregs[1], mi(10));
-}
-
-void assert_tuple(ErlTerm term, std::initializer_list<ErlTerm> elements) {
-  ASSERT_EQ(term.getErlMajorType(), TUPLE_ET);
-
-  auto ptr = term.as_ptr();
-  const auto header = *ptr;
-
-  const auto size = header >> 6;
-  ASSERT_EQ(size, elements.size());
-
-  for (auto e : elements) {
-    ASSERT_EQ(e, *++ptr);
-  }
 }
 
 TEST(RISCV, PutTuple2) {

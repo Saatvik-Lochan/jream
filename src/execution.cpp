@@ -7,13 +7,14 @@
 #include <string>
 #include <strings.h>
 #include <sys/mman.h>
-#include <unordered_map>
 
 #include "asm_callable.hpp"
 #include "asm_utility.hpp"
 #include "beam_defs.hpp"
+#include "beamparser.hpp"
 #include "execution.hpp"
 #include "external_term.hpp"
+#include "parsing.hpp"
 #include "pcb.hpp"
 #include "precompiled.hpp"
 #include "profiler.hpp"
@@ -161,13 +162,8 @@ std::string Emulator::get_atom_string_current(ErlTerm e) {
   return value;
 }
 
-ErlTerm Emulator::run(GlobalFunctionId initial_func) {
+ErlTerm Emulator::run(ProcessControlBlock *pcb) {
   PROFILE();
-
-  assert(initial_func.arity == 0);
-
-  auto initial_entry_point = get_entry_point(initial_func);
-  auto pcb = create_process(initial_entry_point);
 
   auto &scheduler = emulator_main.scheduler;
   scheduler.runnable.insert(pcb);
@@ -218,4 +214,31 @@ ErlTerm Emulator::run(GlobalFunctionId initial_func) {
   }
 
   return pcb->get_shared<XREG_ARRAY>()[0];
+}
+
+ErlTerm Emulator::read_and_execute(std::string func_string) {
+  PROFILE();
+
+  auto [func_id, arguments] =
+      parse_func_call<ArgumentAllocator>(func_string, ArgumentAllocator{});
+  auto file_name = func_id.module + ".beam";
+
+  auto beamfile = read_chunks(file_name);
+  beamfile.log();
+
+  DLOG(INFO) << "File read and parsed";
+
+  emulator_main.register_beam_sources({&beamfile});
+
+  auto initial_entry_point = get_entry_point(func_id);
+  auto pcb = create_process(initial_entry_point);
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+
+  std::ranges::copy(arguments, xregs);
+
+  emulator_main.run(pcb);
+
+  DLOG(INFO) << "Finished";
+
+  return xregs[0];
 }

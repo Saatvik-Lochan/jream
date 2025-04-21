@@ -1,5 +1,6 @@
 #ifndef EXTERNAL_TERM
 #define EXTERNAL_TERM
+
 #include <algorithm>
 #include <bitset>
 #include <cassert>
@@ -337,9 +338,19 @@ ErlTerm erl_list_from_range(R &&terms, ErlTerm end)
   return builder.get_list();
 }
 
+struct GlobalFunctionId {
+  std::string module;
+  std::string function_name;
+  uint32_t arity;
+
+  bool operator==(const GlobalFunctionId &other) const = default;
+};
+
+
 template <typename T>
 ErlTerm erl_list_from_range(std::initializer_list<T> terms, ErlTerm end) {
   return erl_list_from_range(std::views::all(terms), end);
 }
+
 
 #endif
