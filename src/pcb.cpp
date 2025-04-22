@@ -47,12 +47,13 @@ std::span<ErlTerm> ProcessControlBlock::get_next_to_space(size_t alloc_amount) {
   }
 
   // otherwise we allocate more
-  auto wanted_amount = (required_amount * 10) / 7;
+  auto wanted_amount = required_amount * 2;
   auto new_to_space = new ErlTerm[wanted_amount];
 
   // free previous
   auto prev_data = prev_to_space.data();
   if (prev_data) {
+    MLOG("Free: prev_to_space - " << prev_to_space.size());
     delete[] prev_data;
   }
 
@@ -83,13 +84,13 @@ ProcessControlBlock::get_root_set(size_t xregs, std::span<ErlTerm> stack) {
 ErlTerm *ProcessControlBlock::do_gc(size_t size, size_t xregs) {
   PROFILE();
 
-#ifdef ENABLE_MEMORY_LOG
-  LOG(INFO) << "Starting a gc, heap size: " << heap.size();
-  LOG(INFO) << "New term size: " << size;
-#endif
-
   auto htop = get_shared<HTOP>();
   std::span<ErlTerm> to_space = get_next_to_space(size);
+
+#ifdef ENABLE_MEMORY_LOG
+  LOG(INFO) << "GC: old_size: " << heap.size()
+            << " | new_size: " << to_space.size();
+#endif
 
   // copy stack
   auto stack_span = get_stack();
@@ -98,8 +99,10 @@ ErlTerm *ProcessControlBlock::do_gc(size_t size, size_t xregs) {
   std::ranges::copy(stack_span, to_space_stack.data());
 
   // do gc
+  std::span<ErlTerm> new_heap_space(
+      to_space.data(), to_space.size() - to_space_stack.size());
   auto root_set = get_root_set(xregs, to_space_stack);
-  auto result = minor_gc(root_set, to_space.data(),
+  auto result = minor_gc(root_set, new_heap_space,
                          {.heap_start = heap.data(),
                           .heap_top = htop,
                           .highwater = highwater,
@@ -121,10 +124,6 @@ ErlTerm *ProcessControlBlock::do_gc(size_t size, size_t xregs) {
   set_shared<HTOP>(result.heap_top + size); // new top after alloc
   set_shared<STOP>(to_space_stack.data());
   highwater = result.highwater;
-
-#ifdef ENABLE_MEMORY_LOG
-  LOG(INFO) << "Finished gc, new heap size: " << heap.size();
-#endif
 
   return result.heap_top;
 }

@@ -21,6 +21,14 @@ public:
   inline bool contains_other(ErlTerm *ptr) {
     return others_alloced.contains(ptr);
   };
+
+  inline void free_all() {
+    list_allocator.free_all();
+    for (auto alloced : others_alloced) {
+      delete[] alloced;
+    }
+  }
+
 };
 
 struct YoungHeap {
@@ -38,12 +46,13 @@ struct YoungHeap {
   }
 
   bool is_old_here(ErlTerm *ptr) const {
-    return heap_start <= ptr && ptr < highwater;
+    return false;
+    /*return heap_start <= ptr && ptr < highwater;*/
   }
 };
 
 YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
-                   ErlTerm *to_space, const YoungHeap current_young,
+                   std::span<ErlTerm> to_space, const YoungHeap current_young,
                    GeneralPurposeHeap &old_heap);
 
 #endif

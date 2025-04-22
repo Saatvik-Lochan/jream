@@ -15,17 +15,19 @@ constexpr uint64_t MOVED_CONS_MARKER = 37 << 2;
 
 // we assume to_space has enough size
 YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
-                   ErlTerm *to_space, const YoungHeap current_young,
+                   std::span<ErlTerm> to_space, const YoungHeap current_young,
                    GeneralPurposeHeap &old_heap) {
   PROFILE();
 
-  ErlTerm *new_top = to_space;
+  ErlTerm *new_top = to_space.data();
 
-  auto alloc_and_copy = [&new_top](std::span<ErlTerm> to_copy) {
+  auto alloc_and_copy = [&new_top, &to_space](std::span<ErlTerm> to_copy) {
     std::ranges::copy(to_copy, new_top);
 
     auto out = new_top;
     new_top += to_copy.size();
+
+    assert(new_top <= to_space.data() + to_space.size());
 
     return out;
   };
@@ -60,8 +62,6 @@ YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
 
       ErlTerm *new_ref;
 
-      // TODO must do an iterative search here to move all necessary values to
-      // the old heap
       if (current_young.is_old_here(copy_ptr)) {
         new_ref = old_heap.allocate_cons();
         std::ranges::copy(span, new_ref);
@@ -106,7 +106,7 @@ YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
         new_ref = old_heap.allocate_other(size);
         std::ranges::copy(span, new_ref);
 
-        old_heap_to_fix.push(span);
+        old_heap_to_fix.push({new_ref, size});
       } else {
         new_ref = alloc_and_copy(span);
       }
@@ -135,13 +135,13 @@ YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
     }
   }
 
-  ErlTerm *new_bot = to_space;
-  while (new_bot <= new_top) {
+  ErlTerm *new_bot = to_space.data();
+  while (new_bot < new_top) {
     copy_term(new_bot);
     new_bot += 1;
   }
 
   // garbage collection should be done
   return YoungHeap{
-      .heap_start = to_space, .heap_top = new_top, .highwater = new_top};
+      .heap_start = to_space.data(), .heap_top = new_top, .highwater = new_top};
 }

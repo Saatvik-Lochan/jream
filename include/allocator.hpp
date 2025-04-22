@@ -10,8 +10,15 @@
 #define ALLOCATOR_H
 
 #include <cstddef>
+#include <glog/logging.h>
 #include <span>
 #include <vector>
+
+#ifdef ENABLE_MEMORY_LOG
+#define MLOG(...) LOG(INFO) << "StablePoolAllocator: " << __VA_ARGS__
+#else
+#define MLOG(...) void(0)
+#endif
 
 template <typename T> class StablePoolAllocator {
 
@@ -28,6 +35,7 @@ template <typename T> class StablePoolAllocator {
 
   void add_and_link_slab() {
     auto new_slab_size = base_slab_size << (slabs.size());
+    MLOG("Allocating new slab " << new_slab_size);
 
     auto slab_start = new T[new_slab_size];
     slabs.push_back(slab_start);
@@ -37,7 +45,7 @@ template <typename T> class StablePoolAllocator {
     FreeObject *tail = nullptr;
 
     for (T &item : slab) {
-      FreeObject &item_as_obj = reinterpret_cast<FreeObject&>(item);
+      FreeObject &item_as_obj = reinterpret_cast<FreeObject &>(item);
       item_as_obj.next = tail;
       tail = &item_as_obj;
     }
@@ -46,7 +54,7 @@ template <typename T> class StablePoolAllocator {
   }
 
 public:
-  StablePoolAllocator(size_t size = 512): base_slab_size(size) {}
+  StablePoolAllocator(size_t size = 512) : base_slab_size(size) {}
 
   inline T *alloc() {
     if (free_list_head == nullptr) {
@@ -63,6 +71,14 @@ public:
     auto freed_as_obj_ptr = reinterpret_cast<FreeObject *>(ptr);
     freed_as_obj_ptr->next = free_list_head;
     free_list_head = freed_as_obj_ptr;
+  }
+
+  inline void free_all() {
+    for (auto slab : slabs) {
+      delete[] slab;
+    }
+
+    slabs.clear();
   }
 
   inline size_t get_free_num() {

@@ -45,12 +45,7 @@ ProcessControlBlock *Emulator::create_process(EntryPoint entry_point,
   PROFILE();
   ProcessControlBlock *pcb;
 
-  if (dead_processes.empty()) {
-    pcb = new ProcessControlBlock;
-  } else {
-    pcb = std::move(dead_processes.back());
-    dead_processes.pop_back();
-  }
+  pcb = new ProcessControlBlock;
 
   pcb->set_shared<CODE_CHUNK_P>(entry_point.code_chunk);
   pcb->set_shared<RESUME_LABEL>(entry_point.label);
@@ -192,8 +187,9 @@ ErlTerm Emulator::run(ProcessControlBlock *pcb) {
     case FINISH: {
       SLOG("A process finished: " << to_run);
 
-      // TODO check for issues with the message passing to a dead process
-      emulator_main.dead_processes.push_back(to_run);
+      to_run->old_heap.free_all();
+      delete[] to_run->heap.data();
+      delete[] to_run->get_shared<XREG_ARRAY>();
       break;
     }
     case YIELD: {

@@ -94,6 +94,12 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     ENABLE_PROFILING=1
   )
 endif()
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+  target_compile_definitions(jreamlib PRIVATE
+  )
+endif()
+
 target_include_directories(jreamlib PRIVATE
   ${PROJECT_SOURCE_DIR}/include
 )
