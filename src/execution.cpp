@@ -73,14 +73,13 @@ ProcessControlBlock *Emulator::create_process(EntryPoint entry_point,
 
 ProcessControlBlock *Scheduler::pick_next() {
   PROFILE();
-  auto chosen_it = runnable.begin();
 
-  if (chosen_it == runnable.end()) {
+  if (runnable.empty()) {
     return nullptr;
   }
 
-  auto value = runnable.extract(chosen_it);
-  auto pcb = value.value();
+  auto pcb = runnable.front();
+  runnable.pop_front();
 
   pcb->set_shared<REDUCTIONS>(1000);
 
@@ -96,7 +95,7 @@ bool Scheduler::signal(ProcessControlBlock *process) {
   }
 
   auto node = waiting.extract(it);
-  runnable.insert(std::move(node));
+  runnable.push_back(std::move(node.value()));
 
   return true;
 }

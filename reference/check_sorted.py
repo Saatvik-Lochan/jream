@@ -9,4 +9,4 @@ with open(filename) as file:
 is_sorted = all(a <= b for a, b in zip(list_line, list_line[1:]))
 is_correct_size = len(list_line) == size
 
-print(f"{is_sorted=}, {is_correct_size=}")
+print(f"{filename}: {is_sorted=}, {is_correct_size=}")

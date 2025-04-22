@@ -5,6 +5,7 @@
 #include "pcb.hpp"
 #include <cassert>
 #include <cstdint>
+#include <deque>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
@@ -20,7 +21,7 @@ enum ErlReturnCode {
 };
 
 struct Scheduler {
-  std::unordered_set<ProcessControlBlock *> runnable;
+  std::deque<ProcessControlBlock *> runnable;
   std::unordered_set<ProcessControlBlock *> waiting;
 
   ProcessControlBlock *pick_next();
