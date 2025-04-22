@@ -17,10 +17,15 @@ const uint8_t *get_or_compile_label(CodeChunk *code_chunk, uint64_t label) {
   uint64_t func_index = code_chunk->label_func_table[label];
 
   auto &compiled_code = code_chunk->compiled_functions[func_index];
-  DLOG(INFO) << "\tcompiling label: " << label;
+
+#ifdef ENABLE_JIT_LOG
+  LOG(INFO) << "\tcompiling label: " << label;
+#endif
 
   if (compiled_code == nullptr) {
-    DLOG(INFO) << "\tcompiling function: " << func_index;
+#ifdef ENABLE_JIT_LOG
+    LOG(INFO) << "\tcompiling function: " << func_index;
+#endif
     compiled_code = compile_erlang_func(*code_chunk, func_index);
   }
 

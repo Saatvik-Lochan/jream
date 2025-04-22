@@ -348,7 +348,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
   };
 
   auto add_log_xregs = [&](uint8_t num_xregs) {
-#ifdef EXEC_LOG
+#ifdef ENABLE_ARGUMENT_LOG
     add_riscv_instr(create_add_immediate(10, 0, num_xregs));
     add_code(get_riscv(LOG_XREGS_SNIP));
 #endif
@@ -362,7 +362,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
     const auto &instr = code_chunk.instructions[instr_index];
 
-#ifdef EXEC_LOG
+#ifdef ENABLE_INSTR_LOG
     // log the op that is executing
     add_riscv_instr(create_add_immediate(10, 0, instr.op_code));
     add_code(get_riscv(LOG_OP_SNIP));
@@ -393,7 +393,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       label_offsets[label_val] = compiled.size();
       local_labels.insert(label_val);
 
-#ifdef EXEC_LOG
+#ifdef ENABLE_INSTR_LOG
       // log the function at every entry
       add_riscv_instr(create_add_immediate(10, 0, label_val));
       add_code(get_riscv(LOG_LABEL_SNIP));
@@ -994,7 +994,7 @@ uint8_t *move_code_to_memory(const std::vector<uint8_t> &code) {
                                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
   // memory has to be aligned with 4 byte
-#ifdef EXEC_LOG
+#ifdef ENABLE_MEMORY_LOG
   LOG(INFO) << "Allocating memory for code size: " << code.size() << " at "
             << allocated_mem;
 #endif

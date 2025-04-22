@@ -34,7 +34,9 @@ uint64_t get_current_space() {
 }
 
 ErlReturnCode resume_process(ProcessControlBlock *pcb) {
-  DLOG(INFO) << "\tresuming at label: " << pcb->get_shared<RESUME_LABEL>();
+#if defined(ENABLE_INSTR_LOG) || defined(ENABLE_JIT_LOG)
+  LOG(INFO) << "\tresuming at label: " << pcb->get_shared<RESUME_LABEL>();
+#endif
   return setup_and_go_label(pcb, pcb->get_shared<RESUME_LABEL>());
 }
 
@@ -168,12 +170,18 @@ ErlTerm Emulator::run(ProcessControlBlock *pcb) {
   auto &scheduler = emulator_main.scheduler;
   scheduler.runnable.insert(pcb);
 
-#ifdef EXEC_LOG
+#ifdef ENABLE_SCHEDULER_LOG
+#define SLOG(...) LOG(INFO) << __VA_ARGS__
+#else
+#define SLOG(...) (void)0
+#endif
+
+#ifdef ENABLE_SCHEDULER_LOG
   auto count = 1;
 #endif
 
   while (auto to_run = scheduler.pick_next()) {
-    DLOG(INFO) << "Now executing: " << to_run;
+    SLOG("Now executing: " << to_run);
 
     auto result = resume_process(to_run);
 
@@ -182,19 +190,19 @@ ErlTerm Emulator::run(ProcessControlBlock *pcb) {
       throw std::logic_error("Internal process finished with an error");
     }
     case FINISH: {
-      DLOG(INFO) << "A process finished: " << to_run;
+      SLOG("A process finished: " << to_run);
 
       // TODO check for issues with the message passing to a dead process
       emulator_main.dead_processes.push_back(to_run);
       break;
     }
     case YIELD: {
-      DLOG(INFO) << "A process yielded: " << to_run;
+      SLOG("A process yielded: " << to_run);
       scheduler.runnable.insert(to_run);
       break;
     }
     case WAIT: {
-      DLOG(INFO) << "A process is waiting: " << to_run;
+      SLOG("A process is waiting: " << to_run);
       scheduler.waiting.insert(to_run);
       break;
     }
@@ -206,11 +214,9 @@ ErlTerm Emulator::run(ProcessControlBlock *pcb) {
           "A process has failed due to a lack of heap space");
     }
 
-#ifdef EXEC_LOG
-    LOG(INFO) << "After " << count++ << ":";
-    LOG(INFO) << "\twaiting: " << queue_string(scheduler.waiting);
-    LOG(INFO) << "\trunnable: " << queue_string(scheduler.runnable);
-#endif
+    SLOG("After " << count++ << ":");
+    SLOG("\twaiting: " << queue_string(scheduler.waiting));
+    SLOG("\trunnable: " << queue_string(scheduler.runnable));
   }
 
   return pcb->get_shared<XREG_ARRAY>()[0];
@@ -225,11 +231,10 @@ ErlTerm Emulator::read_and_execute(std::string func_string) {
   auto file_name = func_id.module + ".beam";
 
   auto beamfile = read_chunks(file_name);
-#ifdef EXEC_LOG
+
+#ifdef ENABLE_PARSE_LOG
   beamfile.log();
 #endif
-
-  DLOG(INFO) << "File read and parsed";
 
   emulator_main.register_beam_sources({&beamfile});
 
@@ -240,8 +245,6 @@ ErlTerm Emulator::read_and_execute(std::string func_string) {
   std::ranges::copy(arguments, xregs);
 
   emulator_main.run(pcb);
-
-  DLOG(INFO) << "Finished";
 
   return xregs[0];
 }

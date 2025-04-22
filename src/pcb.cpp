@@ -83,7 +83,7 @@ ProcessControlBlock::get_root_set(size_t xregs, std::span<ErlTerm> stack) {
 ErlTerm *ProcessControlBlock::do_gc(size_t size, size_t xregs) {
   PROFILE();
 
-#ifdef EXEC_LOG
+#ifdef ENABLE_MEMORY_LOG
   LOG(INFO) << "Starting a gc, heap size: " << heap.size();
   LOG(INFO) << "New term size: " << size;
 #endif
@@ -122,7 +122,7 @@ ErlTerm *ProcessControlBlock::do_gc(size_t size, size_t xregs) {
   set_shared<STOP>(to_space_stack.data());
   highwater = result.highwater;
 
-#ifdef EXEC_LOG
+#ifdef ENABLE_MEMORY_LOG
   LOG(INFO) << "Finished gc, new heap size: " << heap.size();
 #endif
 

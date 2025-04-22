@@ -21,6 +21,13 @@
 #include <vector>
 #include <zlib.h>
 
+#ifdef ENABLE_PARSE_LOG
+#define PARSELOG(...) LOG(INFO) << __VA_ARGS__
+#else
+#define PARSELOG(...) (void)0
+#endif
+
+
 // Parsing Utilities
 std::string read_string(std::ifstream &stream, size_t length) {
   std::string buffer(length, '\0');
@@ -326,7 +333,7 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
 
   // TODO use these for optimising allocations
   const uint32_t sub_size = read_big_endian(stream);
-  DLOG(INFO) << "sub_size: " << sub_size << std::endl;
+  PARSELOG("sub_size: " << sub_size << std::endl);
 
   auto chunk_start = stream.tellg();
 
@@ -335,10 +342,10 @@ CodeChunk parse_code_chunk(std::ifstream &stream, std::streampos chunk_end) {
   const uint32_t _op_code_max [[maybe_unused]] = read_big_endian(stream);
 
   const uint32_t label_count = read_big_endian(stream);
-  DLOG(INFO) << std::format("label count: {}", label_count) << std::endl;
+  PARSELOG(std::format("label count: {}", label_count) << std::endl);
 
   const uint32_t function_count = read_big_endian(stream);
-  DLOG(INFO) << std::format("function count: {}", function_count) << std::endl;
+  PARSELOG(std::format("function count: {}", function_count) << std::endl);
 
   // skip till subsize amount forward
   stream.seekg(chunk_start + static_cast<std::streamoff>(sub_size));
@@ -413,14 +420,14 @@ LiteralChunk parse_literal_chunk(std::ifstream &stream,
   curr_pos += 4;
 
   std::vector<ErlTerm> terms;
-  DLOG(INFO) << "num_literals: " << num_literals << std::endl;
+  PARSELOG("num_literals: " << num_literals << std::endl);
 
   for (uint32_t i = 0; i < num_literals; i++) {
     uint32_t literal_size = big_endian_from_bytes<uint32_t>(curr_pos);
     curr_pos += 4;
 
     auto result = ErlTerm::from_binary(curr_pos).first;
-    DLOG(INFO) << i << ": " << to_string(result) << std::endl;
+    PARSELOG(i << ": " << to_string(result) << std::endl);
     terms.push_back(result);
 
     curr_pos += literal_size;
@@ -450,7 +457,7 @@ std::vector<AnonymousFunctionId> read_local_function_id(std::ifstream &stream) {
   uint32_t func_id_count = read_big_endian(stream);
   std::vector<AnonymousFunctionId> func_ids;
 
-  DLOG(INFO) << "  anonymous func count: " << func_id_count;
+  PARSELOG("  anonymous func count: " << func_id_count);
 
   for (uint32_t i = 0; i < func_id_count; i++) {
     uint32_t function_name = read_big_endian(stream);
@@ -476,7 +483,7 @@ std::vector<ExportFunctionId> read_export_function_ids(std::ifstream &stream) {
   uint32_t export_count = read_big_endian(stream);
   std::vector<ExportFunctionId> export_func_ids;
 
-  DLOG(INFO) << "  anonymous func count: " << export_count;
+  PARSELOG("  anonymous func count: " << export_count);
 
   for (uint32_t i = 0; i < export_count; i++) {
     uint32_t function_name = read_big_endian(stream);
@@ -537,7 +544,7 @@ BeamSrc read_chunks(const std::string &filename) {
     const std::string module_name = read_string(input, 4);
     const uint32_t raw_size = read_big_endian(input);
 
-    DLOG(INFO) << std::format("module: {}, size: {}", module_name, raw_size);
+    PARSELOG(std::format("module: {}, size: {}", module_name, raw_size));
 
     const uint32_t aligned_chunk_len = (4 * ((raw_size + 3) / 4));
     const auto chunk_start = input.tellg();

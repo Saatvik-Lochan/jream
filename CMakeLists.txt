@@ -81,10 +81,19 @@ target_link_libraries(jreamlib PRIVATE
   glog
   zlib
 )
-target_compile_definitions(jreamlib PRIVATE
-  $<$<CONFIG:Debug>:EXEC_LOG=1>
-  $<$<CONFIG:Debug>:ENABLE_PROFILING=1>
-)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  target_compile_definitions(jreamlib PRIVATE
+    ENABLE_JIT_LOG=1
+    ENABLE_PARSE_LOG=1
+    ENABLE_INSTR_LOG=1
+    ENABLE_ARGUMENT_LOG=1
+    ENABLE_SCHEDULER_LOG=1
+    ENABLE_BIF_LOG=1
+    ENABLE_MEMORY_LOG=1
+    ENABLE_PROFILING=1
+  )
+endif()
 target_include_directories(jreamlib PRIVATE
   ${PROJECT_SOURCE_DIR}/include
 )
