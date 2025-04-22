@@ -1,2 +1,2 @@
 # jream
-A JIT compiler for BEAM bytecode to RISC-V
+A JIT compiler for BEAM bytecode targeting RISC-V
