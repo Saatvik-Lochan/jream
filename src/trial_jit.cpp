@@ -1,13 +1,9 @@
 #include "../include/execution.hpp"
-#include "../include/profiler.hpp"
 #include "../include/setup_logging.hpp"
 #include <cstring>
 #include <stdexcept>
 
 int main(int argc, char *argv[]) {
-  PROFILE_INIT();
-  PROFILE();
-
   setup_logging(argv[0]);
 
   if (argc < 2) {

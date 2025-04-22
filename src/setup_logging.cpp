@@ -4,7 +4,7 @@
 void setup_logging(char *filename) {
   PROFILE();
   FLAGS_log_prefix = false;
-  FLAGS_log_dir = "/tmp";
+  FLAGS_log_dir = "./logs";
   fLI::FLAGS_logbufsecs = 0;
   
   google::FlushLogFiles(google::INFO);

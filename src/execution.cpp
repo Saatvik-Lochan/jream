@@ -217,6 +217,7 @@ ErlTerm Emulator::run(ProcessControlBlock *pcb) {
 }
 
 ErlTerm Emulator::read_and_execute(std::string func_string) {
+  PROFILE_INIT();
   PROFILE();
 
   auto [func_id, arguments] =
@@ -224,7 +225,9 @@ ErlTerm Emulator::read_and_execute(std::string func_string) {
   auto file_name = func_id.module + ".beam";
 
   auto beamfile = read_chunks(file_name);
+#ifdef EXEC_LOG
   beamfile.log();
+#endif
 
   DLOG(INFO) << "File read and parsed";
 
