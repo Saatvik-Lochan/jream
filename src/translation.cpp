@@ -53,7 +53,6 @@ std::optional<uintptr_t> bif_from_id(std::string bif_string) {
   return std::make_optional(result->second);
 }
 
-// garbage collection is tricky
 inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
                                                    CodeSection code_sec) {
   PROFILE();

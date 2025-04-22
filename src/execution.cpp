@@ -75,6 +75,7 @@ ProcessControlBlock *Scheduler::pick_next() {
   PROFILE();
 
   if (runnable.empty()) {
+    executing_process = nullptr;
     return nullptr;
   }
 

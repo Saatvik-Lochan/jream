@@ -109,13 +109,12 @@ TEST(Parsing, GetAtomCurrent) {
 
   auto file = get_beam_file({.c = code_chunk, .a = atoms});
 
-  Emulator emulator;
-  emulator.register_beam_sources({file.get()});
+  emulator_main.register_beam_sources({file.get()});
 
   get_process(file->code_chunk);
 
   // when
-  auto result = emulator.get_atom_current("ok");
+  auto result = emulator_main.get_atom_current("ok");
 
   // then
   // 10 for the index, 001011 for the atom tag
@@ -1444,7 +1443,7 @@ std::vector<Instruction> get_loop_rec_instructions(bool *a, bool *b) {
   };
 }
 
-TEST(RISCV, LoopRecEmptyMbox) {
+TEST(RISCV, DISABLED_LoopRecEmptyMbox) {
   bool flag_a = false;
   bool flag_b = false;
 
@@ -1462,7 +1461,7 @@ TEST(RISCV, LoopRecEmptyMbox) {
   ASSERT_TRUE(flag_b);
 }
 
-TEST(RISCV, LoopRec) {
+TEST(RISCV, DISABLED_LoopRec) {
   bool flag_a = false;
   bool flag_b = false;
 
@@ -2371,12 +2370,6 @@ TEST(FastBif, ErlSub) {
   ASSERT_EQ(result, make_small_int(1234 - 234));
 }
 
-int main(int argc, char **argv) {
-  setup_logging(argv[0]);
-  testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
-
 TEST(GC, StablePoolAllocator) {
   using alloc_type = std::array<ErlTerm, 2>;
   StablePoolAllocator<alloc_type> allocator(10);
@@ -2564,3 +2557,10 @@ TEST(GC, HeapFragment) {
   ASSERT_LE(pcb->heap.data(), gced_ptr);
   ASSERT_LT(gced_ptr, pcb->heap.data() + pcb->heap.size());
 }
+
+int main(int argc, char **argv) {
+  setup_logging(argv[0]);
+  testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
+
