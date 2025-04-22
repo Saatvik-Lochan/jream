@@ -7,6 +7,7 @@
 #include "../include/parsing.hpp"
 #include "../include/riscv_gen.hpp"
 #include "../include/setup_logging.hpp"
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -40,7 +41,7 @@ std::unique_ptr<BeamSrc> get_beam_file(BeamFileConstructor b) {
 }
 
 void set_current_pcb(ProcessControlBlock &pcb) {
-  emulator_main.scheduler.runnable.insert(&pcb);
+  emulator_main.scheduler.runnable.push_back(&pcb);
   emulator_main.scheduler.pick_next();
 }
 
@@ -111,9 +112,7 @@ TEST(Parsing, GetAtomCurrent) {
   Emulator emulator;
   emulator.register_beam_sources({file.get()});
 
-  auto pcb = get_process(file->code_chunk);
-  emulator.scheduler.runnable.insert(pcb);
-  emulator.scheduler.pick_next();
+  get_process(file->code_chunk);
 
   // when
   auto result = emulator.get_atom_current("ok");
@@ -1425,7 +1424,8 @@ TEST(RISCV, Spawn) {
 
   auto new_xregs = spawned_process->get_shared<XREG_ARRAY>();
 
-  ASSERT_TRUE(emulator_main.scheduler.runnable.contains(spawned_process));
+  auto &runnable = emulator_main.scheduler.runnable;
+  ASSERT_NE(std::ranges::find(runnable, pcb), runnable.end());
   ASSERT_EQ(new_xregs[0], 10);
   ASSERT_EQ(new_xregs[1], 20);
   ASSERT_EQ(new_xregs[2], 30);
@@ -1589,7 +1589,8 @@ TEST(RISCV, Send) {
   ASSERT_NE(msg_payload, erl_list);
 
   const auto &scheduler = emulator_main.scheduler;
-  ASSERT_TRUE(scheduler.runnable.contains(other_pcb));
+  const auto &runnable = scheduler.runnable;
+  ASSERT_NE(std::ranges::find(runnable, other_pcb), runnable.end());
   ASSERT_FALSE(scheduler.waiting.contains(other_pcb));
 }
 

@@ -122,7 +122,8 @@ EntryPoint Emulator::get_entry_point(GlobalFunctionId function_id) {
                     .label = export_id.label};
 }
 
-std::string queue_string(const std::unordered_set<ProcessControlBlock *> q) {
+template<std::ranges::range R>
+std::string queue_string(R q) {
   std::string out = "{";
 
   if (q.empty()) {
@@ -162,7 +163,7 @@ ErlTerm Emulator::run(ProcessControlBlock *pcb) {
   PROFILE();
 
   auto &scheduler = emulator_main.scheduler;
-  scheduler.runnable.insert(pcb);
+  scheduler.runnable.push_back(pcb);
 
 #ifdef ENABLE_SCHEDULER_LOG
 #define SLOG(...) LOG(INFO) << __VA_ARGS__
@@ -193,7 +194,7 @@ ErlTerm Emulator::run(ProcessControlBlock *pcb) {
     }
     case YIELD: {
       SLOG("A process yielded: " << to_run);
-      scheduler.runnable.insert(to_run);
+      scheduler.runnable.push_back(to_run);
       break;
     }
     case WAIT: {

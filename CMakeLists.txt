@@ -171,8 +171,8 @@ endfunction()
 configure_shared_variable_gen()
 
 # main executable
-add_executable(trial src/trial_jit.cpp)
-target_link_libraries(trial PRIVATE
+add_executable(jream src/jream.cpp)
+target_link_libraries(jream PRIVATE
   mimalloc-static
   jreamlib
   glog
