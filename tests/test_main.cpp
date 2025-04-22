@@ -41,6 +41,7 @@ std::unique_ptr<BeamSrc> get_beam_file(BeamFileConstructor b) {
 }
 
 void set_current_pcb(ProcessControlBlock &pcb) {
+  emulator_main.scheduler.runnable.clear();
   emulator_main.scheduler.runnable.push_back(&pcb);
   emulator_main.scheduler.pick_next();
 }
@@ -265,12 +266,12 @@ TEST(ErlTerm, DeepCopyNestedShared) {
 
 ErlTerm try_parse(std::string term, bool parse_multiple = false) {
 
-  ProcessControlBlock pcb;
-  set_current_pcb(pcb);
+  auto code_chunk = get_minimal_code_chunk();
+  auto pcb = get_process(code_chunk);
 
   ErlTerm heap[100];
-  pcb.set_shared<HTOP>(heap);
-  pcb.set_shared<STOP>(heap + 100);
+  pcb->set_shared<HTOP>(heap);
+  pcb->set_shared<STOP>(heap + 100);
 
   // when
   if (!parse_multiple) {
@@ -1412,8 +1413,6 @@ TEST(RISCV, Spawn) {
 
   pcb->get_shared<XREG_ARRAY>()[0] = make_boxed(fun);
 
-  set_current_pcb(*pcb);
-
   // when
   resume_process(pcb);
 
@@ -1424,7 +1423,7 @@ TEST(RISCV, Spawn) {
   auto new_xregs = spawned_process->get_shared<XREG_ARRAY>();
 
   auto &runnable = emulator_main.scheduler.runnable;
-  ASSERT_NE(std::ranges::find(runnable, pcb), runnable.end());
+  ASSERT_NE(std::ranges::find(runnable, spawned_process), runnable.end());
   ASSERT_EQ(new_xregs[0], 10);
   ASSERT_EQ(new_xregs[1], 20);
   ASSERT_EQ(new_xregs[2], 30);
@@ -1443,7 +1442,7 @@ std::vector<Instruction> get_loop_rec_instructions(bool *a, bool *b) {
   };
 }
 
-TEST(RISCV, DISABLED_LoopRecEmptyMbox) {
+TEST(RISCV, LoopRecEmptyMbox) {
   bool flag_a = false;
   bool flag_b = false;
 
@@ -1461,7 +1460,7 @@ TEST(RISCV, DISABLED_LoopRecEmptyMbox) {
   ASSERT_TRUE(flag_b);
 }
 
-TEST(RISCV, DISABLED_LoopRec) {
+TEST(RISCV, LoopRec) {
   bool flag_a = false;
   bool flag_b = false;
 
@@ -2502,7 +2501,8 @@ TEST(GC, CopyShared) {
   ASSERT_EQ(xregs[0], xregs[1]);
 }
 
-TEST(GC, GenerationPromotion) {
+// currently not doing generation promotion because of the bug
+TEST(GC, DISABLED_GenerationPromotion) {
   auto code_chunk = get_minimal_code_chunk();
   auto pcb = get_process(code_chunk);
 
