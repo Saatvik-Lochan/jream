@@ -1763,7 +1763,6 @@ TEST(RISCV, InitYRegs) {
   CodeChunk code_chunk(std::move(instructions), 1, 1);
   auto pcb = get_process(code_chunk, 1000);
 
-
   // when
   resume_process(pcb.get());
 

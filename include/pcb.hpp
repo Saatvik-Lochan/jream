@@ -50,11 +50,12 @@ struct __attribute__((aligned(16))) ProcessControlBlock {
                                                                   Field);
   }
 
+  // message passing
   void queue_message(Message *msg);
 
+  // allocate on the pcb heap funcs
   // The default xreg value will make all xregisters dangling!
   ErlTerm *allocate_tuple(size_t size, size_t xregs = 0);
-  ErlTerm *do_gc(size_t size, size_t xregs);
   ErlTerm *allocate_and_gc(size_t size, size_t xregs);
   std::span<ErlTerm> get_stack() {
     return std::span<ErlTerm>{get_shared<STOP>(), heap.data() + heap.size()};
@@ -65,6 +66,9 @@ struct __attribute__((aligned(16))) ProcessControlBlock {
     return ptr;
   }
 
+  // gc
+  ErlTerm *do_gc(size_t size, size_t xregs);
+
   std::span<ErlTerm> heap;
   std::vector<std::span<ErlTerm>> heap_fragments;
   ErlTerm *highwater;
@@ -72,17 +76,13 @@ struct __attribute__((aligned(16))) ProcessControlBlock {
   GeneralPurposeHeap old_heap;
   std::span<ErlTerm> prev_to_space;
 
+  // ctor/dtor
   ProcessControlBlock(EntryPoint entry_point, size_t heap_size = 1024);
   ~ProcessControlBlock() {
-      old_heap.free_all();
-      delete[] heap.data();
-      delete[] get_shared<XREG_ARRAY>();
+    old_heap.free_all();
+    delete[] heap.data();
+    delete[] get_shared<XREG_ARRAY>();
   }
-
-private:
-  std::vector<std::span<ErlTerm>> get_root_set(size_t xregs,
-                                               std::span<ErlTerm> stack);
-  std::span<ErlTerm> get_next_to_space(size_t);
 };
 
 constexpr uint64_t PID_TAGGING_MASK = ~0UL << 4;

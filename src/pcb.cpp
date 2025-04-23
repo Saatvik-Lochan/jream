@@ -33,18 +33,19 @@ ErlTerm *ProcessControlBlock::allocate_tuple(size_t size, size_t xregs) {
   return heap_slots;
 }
 
-std::span<ErlTerm> ProcessControlBlock::get_next_to_space(size_t alloc_amount) {
+std::span<ErlTerm> get_next_to_space(ProcessControlBlock *pcb,
+                                     size_t alloc_amount) {
   PROFILE();
   // in words
-  auto highwater_num = std::distance(heap.data(), highwater);
-  auto required_amount = heap.size() + alloc_amount - highwater_num;
+  auto highwater_num = std::distance(pcb->heap.data(), pcb->highwater);
+  auto required_amount = pcb->heap.size() + alloc_amount - highwater_num;
 
-  for (auto v : heap_fragments) {
+  for (auto v : pcb->heap_fragments) {
     required_amount += v.size();
   }
 
-  if (prev_to_space.size() >= required_amount) {
-    return prev_to_space;
+  if (pcb->prev_to_space.size() >= required_amount) {
+    return pcb->prev_to_space;
   }
 
   // otherwise we allocate more
@@ -52,9 +53,9 @@ std::span<ErlTerm> ProcessControlBlock::get_next_to_space(size_t alloc_amount) {
   auto new_to_space = new ErlTerm[wanted_amount];
 
   // free previous
-  auto prev_data = prev_to_space.data();
+  auto prev_data = pcb->prev_to_space.data();
   if (prev_data) {
-    MLOG("Free: prev_to_space - " << prev_to_space.size());
+    MLOG("Free: prev_to_space - " << pcb->prev_to_space.size());
     delete[] prev_data;
   }
 
@@ -62,17 +63,17 @@ std::span<ErlTerm> ProcessControlBlock::get_next_to_space(size_t alloc_amount) {
 }
 
 std::vector<std::span<ErlTerm>>
-ProcessControlBlock::get_root_set(size_t xregs, std::span<ErlTerm> stack) {
+get_root_set(ProcessControlBlock *pcb, size_t xregs, std::span<ErlTerm> stack) {
   std::vector<std::span<ErlTerm>> out;
 
   // stack
   out.push_back(stack);
 
   // registers
-  out.push_back(std::span<ErlTerm>{get_shared<XREG_ARRAY>(), xregs});
+  out.push_back(std::span<ErlTerm>{pcb->get_shared<XREG_ARRAY>(), xregs});
 
   // mboxes
-  auto message = get_shared<MBOX_HEAD>();
+  auto message = pcb->get_shared<MBOX_HEAD>();
 
   while (message != nullptr) {
     out.push_back(std::span<ErlTerm>{message->get_payload_address(), 1});
@@ -86,7 +87,7 @@ ErlTerm *ProcessControlBlock::do_gc(size_t size, size_t xregs) {
   PROFILE();
 
   auto htop = get_shared<HTOP>();
-  std::span<ErlTerm> to_space = get_next_to_space(size);
+  std::span<ErlTerm> to_space = get_next_to_space(this, size);
 
 #ifdef ENABLE_MEMORY_LOG
   LOG(INFO) << "GC: old_size: " << heap.size()
@@ -102,7 +103,7 @@ ErlTerm *ProcessControlBlock::do_gc(size_t size, size_t xregs) {
   // do gc
   std::span<ErlTerm> new_heap_space(to_space.data(),
                                     to_space.size() - to_space_stack.size());
-  auto root_set = get_root_set(xregs, to_space_stack);
+  auto root_set = get_root_set(this, xregs, to_space_stack);
   auto result = minor_gc(root_set, new_heap_space,
                          {.heap_start = heap.data(),
                           .heap_top = htop,
