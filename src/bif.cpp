@@ -1,21 +1,27 @@
 #include "bif.hpp"
+#include "asm_utility.hpp"
 #include "beam_defs.hpp"
 #include "execution.hpp"
 #include "external_term.hpp"
 #include "pcb.hpp"
 #include "profiler.hpp"
-#include "asm_utility.hpp"
 #include <cassert>
 #include <cstdint>
 #include <fstream>
 #include <glog/logging.h>
 #include <iostream>
+#include <stdexcept>
 
 /* The functions here define the BIFs
  *
  * They must take trivial types as arguments. Pointers, uint64_t, for example.
  *
  * If they are going to return they return an BIFReturn
+ *
+ * BIF's should always allocate using heap frags, otherwise they will remain
+ * pointing to old data! Even if we have the live registers, it doesn't make
+ * a difference
+ *
  */
 
 BIFReturn ret100() { return make_small_int(100); }
@@ -48,8 +54,7 @@ BIFReturn spawn_1(uint64_t fun_raw) {
   assert(header >> 6 == func_id.num_free + 1);
 
   // create process with entry point
-  auto pcb =
-      new ProcessControlBlock(EntryPoint{code_chunk_p, func_id.label});
+  auto pcb = new ProcessControlBlock(EntryPoint{code_chunk_p, func_id.label});
 
 #ifdef ENABLE_BIF_LOG
   LOG(INFO) << "\tspawning at label: " << func_id.label;
@@ -71,16 +76,14 @@ BIFReturn spawn_1(uint64_t fun_raw) {
   return make_pid(pcb);
 }
 
-BIFReturn length(uint64_t list_raw) {
+BIFReturn erl_length(uint64_t list_raw) {
   ErlList list(list_raw);
+  return make_small_int(list.length());
+}
 
-  uint64_t count = 0;
-
-  for (auto _ : list) {
-    count++;
-  }
-
-  return make_small_int(count);
+BIFReturn erl_error(uint64_t a) {
+  throw std::logic_error(
+      std::format("Erlang threw an exception: {}", to_string(ErlTerm(a))));
 }
 
 BIFReturn self() {
@@ -125,36 +128,86 @@ BIFReturn erl_bxor(int64_t a, int64_t b) {
   return (a ^ b) | 0b1111;
 }
 
-// WARNING: This can not be used in erlang because it is inplace!
-// and we are mutating immutable lists!
-BIFReturn list_split(uint64_t first_size_raw, uint64_t list_raw,
-                     uint64_t xregs) {
-  assert(ErlTerm(first_size_raw).getTagType() == SMALL_INT_T);
-  assert(ErlTerm(list_raw).getErlMajorType() == LIST_ET);
-
-  ErlTerm first_size = first_size_raw >> 4;
+BIFReturn concat(uint64_t list1_raw, uint64_t list2_raw) {
+  ErlList list1(list1_raw);
+  ErlList list2(list2_raw);
 
   auto pcb = get_pcb();
+  auto new_list_len = list1.length() + list2.length();
+  auto loc = pcb->allocate_heap_frag(new_list_len * 2);
 
-  auto tuple = pcb->allocate_tuple(2, xregs);
-  tuple[1] = list_raw;
+  ErlListBuilder out;
 
-  // just point to the tuple
-  auto curr = tuple + 1;
-  size_t count = 0;
-
-  while (count++ < first_size.term) {
-    if (curr->getTagType() != LIST_T) {
-      return fail();
-    }
-
-    curr = curr->as_ptr() + 1;
+  for (auto e : list1) {
+    out.add_term(e, loc);
+    loc += 2;
   }
 
-  tuple[2] = *curr;
-  *curr = get_nil_term();
+  for (auto e : list2) {
+    out.add_term(e, loc);
+    loc += 2;
+  }
 
-  return make_boxed(tuple);
+  out.set_end(get_nil_term());
+  return out.get_list();
+}
+
+BIFReturn lists_seq(uint64_t start_raw, uint64_t stop_raw) {
+  assert(ErlTerm(start_raw).getTagType() == SMALL_INT_T);
+  assert(ErlTerm(stop_raw).getTagType() == SMALL_INT_T);
+
+  auto start = start_raw >> 4;
+  auto stop = (stop_raw >> 4) + 1;
+
+  auto pcb = get_pcb();
+  auto loc = pcb->allocate_heap_frag((stop - start) * 2);
+
+  ErlListBuilder out;
+
+  for (size_t i = start; i < stop; i++) {
+    out.add_term(make_small_int(i), loc);
+    loc += 2;
+  }
+
+  out.set_end(get_nil_term());
+  return out.get_list();
+}
+
+BIFReturn lists_zip(uint64_t list1_raw, uint64_t list2_raw) {
+  ErlList list1(list1_raw);
+  ErlList list2(list2_raw);
+
+  auto it1 = list1.begin();
+  auto it2 = list2.begin();
+
+  // calculate size and allocate first
+  auto len_list_1 = list1.length();
+  auto len_list_2 = list2.length();
+
+  if (len_list_1 != len_list_2) {
+    return fail();
+  }
+
+  // we will be allocating a list of length len_list_1
+  // then for each element a tuple of size 2 (heap space 3)
+  auto pcb = get_pcb();
+  auto loc = pcb->allocate_heap_frag(len_list_1 * 5);
+
+  ErlListBuilder out;
+
+  for (; it1 != list1.end() && it2 != list2.end(); ++it1, ++it2) {
+    auto tuple = loc;
+    tuple[0] = 2 << 6;
+    tuple[1] = *it1;
+    tuple[2] = *it2;
+    loc += 3;
+
+    out.add_term(make_boxed(tuple), loc);
+    loc += 2;
+  }
+
+  out.set_end(get_nil_term());
+  return out.get_list();
 }
 
 BIFReturn file_consult(uint64_t file_name_raw, uint64_t xregs) {
@@ -172,7 +225,8 @@ BIFReturn file_consult(uint64_t file_name_raw, uint64_t xregs) {
                      std::ios::in | std::ios::binary | std::ios::ate);
 
   auto pcb = get_pcb();
-  auto tuple = pcb->allocate_tuple(2, xregs);
+  auto tuple = pcb->allocate_heap_frag(3);
+  tuple[0] = 2 << 6;
 
   if (!file) {
     tuple[1] = emulator_main.get_atom_current("error");
@@ -201,6 +255,36 @@ BIFReturn io_write(uint64_t term) {
   PROFILE();
   std::cout << to_string(ErlTerm(term)) << "\n";
   return emulator_main.get_atom_current("ok");
+}
+
+BIFReturn put(uint64_t key, uint64_t value) {
+  auto pcb = get_pcb();
+  auto &dict = pcb->process_dict;
+
+  ErlTerm out;
+
+  auto it = dict.find(key);
+  if (it != dict.end()) {
+    out = it->second;
+  } else {
+    out = emulator_main.get_atom_current("undefined");
+  }
+
+  pcb->process_dict[key] = value;
+
+  return out;
+}
+
+BIFReturn get(uint64_t key) {
+  auto pcb = get_pcb();
+  auto &dict = pcb->process_dict;
+
+  auto it = dict.find(key);
+  if (it != dict.end()) {
+    return it->second;
+  } else {
+    return emulator_main.get_atom_current("undefined");
+  }
 }
 
 // debug ops

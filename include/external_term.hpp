@@ -82,7 +82,6 @@ static_assert(offsetof(ErlTerm, term) == 0);
 
 inline constexpr uint64_t get_nil_term() { return 0b111011; }
 
-
 std::vector<ErlTerm> vec_from_erl_list(ErlTerm e, bool include_end = false);
 
 size_t get_heap_size(ErlTerm e);
@@ -133,15 +132,27 @@ public:
 
 class ErlList {
 private:
-  ErlTerm head;
+  const ErlTerm head;
 
 public:
   explicit ErlList(ErlTerm e) : head(e) {
     assert(e.getErlMajorType() == LIST_ET);
   };
 
-  inline ErlListIterator begin() { return ErlListIterator(head); }
-  inline ErlListIterator end() { return ErlListIterator(nullptr); }
+  inline ErlListIterator begin() const { return ErlListIterator(head); }
+  inline ErlListIterator end() const { return ErlListIterator(nullptr); }
+  inline size_t length() const {
+    uint64_t count = 0;
+
+    auto it = this->begin();
+
+    while (it != this->end()) {
+      count++;
+      ++it;
+    }
+
+    return count;
+  }
 };
 
 class ErlListBuilder {
@@ -326,8 +337,7 @@ ErlTerm parse_term(const std::string &term);
 ErlTerm parse_multiple_terms(const std::string &terms);
 
 template <std::ranges::range R>
-ErlTerm erl_list_from_range(R &&terms, ErlTerm end)
-{
+ErlTerm erl_list_from_range(R &&terms, ErlTerm end) {
   ErlListBuilder builder;
 
   for (auto term : terms) {
@@ -345,7 +355,6 @@ struct GlobalFunctionId {
 
   bool operator==(const GlobalFunctionId &other) const = default;
 };
-
 
 template <typename T>
 ErlTerm erl_list_from_range(std::initializer_list<T> terms, ErlTerm end) {

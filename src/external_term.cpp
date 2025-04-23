@@ -5,8 +5,8 @@
 #include "execution.hpp"
 #include "external_term.hpp"
 #include "int_from_bytes.hpp"
-#include "profiler.hpp"
 #include "parsing.hpp"
+#include "profiler.hpp"
 #include <cassert>
 #include <cstdint>
 #include <format>
@@ -380,7 +380,6 @@ ErlTerm make_atom(uint64_t index) {
   return ErlTerm((index << 6) + 0b1011);
 }
 
-
 ErlTerm parse_term(const std::string &term) {
   PROFILE();
   auto pcb = emulator_main.scheduler.get_current_process();
@@ -455,6 +454,7 @@ std::string to_string(ErlTerm erl_term) {
     return emulator_main.get_atom_string_current(erl_term);
   }
   case PID_T:
+    return std::format("<pid {:x}>", erl_term.term);
   case PORT_T:
   case HEADER_T:
   case CATCH_T:

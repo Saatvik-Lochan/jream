@@ -1,34 +1,36 @@
 -module(ring).
--export([start/2]).
+-export([run/2]).
 
-start(NumProcesses, NumMessages) ->
-    First = spawn_ring(NumProcesses, self()),
-    First ! {pass, NumMessages},
+run(M, N) ->
+  % Spawn N processes and connect them as a ring.
+  Launcher = self(),
+  Pids = [spawn(fun() -> proc(Launcher) end) || _ <- lists:seq(1, N)],
+  [HPid | TPids] = Pids,
+  RPids = TPids ++ [HPid],
+  [Pid ! {next, Next} || {Pid, Next} <- lists:zip(Pids, RPids)],
 
-    receive
-        done ->
-            ok
-    end.
+  % Time sending messages around the ring M times.
+  HPid ! M * N,
+  receive
+    done ->
+      ok
+  end,
 
-%% Spawns the ring recursively
-spawn_ring(1, Parent) ->
-    spawn(fun() -> loop(Parent, undefined) end);
-spawn_ring(N, Parent) ->
-    Next = spawn_ring(N - 1, Parent),
-    Pid = spawn(fun() -> loop(Parent, Next) end),
-    Next ! {next, Pid},
-    Pid.
+  % Kill all the processes.
+  [Pid ! quit || Pid <- Pids],
+  ok.
 
-%% Loop for each process: wait for 'next' or a token
-loop(Parent, Next) ->
-    receive
-        {next, NextPid} ->
-            loop(Parent, NextPid);
-        {pass, 1} ->
-            %% Last pass, notify the parent
-            Parent ! done;
-        {pass, N} ->
-            %% Pass the message along the ring
-            Next ! {pass, N - 1},
-            loop(Parent, Next)
-    end.
+proc(Launcher) ->
+  receive
+    quit ->
+      void;
+    {next, Pid} ->
+      put(next, Pid),
+      proc(Launcher);
+    0 ->
+      Launcher ! done,
+      proc(Launcher);
+    J ->
+      get(next) ! J - 1,
+      proc(Launcher)
+  end.

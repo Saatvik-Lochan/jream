@@ -112,10 +112,14 @@ template <std::ranges::range R> std::string queue_string(R q) {
 
 ErlTerm Emulator::get_atom_current(std::string atom_name) {
   auto pcb = scheduler.get_current_process();
-  auto index =
-      pcb->get_shared<CODE_CHUNK_P>()->atom_chunk->atom_index[atom_name];
+  auto atom_index = pcb->get_shared<CODE_CHUNK_P>()->atom_chunk->atom_index;
+  auto it = atom_index.find(atom_name);
+      
+  if (it == atom_index.end()) {
+    return make_atom(0); // this atom will be ignored since it is never used
+  }
 
-  return make_atom(index);
+  return make_atom(it->second);
 }
 
 std::string Emulator::get_atom_string_current(ErlTerm e) {

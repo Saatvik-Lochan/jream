@@ -5,6 +5,7 @@
 #include "garbage_collection.hpp"
 #include "messages.hpp"
 #include <cstdint>
+#include <unordered_map>
 
 #include "beam_defs.hpp"
 #include "generated/shared_variables.hpp"
@@ -49,6 +50,9 @@ struct __attribute__((aligned(16))) ProcessControlBlock {
     return reinterpret_cast<getFieldType<Field>::type volatile *>(shared +
                                                                   Field);
   }
+
+  // process dictionairy
+  std::unordered_map<uint64_t, ErlTerm> process_dict;
 
   // message passing
   void queue_message(Message *msg);

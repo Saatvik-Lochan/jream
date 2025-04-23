@@ -1942,11 +1942,10 @@ TEST(RISCV, TestIsNilTrue) {
   bool a = false;
   bool b = false;
 
-  auto instructions =
-      get_test_instrs(Instruction{IS_NIL_OP,
-                                  {get_tag(LABEL_TAG, 2),
-                                   get_tag(X_REGISTER_TAG, 0), get_lit(3)}},
-                      &a, &b);
+  auto instructions = get_test_instrs(
+      Instruction{IS_NIL_OP,
+                  {get_tag(LABEL_TAG, 2), get_tag(X_REGISTER_TAG, 0)}},
+      &a, &b);
 
   CodeChunk code_chunk(std::move(instructions), 1, 2);
   auto pcb = get_process(code_chunk);
@@ -1966,17 +1965,67 @@ TEST(RISCV, TestIsNilFalse) {
   bool a = false;
   bool b = false;
 
-  auto instructions =
-      get_test_instrs(Instruction{IS_NIL_OP,
-                                  {get_tag(LABEL_TAG, 2),
-                                   get_tag(X_REGISTER_TAG, 0), get_lit(3)}},
-                      &a, &b);
+  auto instructions = get_test_instrs(
+      Instruction{IS_NIL_OP,
+                  {get_tag(LABEL_TAG, 2), get_tag(X_REGISTER_TAG, 0)}},
+      &a, &b);
 
   CodeChunk code_chunk(std::move(instructions), 1, 2);
   auto pcb = get_process(code_chunk);
 
   auto xregs = pcb->get_shared<XREG_ARRAY>();
   xregs[0] = erl_list_from_range({mi(1), mi(2), mi(3)}, get_nil_term());
+
+  // when
+  resume_process(pcb.get());
+
+  // then
+  ASSERT_FALSE(a);
+  ASSERT_TRUE(b);
+}
+
+TEST(RISCV, TestIsAtomTrue) {
+  bool a = false;
+  bool b = false;
+
+  auto instructions = get_test_instrs(
+      Instruction{IS_ATOM_OP,
+                  {get_tag(LABEL_TAG, 2), get_tag(X_REGISTER_TAG, 0)}},
+      &a, &b);
+
+  CodeChunk code_chunk(std::move(instructions), 1, 2);
+  AtomChunk atoms({"one", "two"});
+  auto file = get_beam_file({.c = code_chunk, .a = atoms});
+  auto pcb = get_process(file->code_chunk);
+
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  xregs[0] = make_atom(1);
+
+  // when
+  resume_process(pcb.get());
+
+  // then
+  ASSERT_TRUE(a);
+  ASSERT_FALSE(b);
+}
+
+TEST(RISCV, TestIsAtomFalse) {
+  bool a = false;
+  bool b = false;
+
+  auto instructions =
+      get_test_instrs(Instruction{IS_ATOM_OP,
+                                  {get_tag(LABEL_TAG, 2),
+                                   get_tag(X_REGISTER_TAG, 0), get_lit(3)}},
+                      &a, &b);
+
+  CodeChunk code_chunk(std::move(instructions), 1, 2);
+  AtomChunk atoms({"one", "two"});
+  auto file = get_beam_file({.c = code_chunk, .a = atoms});
+  auto pcb = get_process(file->code_chunk);
+
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  xregs[0] = make_small_int(100);
 
   // when
   resume_process(pcb.get());
@@ -2166,63 +2215,41 @@ TEST(RISCV, Badmatch) {
   ASSERT_EQ(result, BADMATCH);
 }
 
-TEST(BuiltInFunction, ListsSplit) {
-  auto split_loc = make_small_int(3);
-  auto list = erl_list_from_range({1, 2, 3, 4, 5}, get_nil_term());
-
+TEST(BuiltInFunction, ListSeq) {
   auto code_chunk = get_minimal_code_chunk();
   auto pcb = get_process(code_chunk);
+  ErlTerm get_seq = lists_seq(mi(1), mi(5)).a0;
 
-  set_current_pcb(*pcb);
-
-  // when
-  list_split(split_loc, list, 0);
-
-  // then
-  auto htop = pcb->get_shared<HTOP>();
-  auto heap = pcb->heap.data();
-  ASSERT_EQ(htop, heap + 3);
-  ASSERT_EQ(heap[0], 2 << 6);
-
-  auto first_list = vec_from_erl_list(heap[1]);
-  std::vector<ErlTerm> expected_first = {1, 2, 3};
-  ASSERT_EQ(first_list, expected_first);
-
-  auto second_list = vec_from_erl_list(heap[2]);
-  std::vector<ErlTerm> expected_second = {4, 5};
-  ASSERT_EQ(second_list, expected_second);
+  ASSERT_EQ(to_string(get_seq), "[1, 2, 3, 4, 5]");
 }
 
-TEST(BuiltInFunction, ListsSplitEdgeCase) {
-  auto split_loc = make_small_int(4);
-  auto list = erl_list_from_range({1, 2, 3, 4}, get_nil_term());
-
+TEST(BuiltInFunction, ListZip) {
   auto code_chunk = get_minimal_code_chunk();
   auto pcb = get_process(code_chunk);
 
-  set_current_pcb(*pcb);
+  ErlTerm get_seq = lists_seq(mi(1), mi(5)).a0;
+  std::vector<ErlTerm> as_vec = vec_from_erl_list(get_seq);
 
-  // when
-  auto result = list_split(split_loc, list, 0);
+  ErlTerm other_list =
+      erl_list_from_range({mi(7), mi(3), mi(10), mi(9), mi(2)}, get_nil_term());
 
-  // then
-  ErlTerm res_term(result.a0);
+  ErlTerm zipped = lists_zip(get_seq, other_list).a0;
 
-  ASSERT_EQ(res_term.getErlMajorType(), TUPLE_ET);
+  ASSERT_EQ(to_string(zipped), "[{1, 7}, {2, 3}, {3, 10}, {4, 9}, {5, 2}]");
+}
 
-  auto tuple_loc = res_term.as_ptr();
+TEST(BuiltInFunction, Concat) {
+  auto code_chunk = get_minimal_code_chunk();
+  auto pcb = get_process(code_chunk);
 
-  auto htop = pcb->get_shared<HTOP>();
-  ASSERT_EQ(htop, tuple_loc + 3);
-  ASSERT_EQ(tuple_loc[0], 2 << 6);
+  ErlTerm get_seq = lists_seq(mi(1), mi(5)).a0;
 
-  auto first_list = vec_from_erl_list(tuple_loc[1]);
-  std::vector<ErlTerm> expected_first = {1, 2, 3, 4};
-  ASSERT_EQ(first_list, expected_first);
+  ErlTerm other_list =
+      erl_list_from_range({mi(7), mi(3), mi(10), mi(9), mi(2)}, get_nil_term());
 
-  auto second_list = vec_from_erl_list(tuple_loc[2]);
-  std::vector<ErlTerm> expected_second = {};
-  ASSERT_EQ(second_list, expected_second);
+  ErlTerm result = concat(get_seq, other_list).a0;
+
+  ASSERT_EQ(to_string(result), "[1, 2, 3, 4, 5, 7, 3, 10, 9, 2]");
 }
 
 TEST(BuiltInFunction, ErlDiv) {

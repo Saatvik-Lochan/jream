@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <glog/logging.h>
 #include <iterator>
+#include <memory>
 
 ErlTerm make_pid(ProcessControlBlock *pcb) {
   return (reinterpret_cast<uint64_t>(pcb) & PID_TAGGING_MASK) + 0b0011;
@@ -76,8 +77,13 @@ get_root_set(ProcessControlBlock *pcb, size_t xregs, std::span<ErlTerm> stack) {
   auto message = pcb->get_shared<MBOX_HEAD>();
 
   while (message != nullptr) {
-    out.push_back(std::span<ErlTerm>{message->get_payload_address(), 1});
+    out.emplace_back(std::span<ErlTerm>(message->get_payload_address(), 1));
     message = message->get_next();
+  }
+
+  // process dict elements
+  for (auto& [_, value] : pcb->process_dict) {
+    out.emplace_back(std::span<ErlTerm>(std::addressof(value), 1));
   }
 
   return out;

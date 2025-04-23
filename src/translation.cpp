@@ -347,6 +347,30 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     }
   };
 
+  auto heap_get_words_needed = [&](Argument amount) {
+    uint64_t words;
+
+    switch (amount.tag) {
+    case EXT_ALLOC_LIST_TAG: {
+      // can change when implementing floats
+      AllocList a = *amount.arg_raw.alloc_list;
+      assert(a.floats == 0);
+
+      words = a.words + a.funs * 2;
+      break;
+    }
+    case LITERAL_TAG: {
+      words = amount.arg_raw.arg_num;
+      break;
+    }
+    default: {
+      throw std::logic_error("Unknown argument for heap");
+    }
+    }
+
+    return words;
+  };
+
   auto add_log_xregs = [&](uint8_t num_xregs) {
 #ifdef ENABLE_ARGUMENT_LOG
     add_riscv_instr(create_add_immediate(10, 0, num_xregs));
@@ -459,26 +483,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     case TEST_HEAP_OP: {
       auto amount = instr.arguments[0];
 
-      uint64_t words;
-
-      // calculate num words needed
-      switch (amount.tag) {
-      case EXT_ALLOC_LIST_TAG: {
-        // can change when implementing floats
-        AllocList a = *amount.arg_raw.alloc_list;
-        assert(a.floats == 0);
-
-        words = a.words + a.funs * 2;
-        break;
-      }
-      case LITERAL_TAG: {
-        words = amount.arg_raw.arg_num;
-        break;
-      }
-      default: {
-        throw std::logic_error("Unknown argument for heap");
-      }
-      }
+      const uint64_t words = heap_get_words_needed(amount);
 
       auto live = instr.arguments[1];
       assert(live.tag == LITERAL_TAG);
@@ -498,6 +503,26 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
       add_setup_args_code({alloc_amount.arg_raw.arg_num, live.arg_raw.arg_num});
       add_code(get_riscv(ALLOCATE_SNIP));
+      break;
+    }
+
+    // TODO can optimise this as we can check heap space once and allocate
+    case ALLOCATE_HEAP_OP: {
+      auto alloc_amount = instr.arguments[0];
+      assert(alloc_amount.tag == LITERAL_TAG);
+
+      auto heap_need = instr.arguments[1];
+
+      auto live = instr.arguments[2];
+      assert(live.tag == LITERAL_TAG);
+
+      add_setup_args_code({alloc_amount.arg_raw.arg_num, live.arg_raw.arg_num});
+      add_code(get_riscv(ALLOCATE_SNIP));
+
+      // loading live number twice!
+      const uint64_t words = heap_get_words_needed(heap_need);
+      add_setup_args_code({words, live.arg_raw.arg_num});
+      add_code(get_riscv(TEST_HEAP_SNIP));
       break;
     }
 
@@ -609,6 +634,25 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_call_bif({}, 0, destination, bif_num_val, instr_index);
       break;
     }
+
+    case BIF1_OP: {
+      auto label = instr.arguments[0];
+      assert(label.tag == LABEL_TAG);
+      auto label_val = label.arg_raw.arg_num;
+
+      auto bif_num = instr.arguments[1];
+      assert(bif_num.tag == LITERAL_TAG);
+
+      Argument args[] = {instr.arguments[2]};
+
+      auto bif_num_val = bif_num.arg_raw.arg_num;
+
+      auto destination = instr.arguments[3];
+
+      add_call_bif(args, label_val, destination, bif_num_val, instr_index);
+      break;
+    }
+
 
     case BIF2_OP: {
       auto label = instr.arguments[0];
@@ -851,8 +895,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_code(get_riscv(GET_LIST_SNIP));
 
       // store from t1 and t2
-      add_store_appropriate(instr.arguments[1], 6, 8);
-      add_store_appropriate(instr.arguments[2], 7, 8);
+      add_store_appropriate(instr.arguments[1], 6, 5);
+      add_store_appropriate(instr.arguments[2], 7, 5);
       break;
     }
 
@@ -947,6 +991,11 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     case IS_LT_OP: {
       // funct3 for ge, since we branch when ge
       add_comparison(instr, 0x5);
+      break;
+    }
+
+    case IS_ATOM_OP: {
+      test_stack_type(instr, IS_ATOM_SNIP);
       break;
     }
 
