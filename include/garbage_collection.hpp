@@ -45,6 +45,7 @@ struct YoungHeap {
     ;
   }
 
+  // disable generational gc'ing for now
   bool is_old_here(ErlTerm *ptr) const {
     return false;
     /*return heap_start <= ptr && ptr < highwater;*/
