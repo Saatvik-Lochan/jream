@@ -130,11 +130,9 @@ file(GLOB META_ASM_FILES CONFIGURE_DEPENDS "assembly/*_m.S")
 
 # code generation
 function(configure_instr_code_gen)
-  set(generated_src_file ${SOURCE_CODE_DIR}/generated/instr_code.cpp)
   set(generated_header_file ${INCLUDE_DIR}/generated/instr_code.hpp)
 
   set(generated_files 
-    ${generated_src_file} 
     ${generated_header_file}
   )
 
@@ -154,7 +152,7 @@ function(configure_instr_code_gen)
     COMMENT "Generating ${generated_files}"
   )
   add_custom_target(instr_code_gen
-    DEPENDS ${generated_file}
+    DEPENDS ${generated_files}
   )
   add_dependencies(jreamlib instr_code_gen)
 endfunction()

@@ -67,6 +67,7 @@ asm_directory = Path(sys.argv[3])
 assert (asm_directory.is_dir())
 
 build_directory = asm_directory / "build"
+build_directory.mkdir(exist_ok=True)
 
 # clear build dir
 for file in build_directory.iterdir():

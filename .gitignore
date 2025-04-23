@@ -3,6 +3,7 @@ debug_build
 release_build
 reldeb_build
 clang_build
+test_build
 assembly/build
 **/generated/*
 
