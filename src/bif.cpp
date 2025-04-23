@@ -35,6 +35,7 @@ BIFReturn spawn_1(uint64_t fun_raw) {
   assert(fun.getErlMajorType() == FUN_ET);
 
   auto header_ptr = fun.as_ptr();
+  [[maybe_unused]]
   auto header = *header_ptr;
 
   auto index = header_ptr[1];

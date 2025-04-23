@@ -513,6 +513,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto to_reduce = instr.arguments[0];
       assert(to_reduce.tag == LITERAL_TAG);
 
+      [[maybe_unused]]
       auto remaining = instr.arguments[1];
       assert(remaining.tag == LITERAL_TAG);
 

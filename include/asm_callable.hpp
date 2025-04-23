@@ -36,7 +36,7 @@ inline std::uintptr_t all_funs[] = {
     CAST(compare),                     // m_asm: COMPARE
     CAST(print_op_name),               // m_asm: PRINT_OP_NAME
     CAST(execute_minor_gc),            // m_asm: EXECUTE_GC
-    CAST(log_function),                   // m_asm: LOG_FUNC_INFO
+    CAST(log_function),                // m_asm: LOG_FUNC_INFO
     CAST(log_label),                   // m_asm: LOG_LABEL
     CAST(log_xregs),                   // m_asm: LOG_XREGS
 };

@@ -74,7 +74,6 @@ add_library(jreamlib
   src/setup_logging.cpp
   src/beam_defs.cpp
   src/precompiled.cpp
-  src/generated/instr_code.cpp
 )
 
 target_link_libraries(jreamlib PRIVATE
@@ -148,7 +147,6 @@ function(configure_instr_code_gen)
       ${PROJECT_SOURCE_DIR}
       ${callable_fun_file} 
       ${ASM_OPS_DIR}
-      ${generated_src_file}
       ${generated_header_file}
     DEPENDS
       ${SCRIPTS}
