@@ -60,7 +60,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
   auto &label_offsets = code_chunk.label_offsets;
 
   // convenience lambdas
-  auto add_code = [&compiled](const std::vector<uint8_t> &code) {
+  auto add_code = [&compiled](const std::span<const uint8_t> &code) {
     compiled.insert(compiled.end(), code.begin(), code.end());
   };
 
@@ -1012,7 +1012,7 @@ std::vector<uint8_t> translate_function(CodeChunk &code_chunk,
   return translate_code_section(code_chunk, section);
 }
 
-uint8_t *move_code_to_memory(const std::vector<uint8_t> &code) {
+uint8_t *move_code_to_memory(const std::span<const uint8_t> &code) {
   PROFILE();
   // allocate page aligned memory
   void *const allocated_mem = mmap(0, code.size(), PROT_READ | PROT_WRITE,
