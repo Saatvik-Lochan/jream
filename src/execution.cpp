@@ -13,6 +13,7 @@
 #include "beam_defs.hpp"
 #include "beamparser.hpp"
 #include "execution.hpp"
+#include "bif.hpp"
 #include "external_term.hpp"
 #include "parsing.hpp"
 #include "pcb.hpp"
@@ -92,8 +93,7 @@ EntryPoint Emulator::get_entry_point(GlobalFunctionId function_id) {
                     .label = export_id.label};
 }
 
-template<std::ranges::range R>
-std::string queue_string(R q) {
+template <std::ranges::range R> std::string queue_string(R q) {
   std::string out = "{";
 
   if (q.empty()) {
@@ -155,9 +155,13 @@ ErlTerm Emulator::run(ProcessControlBlock *pcb) {
       throw std::logic_error("Internal process finished with an error");
     }
     case FINISH: {
-      delete to_run;
+      if (to_run != pcb) {
+        delete to_run;
+      } else {
+        io_write(to_run->get_shared<XREG_ARRAY>()[0]);
+      }
       SLOG("A process finished: " << to_run);
-     break;
+      break;
     }
     case YIELD: {
       SLOG("A process yielded: " << to_run);
@@ -207,7 +211,8 @@ ErlTerm Emulator::read_and_execute(std::string func_string) {
 
   std::ranges::copy(arguments, xregs);
 
-  emulator_main.run(&pcb);
+  // can't print atoms past this point!
+  auto value = emulator_main.run(&pcb);
 
-  return xregs[0];
+  return value;
 }

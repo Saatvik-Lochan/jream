@@ -200,7 +200,7 @@ BIFReturn file_consult(uint64_t file_name_raw, uint64_t xregs) {
 BIFReturn io_write(uint64_t term) {
   PROFILE();
   std::cout << to_string(ErlTerm(term)) << "\n";
-  return 0;
+  return emulator_main.get_atom_current("ok");
 }
 
 // debug ops

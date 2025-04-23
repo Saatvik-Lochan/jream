@@ -330,16 +330,17 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
   };
 
   // does not do any heap allocation, just copies
-  auto copy_ext_list_heap = [&]<uint8_t start_reg>(auto ext_list,
-                                                   size_t initial_offset) {
+  auto copy_ext_list_to_heap = [&]<uint8_t start_reg>(auto ext_list,
+                                                      size_t initial_offset) {
+    // why 5 and 7 as spare registers? legacy
     static_assert(start_reg != 5);
+    static_assert(start_reg != 7);
 
     for (const auto &reg_to_save : *ext_list) {
       // load reg to t0
-      add_load_appropriate(reg_to_save, 5, 6);
+      add_load_appropriate(reg_to_save, 5, 7);
 
-      // t1 has the heap pointer
-      // sd t0, pos(t1)
+      // sd t0, pos(start_reg)
       add_riscv_instr(create_store_doubleword(start_reg, 5, initial_offset));
 
       initial_offset += 8;
@@ -783,6 +784,50 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       break;
     }
 
+    case LOOP_REC_END_OP: {
+      auto label = instr.arguments[0];
+      assert(label.tag == LABEL_TAG);
+
+      add_code(get_riscv(LOOP_REC_END_SNIP));
+      reserve_branch_label(label.arg_raw.arg_num);
+      // guaranteed branch - should replace with jump
+      add_riscv_instr(create_branch_equal(0, 0, 0));
+      break;
+    }
+
+    case SELECT_VAL_OP: {
+      auto source = instr.arguments[0];
+
+      auto fail_label = instr.arguments[1];
+      assert(fail_label.tag == LABEL_TAG);
+
+      auto jump_list = instr.arguments[2];
+      assert(jump_list.tag == EXT_LIST_TAG);
+      const auto &jump_list_val = *jump_list.arg_raw.arg_vec_p;
+
+      add_load_appropriate(source, 5, 6);
+
+      for (size_t i = 0; i < jump_list_val.size(); i += 2) {
+        const auto arg = jump_list_val[i];
+        assert(arg.tag == ATOM_TAG || arg.tag == INTEGER_TAG);
+
+        const auto label = jump_list_val[i + 1];
+        assert(label.tag == LABEL_TAG);
+
+        add_load_appropriate(arg, 6, 7);
+        reserve_branch_label(label.arg_raw.arg_num);
+
+        // branch to label if source is equal to the value to check
+        add_riscv_instr(create_branch_equal(5, 6, 0));
+      }
+
+      // i.e. guaranteed jump - should replace with a normal jump instr
+      reserve_branch_label(fail_label.arg_raw.arg_num);
+      add_riscv_instr(create_branch_equal(0, 0, 0));
+
+      break;
+    }
+
     case PUT_LIST_OP: {
       auto head = instr.arguments[0];
       auto tail = instr.arguments[1];
@@ -850,7 +895,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_code(get_riscv(PUT_TUPLE2_SNIP));
 
       const auto offset = 8; // skip the header
-      copy_ext_list_heap.template operator()<6>(elements_vec, offset);
+      copy_ext_list_to_heap.template operator()<6>(elements_vec, offset);
       add_code(get_riscv(TAG_BOXED_T1_SNIP));
 
       add_store_appropriate(destination, 6, 5);
@@ -879,7 +924,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       const size_t offset = 16;
 
       // t1 has the heap pointer
-      copy_ext_list_heap.template operator()<6>(freeze_list_val, offset);
+      copy_ext_list_to_heap.template operator()<6>(freeze_list_val, offset);
       add_code(get_riscv(TAG_BOXED_T1_SNIP));
 
       // the value in t1 (i.e. the heap pointer before this)
