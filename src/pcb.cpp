@@ -1,6 +1,7 @@
 #include "pcb.hpp"
 #include "external_term.hpp"
 #include "garbage_collection.hpp"
+#include "precompiled.hpp"
 #include "profiler.hpp"
 #include <algorithm>
 #include <glog/logging.h>
@@ -99,8 +100,8 @@ ErlTerm *ProcessControlBlock::do_gc(size_t size, size_t xregs) {
   std::ranges::copy(stack_span, to_space_stack.data());
 
   // do gc
-  std::span<ErlTerm> new_heap_space(
-      to_space.data(), to_space.size() - to_space_stack.size());
+  std::span<ErlTerm> new_heap_space(to_space.data(),
+                                    to_space.size() - to_space_stack.size());
   auto root_set = get_root_set(xregs, to_space_stack);
   auto result = minor_gc(root_set, new_heap_space,
                          {.heap_start = heap.data(),
@@ -141,4 +142,28 @@ ErlTerm *ProcessControlBlock::allocate_and_gc(size_t size, size_t xregs) {
   }
 
   return htop;
+}
+
+ProcessControlBlock::ProcessControlBlock(EntryPoint entry_point,
+                                         size_t heap_size) {
+  PROFILE();
+  set_shared<CODE_CHUNK_P>(entry_point.code_chunk);
+  set_shared<RESUME_LABEL>(entry_point.label);
+  set_shared<CODE_POINTER>(PreCompiled::teardown_code);
+
+  // allocate space
+  // TODO make xreg amount dynamic
+  set_shared<XREG_ARRAY>(new ErlTerm[5]);
+
+  auto heap = new ErlTerm[heap_size];
+  set_shared<HTOP>(heap);
+  set_shared<STOP>(heap + heap_size);
+  this->heap = {heap, heap_size};
+  highwater = heap;
+
+  // message passing
+  set_shared<MBOX_HEAD>(nullptr);
+  auto head = get_address<MBOX_HEAD>();
+  set_shared<MBOX_TAIL>(head);
+  set_shared<MBOX_SAVE>(head);
 }

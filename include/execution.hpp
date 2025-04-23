@@ -37,8 +37,6 @@ struct Emulator {
   Scheduler scheduler;
   std::unordered_map<std::string, BeamSrc *> beam_sources;
   std::vector<ProcessControlBlock *> dead_processes;
-  ProcessControlBlock *create_process(EntryPoint entry_point,
-                                      size_t heap_size = 1024);
 
   void register_beam_sources(std::vector<BeamSrc *>);
   EntryPoint get_entry_point(GlobalFunctionId);

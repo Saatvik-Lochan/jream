@@ -49,7 +49,7 @@ BIFReturn spawn_1(uint64_t fun_raw) {
 
   // create process with entry point
   auto pcb =
-      emulator_main.create_process(EntryPoint{code_chunk_p, func_id.label});
+      new ProcessControlBlock(EntryPoint{code_chunk_p, func_id.label});
 
 #ifdef ENABLE_BIF_LOG
   LOG(INFO) << "\tspawning at label: " << func_id.label;

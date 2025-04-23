@@ -40,37 +40,6 @@ ErlReturnCode resume_process(ProcessControlBlock *pcb) {
   return setup_and_go_label(pcb, pcb->get_shared<RESUME_LABEL>());
 }
 
-ProcessControlBlock *Emulator::create_process(EntryPoint entry_point,
-                                              size_t heap_size) {
-  PROFILE();
-  ProcessControlBlock *pcb;
-
-  pcb = new ProcessControlBlock;
-
-  pcb->set_shared<CODE_CHUNK_P>(entry_point.code_chunk);
-  pcb->set_shared<RESUME_LABEL>(entry_point.label);
-  pcb->set_shared<REDUCTIONS>(100);
-  pcb->set_shared<CODE_POINTER>(PreCompiled::teardown_code);
-
-  // allocate space
-  // TODO make xreg amount dynamic
-  pcb->set_shared<XREG_ARRAY>(new ErlTerm[5]);
-
-  auto heap = new ErlTerm[heap_size];
-  pcb->set_shared<HTOP>(heap);
-  pcb->set_shared<STOP>(heap + heap_size);
-  pcb->heap = {heap, heap_size};
-  pcb->highwater = heap;
-
-  // message passing
-  pcb->set_shared<MBOX_HEAD>(nullptr);
-  auto head = pcb->get_address<MBOX_HEAD>();
-  pcb->set_shared<MBOX_TAIL>(head);
-  pcb->set_shared<MBOX_SAVE>(head);
-
-  return pcb;
-}
-
 ProcessControlBlock *Scheduler::pick_next() {
   PROFILE();
 
@@ -186,12 +155,9 @@ ErlTerm Emulator::run(ProcessControlBlock *pcb) {
       throw std::logic_error("Internal process finished with an error");
     }
     case FINISH: {
+      delete to_run;
       SLOG("A process finished: " << to_run);
-
-      to_run->old_heap.free_all();
-      delete[] to_run->heap.data();
-      delete[] to_run->get_shared<XREG_ARRAY>();
-      break;
+     break;
     }
     case YIELD: {
       SLOG("A process yielded: " << to_run);
@@ -236,12 +202,12 @@ ErlTerm Emulator::read_and_execute(std::string func_string) {
   emulator_main.register_beam_sources({&beamfile});
 
   auto initial_entry_point = get_entry_point(func_id);
-  auto pcb = create_process(initial_entry_point);
-  auto xregs = pcb->get_shared<XREG_ARRAY>();
+  ProcessControlBlock pcb(initial_entry_point);
+  auto xregs = pcb.get_shared<XREG_ARRAY>();
 
   std::ranges::copy(arguments, xregs);
 
-  emulator_main.run(pcb);
+  emulator_main.run(&pcb);
 
   return xregs[0];
 }

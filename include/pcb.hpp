@@ -72,6 +72,13 @@ struct __attribute__((aligned(16))) ProcessControlBlock {
   GeneralPurposeHeap old_heap;
   std::span<ErlTerm> prev_to_space;
 
+  ProcessControlBlock(EntryPoint entry_point, size_t heap_size = 1024);
+  ~ProcessControlBlock() {
+      old_heap.free_all();
+      delete[] heap.data();
+      delete[] get_shared<XREG_ARRAY>();
+  }
+
 private:
   std::vector<std::span<ErlTerm>> get_root_set(size_t xregs,
                                                std::span<ErlTerm> stack);

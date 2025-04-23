@@ -46,15 +46,17 @@ void set_current_pcb(ProcessControlBlock &pcb) {
   emulator_main.scheduler.pick_next();
 }
 
-ProcessControlBlock *get_process(CodeChunk *code_chunk, size_t heap_size = 50) {
+std::unique_ptr<ProcessControlBlock> get_process(CodeChunk *code_chunk,
+                                                 size_t heap_size = 50) {
 
-  auto pcb = emulator_main.create_process(
-      {.code_chunk = code_chunk, .label = 1}, heap_size);
+  auto pcb = std::make_unique<ProcessControlBlock>(
+      EntryPoint{.code_chunk = code_chunk, .label = 1}, heap_size);
   set_current_pcb(*pcb);
   return pcb;
 }
 
-ProcessControlBlock *get_process(CodeChunk &code_chunk, size_t heap_size = 50) {
+std::unique_ptr<ProcessControlBlock> get_process(CodeChunk &code_chunk,
+                                                 size_t heap_size = 50) {
   return get_process(&code_chunk, heap_size);
 }
 
@@ -434,10 +436,7 @@ TEST(ErlTerm, ToStringTupleListAtom) {
   CodeChunk code_chunk({{RETURN_OP}}, 1, 1);
   code_chunk.atom_chunk = &a;
 
-  ProcessControlBlock pcb;
-  pcb.set_shared<CODE_CHUNK_P>(&code_chunk);
-
-  set_current_pcb(pcb);
+  get_process(code_chunk);
 
   ErlTerm heap[] = {3 << 6, list, emulator_main.get_atom_current("ok"),
                     make_small_int(7)};
@@ -542,7 +541,7 @@ TEST(JIT, SetupAndTeardown) {
 
   auto pcb = get_process(code_chunk);
 
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   SUCCEED();
 }
@@ -586,7 +585,7 @@ TEST(RISCV, Move) {
   xregs[1] = mi(30);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_EQ(xregs[0], mi(25));
@@ -610,7 +609,7 @@ TEST(RISCV, MoveYRegs) {
   pcb->set_shared<STOP>(stack);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_EQ(stack[1], 12); // y0
@@ -636,7 +635,7 @@ TEST(RISCV, MoveLiteral) {
   auto pcb = get_process(file->code_chunk);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   auto xregs = pcb->get_shared<XREG_ARRAY>();
@@ -662,7 +661,7 @@ TEST(RISCV, Swap) {
   xregs[1] = mi(30);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_EQ(xregs[0], mi(30));
@@ -680,7 +679,7 @@ TEST(RISCV, Allocate) {
   auto initial = pcb->get_shared<STOP>();
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   auto after = pcb->get_shared<STOP>();
@@ -705,7 +704,7 @@ TEST(RISCV, AllocateAndDeallocate) {
   pcb->set_shared<STOP>(e);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   auto val = pcb->get_shared<STOP>();
@@ -730,7 +729,7 @@ TEST(RISCV, Trim) {
   pcb->set_shared<STOP>(stack);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   auto new_stop = pcb->get_shared<STOP>();
@@ -753,7 +752,7 @@ ErlReturnCode test_heap(Argument arg, size_t heap_size) {
   set_current_pcb(*pcb);
 
   // when
-  return resume_process(pcb);
+  return resume_process(pcb.get());
 }
 
 TEST(RISCV, TestHeapNoGCLiteralYes) {
@@ -810,7 +809,7 @@ TEST(RISCV, TestGetTupleElement) {
   xregs[0] = make_boxed(heap);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_EQ(xregs[1], mi(10));
@@ -839,7 +838,7 @@ TEST(RISCV, PutTuple2) {
   xregs[2] = mi(20);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   assert_tuple(xregs[0], {mi(10), mi(20)});
@@ -859,18 +858,17 @@ TEST(RISCV, GetList) {
 
   auto pcb = get_process(code_chunk);
 
-  ErlTerm xreg[1001];
-  pcb->set_shared<XREG_ARRAY>(xreg);
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
 
   auto list = erl_list_from_range({mi(20), mi(30)}, get_nil_term());
-  xreg[0] = list;
+  xregs[0] = list;
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
-  ASSERT_EQ(xreg[1], mi(20));
-  auto other_list = vec_from_erl_list(xreg[2]);
+  ASSERT_EQ(xregs[1], mi(20));
+  auto other_list = vec_from_erl_list(xregs[2]);
   std::vector<ErlTerm> expected_list = {mi(30)};
   ASSERT_EQ(other_list, expected_list);
 }
@@ -894,7 +892,7 @@ TEST(RISCV, GetTail) {
   xreg[0] = list;
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   auto tail = vec_from_erl_list(xreg[1]);
@@ -924,7 +922,7 @@ TEST(RISCV, PutList) {
   xregs[1] = erl_list_from_range({1, 2, 3}, get_nil_term());
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   std::vector<ErlTerm> out_list = vec_from_erl_list(xregs[2]);
@@ -954,20 +952,16 @@ TEST(RISCV, MakeFun) {
   CodeChunk code_chunk(std::move(instructions), 1, 1);
 
   auto pcb = get_process(code_chunk);
-  ErlTerm heap[5];
-  ErlTerm xregs[5];
 
   auto x1_start_val = 20;
   auto x2_start_val = 30;
 
+  auto xregs = pcb->get_shared<XREG_ARRAY>();
   xregs[1] = x1_start_val;
   xregs[2] = x2_start_val;
 
-  pcb->set_shared<HTOP>(heap);
-  pcb->set_shared<XREG_ARRAY>(xregs);
-
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   const auto result = xregs[0].as_ptr();
 
@@ -1024,13 +1018,10 @@ TEST(RISCV, CallStandard) {
   bool called = false;
   auto code_chunk = getCallCodeChunk(&called);
   auto pcb = get_process(code_chunk);
-
-  ErlTerm e[5];
-  pcb->set_shared<STOP>(e + 4);
   pcb->set_shared<REDUCTIONS>(5);
 
   // when
-  auto result = resume_process(pcb);
+  auto result = resume_process(pcb.get());
 
   // then
   ASSERT_EQ(called, true);
@@ -1046,14 +1037,11 @@ TEST(RISCV, CallNoReductions) {
   auto code_chunk = getCallCodeChunk(&called);
   auto pcb = get_process(code_chunk);
 
-  ErlTerm e[5];
-  pcb->set_shared<STOP>(e + 4);
-
   // set no reductions
   pcb->set_shared<REDUCTIONS>(0);
 
   // when
-  auto result = resume_process(pcb);
+  auto result = resume_process(pcb.get());
 
   // then
   ASSERT_EQ(called, false);
@@ -1103,7 +1091,7 @@ TEST(RISCV, CallExtBif) {
   auto pcb = get_process(file->code_chunk);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   auto x_reg = pcb->get_shared<XREG_ARRAY>();
@@ -1133,7 +1121,7 @@ TEST(RISCV, CallExtBif2Args) {
   xregs[1] = 134;
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_EQ(xregs[0], make_small_int(12 + 134));
@@ -1158,7 +1146,7 @@ TEST(RISCV, CallExtOnlyBif) {
   auto pcb = get_process(file->code_chunk);
 
   // when
-  auto result = resume_process(pcb);
+  auto result = resume_process(pcb.get());
 
   // then
   auto xregs = pcb->get_shared<XREG_ARRAY>();
@@ -1192,12 +1180,10 @@ TEST(RISCV, CallExtLastBif) {
   xregs[0] = 12;
   xregs[1] = 134;
 
-  ErlTerm stack[5];
-  auto initial_stack_loc = stack + 5;
-  pcb->set_shared<STOP>(initial_stack_loc);
+  auto initial_stack_loc = pcb->get_shared<STOP>();
 
   // when
-  auto result = resume_process(pcb);
+  auto result = resume_process(pcb.get());
 
   // then
   ASSERT_EQ(xregs[0], mi(12 + 134));
@@ -1223,7 +1209,7 @@ TEST(RISCV, Bif0) {
   xregs[0] = 0;
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_EQ(xregs[0], mi(100));
@@ -1257,7 +1243,7 @@ TEST(RISCV, GCBif1) {
   xregs[3] = 35;
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_EQ(xregs[2], mi(35 * 10));
@@ -1295,7 +1281,7 @@ TEST(RISCV, GCBif2) {
   xregs[3] = 37;
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_EQ(xregs[2], mi(25 + 37));
@@ -1331,7 +1317,7 @@ TEST(RISCV, GCBif2Fail) {
   auto pcb = get_process(file->code_chunk);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_FALSE(a);
@@ -1369,7 +1355,7 @@ TEST(RISCV, FastBif) {
   xregs[3] = make_small_int(1000);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_TRUE(a);
@@ -1414,7 +1400,7 @@ TEST(RISCV, Spawn) {
   pcb->get_shared<XREG_ARRAY>()[0] = make_boxed(fun);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   auto result = pcb->get_shared<XREG_ARRAY>()[0];
@@ -1453,7 +1439,7 @@ TEST(RISCV, LoopRecEmptyMbox) {
   auto pcb = get_process(code_chunk);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_FALSE(flag_a);
@@ -1474,7 +1460,7 @@ TEST(RISCV, LoopRec) {
   pcb->queue_message(&new_msg);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_TRUE(flag_a);
@@ -1496,7 +1482,7 @@ TEST(RISCV, RemoveLastMessage) {
   pcb->queue_message(new_msg);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   auto head_addr = pcb->get_address<MBOX_HEAD>();
@@ -1522,7 +1508,7 @@ TEST(RISCV, Remove) {
   pcb->queue_message(msg_two);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   auto head_addr = pcb->get_address<MBOX_HEAD>();
@@ -1547,7 +1533,7 @@ TEST(RISCV, Wait) {
   auto pcb = get_process(code_chunk);
 
   // when
-  auto result = resume_process(pcb);
+  auto result = resume_process(pcb.get());
 
   // then
   ASSERT_EQ(result, WAIT);
@@ -1563,7 +1549,7 @@ TEST(RISCV, Send) {
   auto xreg = pcb->get_shared<XREG_ARRAY>();
 
   auto other_pcb = get_process(code_chunk);
-  emulator_main.scheduler.waiting.insert(other_pcb);
+  emulator_main.scheduler.waiting.insert(other_pcb.get());
 
   std::vector<ErlTerm> list = {0, 1, 2, 3, 4};
 
@@ -1572,11 +1558,11 @@ TEST(RISCV, Send) {
   }
 
   auto erl_list = erl_list_from_range(list, get_nil_term());
-  xreg[0] = make_pid(other_pcb);
+  xreg[0] = make_pid(other_pcb.get());
   xreg[1] = erl_list;
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   auto other_mbox_head = other_pcb->get_shared<MBOX_HEAD>();
   auto msg_payload = other_mbox_head->get_payload();
@@ -1588,8 +1574,8 @@ TEST(RISCV, Send) {
 
   const auto &scheduler = emulator_main.scheduler;
   const auto &runnable = scheduler.runnable;
-  ASSERT_NE(std::ranges::find(runnable, other_pcb), runnable.end());
-  ASSERT_FALSE(scheduler.waiting.contains(other_pcb));
+  ASSERT_NE(std::ranges::find(runnable, other_pcb.get()), runnable.end());
+  ASSERT_FALSE(scheduler.waiting.contains(other_pcb.get()));
 }
 
 std::vector<Instruction> get_test_instrs(Instruction instr, bool *a, bool *b) {
@@ -1629,7 +1615,7 @@ TEST(RISCV, IsTupleOp) {
   xregs[0] = make_boxed(e);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_TRUE(a);
@@ -1646,7 +1632,7 @@ TEST(RISCV, IsTupleOpNotBoxed) {
   xregs[0] = 0b1011111; // 5 as a small integer
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_FALSE(a);
@@ -1665,7 +1651,7 @@ TEST(RISCV, IsTupleOpWrongBoxed) {
   xregs[0] = make_boxed(e);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_FALSE(a);
@@ -1701,7 +1687,7 @@ TEST(RISCV, IsTaggedTuple) {
   xregs[0] = make_boxed(heap);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_TRUE(a);
@@ -1718,7 +1704,7 @@ TEST(RISCV, IsTaggedTupleWrongArity) {
   xregs[0] = make_boxed(heap);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_FALSE(a);
@@ -1735,7 +1721,7 @@ TEST(RISCV, IsTaggedTupleWrongAtom) {
   xregs[0] = make_boxed(heap);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_FALSE(a);
@@ -1752,7 +1738,7 @@ TEST(RISCV, IsTaggedTupleNotBoxed) {
   xregs[0] = ErlTerm(reinterpret_cast<uint64_t>(heap));
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_FALSE(a);
@@ -1775,14 +1761,13 @@ TEST(RISCV, InitYRegs) {
   wrap_in_function(instructions);
 
   CodeChunk code_chunk(std::move(instructions), 1, 1);
-  auto pcb = get_process(code_chunk);
+  auto pcb = get_process(code_chunk, 1000);
 
-  ErlTerm stack[4];
-  pcb->set_shared<STOP>(stack + 4);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
+  auto stack = pcb->get_shared<STOP>();
   // then
   ASSERT_NE(stack[0], get_nil_term()); // code pointer
   ASSERT_EQ(stack[1], get_nil_term()); // y0
@@ -1821,16 +1806,15 @@ TEST(RISCV, CallLast) {
   auto code_chunk = getCallLastCodeChunk(&flag);
   auto pcb = get_process(code_chunk);
 
-  ErlTerm stack[4];
-  pcb->set_shared<STOP>(stack + 4);
   pcb->set_shared<REDUCTIONS>(1000);
+  auto initial_stack = pcb->get_shared<STOP>();
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_TRUE(flag);
-  ASSERT_EQ(pcb->get_shared<STOP>(), stack + 4);
+  ASSERT_EQ(pcb->get_shared<STOP>(), initial_stack);
 }
 
 TEST(RISCV, TestArityTrue) {
@@ -1851,7 +1835,7 @@ TEST(RISCV, TestArityTrue) {
   xregs[0] = make_boxed(heap);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_TRUE(a);
@@ -1876,7 +1860,7 @@ TEST(RISCV, TestArityFalse) {
   xregs[0] = make_boxed(heap);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_FALSE(a);
@@ -1900,7 +1884,7 @@ TEST(RISCV, TestIsNonEmptyListTrue) {
   xregs[0] = erl_list_from_range({mi(1), mi(2), mi(3)}, get_nil_term());
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_TRUE(a);
@@ -1924,7 +1908,7 @@ TEST(RISCV, TestIsNonEmptyListFalse) {
   xregs[0] = get_nil_term();
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_FALSE(a);
@@ -1948,7 +1932,7 @@ TEST(RISCV, TestIsNonEmptyListOtherFalse) {
   xregs[0] = make_small_int(5);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_FALSE(a);
@@ -1972,7 +1956,7 @@ TEST(RISCV, TestIsNilTrue) {
   xregs[0] = get_nil_term();
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_TRUE(a);
@@ -1996,7 +1980,7 @@ TEST(RISCV, TestIsNilFalse) {
   xregs[0] = erl_list_from_range({mi(1), mi(2), mi(3)}, get_nil_term());
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_FALSE(a);
@@ -2020,7 +2004,7 @@ TEST(RISCV, TestIsNilOtherFalse) {
   xregs[0] = make_small_int(5);
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   ASSERT_FALSE(a);
@@ -2048,7 +2032,7 @@ void do_compare_test(OpCode opcode, ErlTerm arg1, ErlTerm arg2,
   xregs[2] = arg2;
 
   // when
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   // then
   if (should_jump) {
@@ -2177,7 +2161,7 @@ TEST(RISCV, Badmatch) {
   auto pcb = get_process(code_chunk);
 
   // then
-  auto result = resume_process(pcb);
+  auto result = resume_process(pcb.get());
 
   // then
   ASSERT_EQ(result, BADMATCH);
@@ -2328,7 +2312,7 @@ ErlTerm test_fast_bif2(std::string name, ErlTerm a, ErlTerm b) {
   xregs[0] = a;
   xregs[1] = b;
 
-  resume_process(pcb);
+  resume_process(pcb.get());
 
   return xregs[2];
 }
@@ -2562,4 +2546,3 @@ int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
-
