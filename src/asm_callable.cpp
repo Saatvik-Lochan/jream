@@ -121,6 +121,6 @@ void log_function(size_t module_index, size_t function_index, size_t arity) {
   auto function_name =
       emulator_main.get_atom_string_current(make_atom(function_index));
 
-  LOG(INFO) << "entering function - " << module_name << ":" << function_name << "/"
-            << arity;
+  LOG(INFO) << "Entering function - " << module_name << ":" << function_name
+            << "/" << arity;
 }
