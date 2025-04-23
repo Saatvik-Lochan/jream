@@ -217,6 +217,7 @@ struct BeamSrc {
   ExportTableChunk export_table_chunk;
   FunctionTableChunk function_table_chunk;
 
+  // can't copy or move since it will break internal linkages
   BeamSrc(const BeamSrc &) = delete;
   BeamSrc &operator=(const BeamSrc &) = delete;
   BeamSrc(BeamSrc &&) = delete;

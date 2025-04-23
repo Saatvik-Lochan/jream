@@ -1,52 +1,16 @@
-# Prerequisites
-*.d
-
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
-
-# assembled binaries
-*.bin
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
-
-# directories
-.cache
-build
+# build directories
 debug_build
 release_build
-clang_build
 reldeb_build
+clang_build
+assembly/build
+
+# caches
+.cache
 **/__pycache__
 
-# binaries
-beamparser
-main
-main_debug
+# other
+reference
 
 # misc
 *.dump

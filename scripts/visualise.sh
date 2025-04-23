@@ -14,17 +14,13 @@ if [ -z "$PROGRAM" ]; then
 fi
 
 # Generate flat gprof output
-echo "Generating gprof output..."
 gprof "$PROGRAM" "$(dirname "$1")/gmon.out" > "$OUTFILE"
 
 # Convert to dot format
-echo "Generating call graph dot file..."
 gprof2dot -f prof "$OUTFILE" -o "$DOTFILE"
 
 # Generate SVG image
-echo "Rendering SVG..."
 dot -Tsvg "$DOTFILE" -o "$IMGFILE"
 
 # Done
-echo "Generated: $IMGFILE"
 xdg-open "$IMGFILE" &> /dev/null || echo "Open $IMGFILE manually."
