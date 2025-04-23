@@ -2501,8 +2501,7 @@ TEST(GC, CopyShared) {
   ASSERT_EQ(xregs[0], xregs[1]);
 }
 
-// currently not doing generation promotion because of the bug
-TEST(GC, DISABLED_GenerationPromotion) {
+TEST(GC, GenerationPromotion) {
   auto code_chunk = get_minimal_code_chunk();
   auto pcb = get_process(code_chunk);
 

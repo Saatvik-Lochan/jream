@@ -7,6 +7,7 @@
 #include <stack>
 
 
+// arbitrary non-zero value ending in two zeros
 constexpr uint64_t MOVED_CONS_MARKER = 37 << 2;
 
 /*

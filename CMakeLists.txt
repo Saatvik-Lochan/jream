@@ -97,6 +97,8 @@ endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
   target_compile_definitions(jreamlib PRIVATE
+    ENABLE_GENERATIONAL_GC=1
+    # ENABLE_MEMORY_LOG=1
   )
 endif()
 

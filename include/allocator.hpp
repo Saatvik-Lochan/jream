@@ -15,7 +15,7 @@
 #include <vector>
 
 #ifdef ENABLE_MEMORY_LOG
-#define MLOG(...) LOG(INFO) << "StablePoolAllocator: " << __VA_ARGS__
+#define MLOG(...) LOG(INFO) << __VA_ARGS__
 #else
 #define MLOG(...) void(0)
 #endif
@@ -35,7 +35,7 @@ template <typename T> class StablePoolAllocator {
 
   void add_and_link_slab() {
     auto new_slab_size = base_slab_size << (slabs.size());
-    MLOG("Allocating new slab " << new_slab_size);
+    MLOG("StablePoolAllocator: Allocating new slab " << new_slab_size);
 
     auto slab_start = new T[new_slab_size];
     slabs.push_back(slab_start);
