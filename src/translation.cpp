@@ -393,7 +393,32 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       local_labels.insert(label_val);
 
 #ifdef ENABLE_INSTR_LOG
-      // log the function at every entry
+      if (instr_index > 0) {
+        // we do this here instead of FUNC_INFO, since we always jump to the
+        // label after func_info instead of directly to func_info
+        auto prev_instr = code_chunk.instructions[instr_index - 1];
+        if (prev_instr.op_code == FUNC_INFO_OP) {
+          // log func_info
+          auto module = prev_instr.arguments[0];
+          assert(module.tag == ATOM_TAG);
+          auto module_atom_index = module.arg_raw.arg_num;
+
+          auto function = prev_instr.arguments[1];
+          assert(function.tag == ATOM_TAG);
+          auto function_atom_index = function.arg_raw.arg_num;
+
+          auto arity = prev_instr.arguments[2];
+          assert(arity.tag == LITERAL_TAG);
+          auto arity_val = arity.arg_raw.arg_num;
+
+          add_riscv_instr(create_add_immediate(10, 0, module_atom_index));
+          add_riscv_instr(create_add_immediate(11, 0, function_atom_index));
+          add_riscv_instr(create_add_immediate(12, 0, arity_val));
+          add_code(get_riscv(LOG_FUNC_SNIP));
+        }
+      }
+
+      // log the label at every entry
       add_riscv_instr(create_add_immediate(10, 0, label_val));
       add_code(get_riscv(LOG_LABEL_SNIP));
 #endif

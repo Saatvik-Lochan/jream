@@ -114,3 +114,13 @@ void log_xregs(size_t num_xregs) {
     LOG(INFO) << "  " << i << ". " << to_string(xregs[i]);
   }
 }
+
+void log_function(size_t module_index, size_t function_index, size_t arity) {
+  auto module_name =
+      emulator_main.get_atom_string_current(make_atom(module_index));
+  auto function_name =
+      emulator_main.get_atom_string_current(make_atom(function_index));
+
+  LOG(INFO) << "entering function - " << module_name << ":" << function_name << "/"
+            << arity;
+}

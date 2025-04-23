@@ -16,6 +16,7 @@ void send_message(ErlTerm *);
 uint64_t compare(uint64_t term1, uint64_t term2);
 void print_op_name(uint64_t op_code);
 void execute_minor_gc(size_t new_term_size, size_t xregs);
+void log_function(size_t module_index, size_t function_index, size_t arity);
 void log_label(uint64_t label);
 void log_xregs(size_t num_xregs);
 
@@ -35,6 +36,7 @@ inline std::uintptr_t all_funs[] = {
     CAST(compare),                     // m_asm: COMPARE
     CAST(print_op_name),               // m_asm: PRINT_OP_NAME
     CAST(execute_minor_gc),            // m_asm: EXECUTE_GC
+    CAST(log_function),                   // m_asm: LOG_FUNC_INFO
     CAST(log_label),                   // m_asm: LOG_LABEL
     CAST(log_xregs),                   // m_asm: LOG_XREGS
 };
