@@ -57,13 +57,11 @@ struct __attribute__((aligned(16))) ProcessControlBlock {
   // message passing
   void queue_message(Message *msg);
 
-  // allocate on the pcb heap funcs
-  // The default xreg value will make all xregisters dangling!
-  ErlTerm *allocate_tuple(size_t size, size_t xregs = 0);
-  ErlTerm *allocate_and_gc(size_t size, size_t xregs);
   std::span<ErlTerm> get_stack() {
     return std::span<ErlTerm>{get_shared<STOP>(), heap.data() + heap.size()};
   }
+
+  // should use this when allocating from a BIF
   ErlTerm *allocate_heap_frag(size_t size) {
     auto ptr = new ErlTerm[size];
     heap_fragments.push_back({ptr, size});

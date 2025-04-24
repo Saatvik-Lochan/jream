@@ -2439,7 +2439,7 @@ TEST(GC, AllocateEnough) {
 
   // force gc
   const auto ALLOC_SIZE = pcb->heap.size();
-  ErlTerm *val = pcb->allocate_and_gc(ALLOC_SIZE, 0);
+  ErlTerm *val = pcb->do_gc(ALLOC_SIZE, 0);
 
   ASSERT_LE(val + ALLOC_SIZE, pcb->heap.data() + pcb->heap.size());
 }
@@ -2471,7 +2471,7 @@ TEST(GC, CopyFirstPass) {
 
   check_stack();
 
-  auto tuple = pcb->allocate_tuple(10, 0);
+  auto tuple = pcb->do_gc(10, 0);
 
   std::iota(tuple + 1, tuple + 11, 1);
   auto initial = make_boxed(tuple);
@@ -2479,7 +2479,7 @@ TEST(GC, CopyFirstPass) {
 
   // force gc
   const auto ALLOC_SIZE = pcb->heap.size();
-  pcb->allocate_and_gc(ALLOC_SIZE, 1);
+  pcb->do_gc(ALLOC_SIZE, 1);
 
   ASSERT_NE(xregs[0], initial); // expect pointer to have changed
   assert_tuple(xregs[0], {1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
@@ -2494,7 +2494,7 @@ TEST(GC, CopyShared) {
   set_current_pcb(*pcb);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
 
-  auto tuple = pcb->allocate_tuple(10, 0);
+  auto tuple = pcb->do_gc(10, 0);
 
   std::iota(tuple + 1, tuple + 11, 1);
   auto initial = make_boxed(tuple);
@@ -2503,7 +2503,7 @@ TEST(GC, CopyShared) {
 
   // force gc
   const auto ALLOC_SIZE = pcb->heap.size();
-  pcb->allocate_and_gc(ALLOC_SIZE, 2);
+  pcb->do_gc(ALLOC_SIZE, 0);
 
   ASSERT_NE(xregs[0], initial);
   assert_tuple(xregs[0], {1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
@@ -2518,21 +2518,22 @@ TEST(GC, GenerationPromotion) {
   set_current_pcb(*pcb);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
 
-  auto tuple = pcb->allocate_tuple(10, 0);
-
+  auto tuple = pcb->get_shared<HTOP>();
   std::iota(tuple + 1, tuple + 11, 1);
+  pcb->set_shared<HTOP>(tuple + 11);
+
   auto initial = make_boxed(tuple);
   xregs[0] = initial;
 
   // force gc
   auto ALLOC_SIZE = pcb->heap.size();
-  pcb->allocate_and_gc(ALLOC_SIZE, 1);
+  pcb->do_gc(ALLOC_SIZE, 1);
 
   ASSERT_FALSE(pcb->old_heap.contains_other(xregs[0].as_ptr()));
 
   // force gc a second time
   ALLOC_SIZE = pcb->heap.size();
-  pcb->allocate_and_gc(ALLOC_SIZE, 1);
+  pcb->do_gc(ALLOC_SIZE, 1);
 
   // Now x0 should have been moved to old heap
   ASSERT_TRUE(pcb->old_heap.contains_other(xregs[0].as_ptr()));

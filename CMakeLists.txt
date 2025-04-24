@@ -100,7 +100,8 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
   )
 endif()
 
-option(GENERATIONAL_GC "Enable generational garbage collection" ON)
+# currently has a few bugs
+option(GENERATIONAL_GC "Enable generational garbage collection" OFF)
 if(GENERATIONAL_GC) 
   target_compile_definitions(jreamlib PRIVATE
       ENABLE_GENERATIONAL_GC=1

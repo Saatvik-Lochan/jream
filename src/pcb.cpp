@@ -25,15 +25,6 @@ void ProcessControlBlock::queue_message(Message *msg) {
   set_shared<MBOX_TAIL>(msg->get_next_address());
 }
 
-ErlTerm *ProcessControlBlock::allocate_tuple(size_t size, size_t xregs) {
-  assert((size << 6) >> 6 == size);
-
-  auto heap_slots = allocate_and_gc(size + 1, xregs);
-  heap_slots[0] = size << 6;
-
-  return heap_slots;
-}
-
 std::span<ErlTerm> get_next_to_space(ProcessControlBlock *pcb,
                                      size_t alloc_amount) {
   PROFILE();
@@ -134,21 +125,6 @@ ErlTerm *ProcessControlBlock::do_gc(size_t size, size_t xregs) {
   highwater = result.highwater;
 
   return result.heap_top;
-}
-
-ErlTerm *ProcessControlBlock::allocate_and_gc(size_t size, size_t xregs) {
-  auto htop = get_shared<HTOP>();
-  auto new_top = htop + size;
-
-  ErlTerm *stop = get_shared<STOP>();
-
-  if (new_top >= stop) {
-    htop = do_gc(size, xregs);
-  } else {
-    set_shared<HTOP>(new_top);
-  }
-
-  return htop;
 }
 
 ProcessControlBlock::ProcessControlBlock(EntryPoint entry_point,

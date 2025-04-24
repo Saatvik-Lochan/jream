@@ -7,22 +7,12 @@
 #include <cstdint>
 
 struct ArgumentAllocator {
-  ErlTerm *allocate_and_gc(size_t a, size_t xregs) { return new ErlTerm[a]; }
-
-  ErlTerm *allocate_tuple(size_t size) {
-    assert((size << 6) >> 6 == size);
-
-    auto heap_slots = allocate_and_gc(size + 1, 0);
-    heap_slots[0] = size << 6;
-
-    return heap_slots;
-  }
+  ErlTerm *allocate_heap_frag(size_t a) { return new ErlTerm[a]; }
 };
 
 template <typename T>
-concept ErlAllocator = requires(T a, uint64_t arity, uint64_t xregs) {
-  { a.allocate_tuple(arity) } -> std::same_as<ErlTerm *>;
-  { a.allocate_and_gc(arity, xregs) } -> std::same_as<ErlTerm *>;
+concept ErlAllocator = requires(T a, uint64_t size) {
+  { a.allocate_heap_frag(size) } -> std::same_as<ErlTerm *>;
 };
 
 template <ErlAllocator T>
@@ -91,7 +81,7 @@ template <ErlAllocator T>
 ErlTerm terms_to_list(const std::vector<ErlTerm> &terms, T *pcb) {
   ErlListBuilder builder;
 
-  auto curr = pcb->allocate_and_gc(terms.size() * 2, 0);
+  auto curr = pcb->allocate_heap_frag(terms.size() * 2);
 
   for (auto term : terms) {
     builder.add_term(term, curr);
@@ -128,7 +118,9 @@ ErlTerm parse_tuple(const std::string &term, size_t &from, T *pcb) {
 
   auto terms = collect_till(term, '}', from, pcb);
 
-  auto alloced = pcb->allocate_tuple(terms.size());
+  auto alloced = pcb->allocate_heap_frag(terms.size() + 1);
+  alloced[0] = terms.size() << 2;
+
   for (size_t i = 0; i < terms.size(); i++) {
     alloced[i + 1] = terms[i];
   }
