@@ -8,8 +8,15 @@
 #include "messages.hpp"
 #include <cstdint>
 
+struct CompileLabelReturn {
+  const uint8_t *label_loc;
+  uint64_t **new_compacted_arg_p_array;
+};
+
+CompileLabelReturn get_or_compile_label(CodeChunk *code_chunk,
+                                         uint64_t func_index);
+
 void print_int(uint64_t a);
-const uint8_t *get_or_compile_label(CodeChunk *code_chunk, uint64_t func_index);
 void update_code_chunk_registers(CodeChunk *code_chunk);
 void free_msg(Message *);
 void send_message(ErlTerm *);

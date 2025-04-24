@@ -12,7 +12,7 @@
 
 void print_int(uint64_t a) { std::cout << a << std::endl; }
 
-const uint8_t *get_or_compile_label(CodeChunk *code_chunk, uint64_t label) {
+CompileLabelReturn get_or_compile_label(CodeChunk *code_chunk, uint64_t label) {
   PROFILE();
   uint64_t func_index = code_chunk->label_func_table[label];
 
@@ -35,7 +35,7 @@ const uint8_t *get_or_compile_label(CodeChunk *code_chunk, uint64_t label) {
   // assert label_loc is four byte aligned
   assert((reinterpret_cast<uintptr_t>(label_loc) & 0b11) == 0);
 
-  return label_loc;
+  return {label_loc, code_chunk->compacted_arg_p_array.data()};
 }
 
 // need an external function to get the offsets for code_chunk right
@@ -44,8 +44,8 @@ void update_code_chunk_registers(CodeChunk *code_chunk) {
   asm volatile("mv s2, %0\n"
                "mv s6, %1\n"
                "mv s10, %2\n"
-               :
-               : "r"(code_chunk->compacted_arg_p_array),
+               :  // still need compacted_arg_p_array here in case of ext call
+               : "r"(code_chunk->compacted_arg_p_array.data()), 
                  "r"(code_chunk->label_jump_locations),
                  "r"(code_chunk->external_jump_locations)
                :);

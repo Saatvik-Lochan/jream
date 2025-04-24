@@ -182,11 +182,7 @@ struct CodeChunk {
   LabelTable label_table;
   LabelOffsetTable label_offsets;
 
-  // reserve space for 256, we cannot have this pointer move/reallocate!
-  // 256 * 8 = 2048 which is the maximum addressable range of a 12 bit
-  // immediate
-  uint64_t *compacted_arg_p_array[256];
-  uint64_t compacted_arr_next_free = 0;
+  std::vector<uint64_t *> compacted_arg_p_array;
 
   const uint8_t *volatile *label_jump_locations;
   const uint8_t **compiled_functions;

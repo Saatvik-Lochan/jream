@@ -75,23 +75,25 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
   // add setup arguments to the list for when needed
   const auto add_setup_args_code =
-      [&add_riscv_instr, &code_chunk](std::initializer_list<uint64_t> args) {
+      [&](std::initializer_list<uint64_t> args) {
         auto arg_arr = new uint64_t[args.size()];
         std::copy(args.begin(), args.end(), arg_arr);
 
         auto &compacted = code_chunk.compacted_arg_p_array;
-        auto &next_free = code_chunk.compacted_arr_next_free;
+        auto next_free = compacted.size();
 
-        if (next_free >= 256) {
-          throw std::logic_error(
-              "Can not have this many instructions requesting space");
-        }
-
-        compacted[next_free] = arg_arr;
+        compacted.push_back(arg_arr);
 
         // load the pointer at index'th value in the argument array (pointer
         // to this in s2=x18) to the s3=x19 register
-        add_riscv_instr(create_load_doubleword(19, 18, next_free * 8));
+
+        if (next_free <= mask(8)) { // * 8 < 12 bits with a signed immediate
+          add_riscv_instr(create_load_doubleword(19, 18, next_free * 8));
+        } else {
+          add_riscv_instrs(create_load_immediate(19, next_free));
+          add_riscv_instr(create_shift_left_logical_immediate(19, 19, 3));
+          add_riscv_instr(create_load_doubleword(19, 19, 0));
+        }
 
         next_free++;
       };
@@ -652,7 +654,6 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_call_bif(args, label_val, destination, bif_num_val, instr_index);
       break;
     }
-
 
     case BIF2_OP: {
       auto label = instr.arguments[0];
