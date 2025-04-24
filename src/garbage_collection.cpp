@@ -1,5 +1,4 @@
 #include "garbage_collection.hpp"
-#include "allocator.hpp"
 #include "external_term.hpp"
 #include "profiler.hpp"
 #include <algorithm>
@@ -65,7 +64,7 @@ YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
       ErlTerm *new_ref;
 
       if (current_young.is_old_here(copy_ptr)) {
-        new_ref = old_heap.allocate_cons();
+        new_ref = old_heap.allocate(2);
         std::ranges::copy(span, new_ref);
 
         old_heap_to_fix.push({new_ref, 2});
@@ -105,7 +104,7 @@ YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
       std::span<ErlTerm> span(copy_ptr, size);
 
       if (current_young.is_old_here(copy_ptr)) {
-        new_ref = old_heap.allocate_other(size);
+        new_ref = old_heap.allocate(size);
         std::ranges::copy(span, new_ref);
 
         old_heap_to_fix.push({new_ref, size});

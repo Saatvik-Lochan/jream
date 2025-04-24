@@ -55,6 +55,13 @@ template <typename T> class StablePoolAllocator {
 
 public:
   StablePoolAllocator(size_t size = 512) : base_slab_size(size) {}
+  ~StablePoolAllocator() {
+    for (auto slab : slabs) {
+      delete[] slab;
+    }
+
+    slabs.clear();
+  }
 
   inline T *alloc() {
     if (free_list_head == nullptr) {
@@ -73,14 +80,6 @@ public:
     free_list_head = freed_as_obj_ptr;
   }
 
-  inline void free_all() {
-    for (auto slab : slabs) {
-      delete[] slab;
-    }
-
-    slabs.clear();
-  }
-
   inline size_t get_free_num() {
     FreeObject *current = free_list_head;
 
@@ -92,6 +91,52 @@ public:
     }
 
     return count;
+  }
+};
+
+template <typename T> class StableBumpAllocator {
+  T *next_free = nullptr;
+  T *top = nullptr;
+
+  const size_t base_slab_size;
+  std::vector<std::span<T>> slabs;
+
+public:
+  StableBumpAllocator(size_t size = 512) : base_slab_size(size) {}
+  ~StableBumpAllocator() {
+    for (auto slab : slabs) {
+      delete[] slab.data();
+    }
+  }
+
+  inline T *alloc(size_t size) {
+    if (!next_free || next_free + size > top) {
+      auto new_slab_size = base_slab_size << (slabs.size());
+      MLOG("StableBumpAlocator: Allocating a new slab of size "
+           << new_slab_size);
+      auto new_slab = new T[new_slab_size];
+      next_free = new_slab;
+      top = new_slab + new_slab_size;
+      slabs.emplace_back(std::span(new_slab, new_slab_size));
+    }
+
+    auto out = next_free;
+    next_free += size;
+
+    return out;
+  }
+
+  inline bool contains(T *ptr) {
+    for (auto slab : slabs) {
+      auto start = slab.data();
+      auto end = slab.data() + slab.size();
+
+      if (start <= ptr && ptr < end) {
+        return true;
+      }
+    }
+
+    return false;
   }
 };
 

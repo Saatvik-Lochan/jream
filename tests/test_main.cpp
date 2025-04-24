@@ -2529,14 +2529,14 @@ TEST(GC, GenerationPromotion) {
   auto ALLOC_SIZE = pcb->heap.size();
   pcb->do_gc(ALLOC_SIZE, 1);
 
-  ASSERT_FALSE(pcb->old_heap.contains_other(xregs[0].as_ptr()));
+  ASSERT_FALSE(pcb->old_heap.contains(xregs[0].as_ptr()));
 
   // force gc a second time
   ALLOC_SIZE = pcb->heap.size();
   pcb->do_gc(ALLOC_SIZE, 1);
 
   // Now x0 should have been moved to old heap
-  ASSERT_TRUE(pcb->old_heap.contains_other(xregs[0].as_ptr()));
+  ASSERT_TRUE(pcb->old_heap.contains(xregs[0].as_ptr()));
 }
 
 TEST(GC, HeapFragment) {

@@ -4,31 +4,18 @@
 #include "allocator.hpp"
 #include "external_term.hpp"
 #include <algorithm>
-#include <unordered_set>
 
 class GeneralPurposeHeap {
-  StablePoolAllocator<std::array<ErlTerm, 2>> list_allocator;
-  std::unordered_set<ErlTerm *> others_alloced;
+  StableBumpAllocator<ErlTerm> bump_allocator;
 
 public:
-  inline ErlTerm *allocate_cons() { return list_allocator.alloc()->begin(); };
-  inline ErlTerm *allocate_other(size_t size) {
-    auto alloced = new ErlTerm[size];
-    others_alloced.insert(alloced);
-    return alloced;
+  inline ErlTerm *allocate(size_t size) {
+    return bump_allocator.alloc(size);
   }
 
-  inline bool contains_other(ErlTerm *ptr) {
-    return others_alloced.contains(ptr);
+  inline bool contains(ErlTerm *ptr) {
+    return bump_allocator.contains(ptr);
   };
-
-  inline void free_all() {
-    list_allocator.free_all();
-    for (auto alloced : others_alloced) {
-      delete[] alloced;
-    }
-  }
-
 };
 
 struct YoungHeap {
