@@ -1,4 +1,5 @@
 #include "garbage_collection.hpp"
+#include "allocator.hpp"
 #include "external_term.hpp"
 #include "profiler.hpp"
 #include <algorithm>
@@ -47,14 +48,14 @@ YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
       return;
     }
     case 0b01: {
+      // list case
       if (!current_young.contains(copy_ptr)) {
-        // i.e. it is in the old heap and we don't have to gc it
+        // it is in the old heap and we don't have to gc it
         return;
       }
 
-      // list case
+        // list already moved
       if (copy_ptr[0] == MOVED_CONS_MARKER) {
-        // i.e list already moved
         *ptr_term_ptr = copy_ptr[1];
         return;
       }
@@ -70,7 +71,7 @@ YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
         old_heap_to_fix.push({new_ref, 2});
 
       } else {
-        new_ref = alloc_and_copy(std::span<ErlTerm>{copy_ptr, 2});
+        new_ref = alloc_and_copy(span);
       }
 
       auto new_erl_ref = make_cons(new_ref);
@@ -127,6 +128,12 @@ YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
     }
   }
 
+  ErlTerm *new_bot = to_space.data();
+  while (new_bot < new_top) {
+    copy_term(new_bot);
+    new_bot += 1;
+  }
+
   while (!old_heap_to_fix.empty()) {
     auto next = old_heap_to_fix.top();
     old_heap_to_fix.pop();
@@ -134,12 +141,6 @@ YoungHeap minor_gc(const std::vector<std::span<ErlTerm>> &root_set,
     for (auto &e : next) {
       copy_term(&e);
     }
-  }
-
-  ErlTerm *new_bot = to_space.data();
-  while (new_bot < new_top) {
-    copy_term(new_bot);
-    new_bot += 1;
   }
 
   // garbage collection should be done

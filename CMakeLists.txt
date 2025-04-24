@@ -96,12 +96,12 @@ endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
   target_compile_definitions(jreamlib PRIVATE
-    # ENABLE_MEMORY_LOG=1
+    ENABLE_MEMORY_LOG=1
   )
 endif()
 
 # currently has a few bugs
-option(GENERATIONAL_GC "Enable generational garbage collection" OFF)
+option(GENERATIONAL_GC "Enable generational garbage collection" ON)
 if(GENERATIONAL_GC) 
   target_compile_definitions(jreamlib PRIVATE
       ENABLE_GENERATIONAL_GC=1

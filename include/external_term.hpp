@@ -249,6 +249,9 @@ inline ErlMajorType ErlTerm::getErlMajorType() const {
   case CATCH_T:
   case HEADER_T:
   default: {
+    if (term == 37 << 2) {
+      throw std::logic_error("Not a valid mark. Likely a MOVED_CONS_MARKER");
+    }
     throw std::logic_error(std::format("Not a valid type {:b}", term));
   }
   }
