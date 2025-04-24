@@ -271,10 +271,6 @@ ErlTerm try_parse(std::string term, bool parse_multiple = false) {
   auto code_chunk = get_minimal_code_chunk();
   auto pcb = get_process(code_chunk);
 
-  ErlTerm heap[100];
-  pcb->set_shared<HTOP>(heap);
-  pcb->set_shared<STOP>(heap + 100);
-
   // when
   if (!parse_multiple) {
     return parse_term(term);
@@ -2471,7 +2467,8 @@ TEST(GC, CopyFirstPass) {
 
   check_stack();
 
-  auto tuple = pcb->do_gc(10, 0);
+  auto tuple = pcb->allocate_heap_frag(11);
+  tuple[0] = 10 << 6;
 
   std::iota(tuple + 1, tuple + 11, 1);
   auto initial = make_boxed(tuple);
@@ -2494,7 +2491,8 @@ TEST(GC, CopyShared) {
   set_current_pcb(*pcb);
   auto xregs = pcb->get_shared<XREG_ARRAY>();
 
-  auto tuple = pcb->do_gc(10, 0);
+  auto tuple = pcb->allocate_heap_frag(11);
+  tuple[0] = 10 << 6;
 
   std::iota(tuple + 1, tuple + 11, 1);
   auto initial = make_boxed(tuple);
@@ -2503,7 +2501,7 @@ TEST(GC, CopyShared) {
 
   // force gc
   const auto ALLOC_SIZE = pcb->heap.size();
-  pcb->do_gc(ALLOC_SIZE, 0);
+  pcb->do_gc(ALLOC_SIZE, 2);
 
   ASSERT_NE(xregs[0], initial);
   assert_tuple(xregs[0], {1, 2, 3, 4, 5, 6, 7, 8, 9, 10});

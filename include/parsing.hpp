@@ -119,7 +119,7 @@ ErlTerm parse_tuple(const std::string &term, size_t &from, T *pcb) {
   auto terms = collect_till(term, '}', from, pcb);
 
   auto alloced = pcb->allocate_heap_frag(terms.size() + 1);
-  alloced[0] = terms.size() << 2;
+  alloced[0] = terms.size() << 6;
 
   for (size_t i = 0; i < terms.size(); i++) {
     alloced[i + 1] = terms[i];
