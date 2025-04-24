@@ -67,11 +67,9 @@ add_library(jreamlib
   src/translation.cpp
   src/bif.cpp
   src/pcb.cpp
-  src/exceptions.cpp
   src/execution.cpp
   src/external_term.cpp
   src/asm_callable.cpp
-  src/setup_logging.cpp
   src/beam_defs.cpp
   src/precompiled.cpp
 )
