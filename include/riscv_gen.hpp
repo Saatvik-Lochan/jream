@@ -1,13 +1,11 @@
 #ifndef RISCV_GEN
 #define RISCV_GEN
 
-#include "beam_defs.hpp"
 #include "pcb.hpp"
 #include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <format>
-#include <stdexcept>
 #include <vector>
 
 struct RISCV_Instruction {
@@ -117,8 +115,22 @@ inline RISCV_Instruction create_S_type_instruction(uint8_t opcode,
   return out;
 }
 
+inline RISCV_Instruction create_U_type_instruction(uint8_t opcode, uint8_t rd,
+                                                   uint32_t imm) {
+  // i.e. 20 bits or less
+  assert((imm >> 20) == 0);
+
+  RISCV_Instruction out;
+  out.set_opcode(opcode);
+  out.set_rd(opcode);
+
+  out.set_bits(12, 32, imm, 0);
+
+  return out;
+}
+
 inline RISCV_Instruction create_branch_equal(uint8_t rs1, uint8_t rs2,
-                                             uint16_t imm) {
+                                             int16_t imm) {
   constexpr auto op_code_bits = 0b1100011;
   constexpr auto funct3_bits = 0x0;
 
@@ -126,19 +138,48 @@ inline RISCV_Instruction create_branch_equal(uint8_t rs1, uint8_t rs2,
 }
 
 inline RISCV_Instruction create_branch_not_equal(uint8_t rs1, uint8_t rs2,
-                                                 uint16_t imm) {
+                                                 int16_t imm) {
   constexpr auto op_code_bits = 0b1100011;
   constexpr auto funct3_bits = 0x1;
 
   return create_B_type_instruction(op_code_bits, funct3_bits, rs1, rs2, imm);
 }
 
-inline RISCV_Instruction create_add_immediate(uint8_t rd, uint8_t rs,
-                                              uint16_t imm) {
-  constexpr auto op_code_bits = 0b0010011; // load
-  constexpr auto funct3_bits = 0x0;
-  //
+inline RISCV_Instruction create_or_immediate(uint8_t rd, uint8_t rs,
+                                             int16_t imm) {
+  constexpr auto op_code_bits = 0b0010011;
+  constexpr auto funct3_bits = 0x4;
   return create_I_type_instruction(op_code_bits, rd, funct3_bits, rs, imm);
+}
+
+inline RISCV_Instruction create_add_immediate(uint8_t rd, uint8_t rs,
+                                              int16_t imm) {
+  constexpr auto op_code_bits = 0b0010011;
+  constexpr auto funct3_bits = 0x0;
+
+  return create_I_type_instruction(op_code_bits, rd, funct3_bits, rs, imm);
+}
+
+inline RISCV_Instruction
+create_shift_left_logical_immediate(uint8_t rd, uint8_t rs, int16_t imm) {
+  constexpr auto op_code_bits = 0b0010011;
+  constexpr auto funct3_bits = 0x1;
+
+  // 5 bits or less
+  assert(imm >> 5 == 0);
+
+  auto out = create_I_type_instruction(op_code_bits, rd, funct3_bits, rs, imm);
+
+  constexpr uint16_t shift_specialization = 0;
+  out.set_bits(25, 32, shift_specialization, 0);
+
+  return out;
+}
+
+inline RISCV_Instruction create_load_upper_immediate(uint8_t rd, uint32_t imm) {
+  constexpr auto op_code_bits = 0b0110111;
+
+  return create_U_type_instruction(op_code_bits, rd, imm);
 }
 
 inline RISCV_Instruction create_load_doubleword(uint8_t rd, uint8_t rs,
@@ -200,6 +241,51 @@ create_store_y_reg(uint8_t riscv_dest_reg, uint16_t y_reg_num,
       // sd riscv_dest_reg, y_reg_num + 1(spare_register)
       create_store_doubleword(spare_register, riscv_dest_reg,
                               (y_reg_num + 1) * 8)};
+}
+
+constexpr uint64_t mask(uint64_t size) { return (1UL << size) - 1; }
+
+// this loads the immediate literally
+// doesn't work well with signed immediates
+//
+// hard to test this
+inline std::vector<RISCV_Instruction>
+create_load_immediate(uint8_t rd, uint64_t immediate) {
+
+  std::vector<RISCV_Instruction> out;
+
+  // i.e. 32 bits full
+  if (immediate > 0xfff) {
+    constexpr uint32_t MASK = mask(20);
+    out.emplace_back(create_load_upper_immediate(rd, (immediate >> 12) & MASK));
+  }
+
+  out.emplace_back(create_or_immediate(rd, rd, immediate & mask(12)));
+
+  immediate >>= 32;
+
+  if (immediate == 0) {
+    return out;
+  }
+
+  // signed immediates which are reinterpreted will falsely come here
+  // try add_immediate if adding signed immediates
+
+  // we don't lui again because of cpu things
+  auto low = std::make_pair(immediate & mask(12), 12);
+  auto medium = std::make_pair((immediate >> 12) & mask(12), 12);
+  auto high = std::make_pair((immediate >> 24) & mask(8), 8);
+
+  for (auto [imm, size] : {high, medium, low}) {
+    if (imm == 0) {
+      continue;
+    }
+
+    out.emplace_back(create_shift_left_logical_immediate(rd, rd, size));
+    out.emplace_back(create_or_immediate(rd, rd, imm));
+  }
+
+  return out;
 }
 
 #endif
