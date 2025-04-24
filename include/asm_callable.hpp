@@ -33,7 +33,7 @@ void log_xregs(size_t num_xregs);
 // so we can access the elemnts in one instruction from riscv.
 //
 // Every function must have a comment with it's meta meta assembly name
-// or the indexing will be wrong
+// to enable the meta assembly compiler to work
 inline std::uintptr_t all_funs[] = {
     CAST(print_int),                   // m_asm: PRINT_INT
     CAST(get_or_compile_label),        // m_asm: COMPILE_LABEL

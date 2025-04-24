@@ -93,7 +93,7 @@ EntryPoint Emulator::get_entry_point(GlobalFunctionId function_id) {
                     .label = export_id.label};
 }
 
-template <std::ranges::range R> std::string queue_string(R q) {
+template <std::ranges::range R> std::string get_queue_string(R q) {
   std::string out = "{";
 
   if (q.empty()) {
@@ -186,8 +186,8 @@ ErlTerm Emulator::run(ProcessControlBlock *pcb) {
     }
 
     SLOG("After " << count++ << ":");
-    SLOG("\twaiting: " << queue_string(scheduler.waiting));
-    SLOG("\trunnable: " << queue_string(scheduler.runnable));
+    SLOG("\twaiting: " << get_queue_string(scheduler.waiting));
+    SLOG("\trunnable: " << get_queue_string(scheduler.runnable));
   }
 
   return pcb->get_shared<XREG_ARRAY>()[0];
