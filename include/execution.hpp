@@ -4,8 +4,11 @@
 #include "beam_defs.hpp"
 #include "pcb.hpp"
 #include <cassert>
+#include <condition_variable>
 #include <cstdint>
 #include <deque>
+#include <queue>
+#include <sched.h>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
@@ -20,17 +23,71 @@ enum ErlReturnCode {
   HEAP_SPACE = 4
 };
 
+struct ThreadSafeQueue {
+private:
+  std::queue<ProcessControlBlock *> queue;
+  std::mutex mtx;
+  std::condition_variable cv;
+  bool shutdown = false;
+
+public:
+  void push(ProcessControlBlock *p) {
+    {
+      std::lock_guard<std::mutex> lock(mtx);
+      queue.push(std::move(p));
+    }
+    cv.notify_one();
+  }
+
+  bool pop(ProcessControlBlock *&out) {
+    std::unique_lock<std::mutex> lock(mtx);
+    cv.wait(lock, [&] { return shutdown || !queue.empty(); });
+
+    if (shutdown && queue.empty())
+      return false;
+
+    out = std::move(queue.front());
+    queue.pop();
+    return true;
+  }
+
+  void stop() {
+    {
+      std::lock_guard<std::mutex> lock(mtx);
+      shutdown = true;
+    }
+    cv.notify_all();
+  }
+};
+
+struct WaitingPool {
+private:
+  std::unordered_set<ProcessControlBlock *> pool;
+  std::mutex mtx;
+
+public:
+  // Insert a process into the pool
+  void insert(ProcessControlBlock *pcb) {
+    std::lock_guard<std::mutex> lock(mtx);
+    pool.insert(pcb);
+  }
+
+  // Remove a process by ID; return it if found
+  bool remove(ProcessControlBlock *pcb) {
+    std::lock_guard<std::mutex> lock(mtx);
+    return static_cast<bool>(pool.erase(pcb));
+  }
+};
+
 struct Scheduler {
-  std::deque<ProcessControlBlock *> runnable;
-  std::unordered_set<ProcessControlBlock *> waiting;
+  ThreadSafeQueue runnable;
+  WaitingPool waiting;
 
-  ProcessControlBlock *pick_next();
   bool signal(ProcessControlBlock *process);
-
   ProcessControlBlock *get_current_process() { return executing_process; }
 
 private:
-  ProcessControlBlock *executing_process = nullptr;
+  static thread_local ProcessControlBlock *executing_process;
 };
 
 struct Emulator {

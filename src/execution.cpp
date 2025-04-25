@@ -7,13 +7,14 @@
 #include <string>
 #include <strings.h>
 #include <sys/mman.h>
+#include <thread>
 
 #include "asm_callable.hpp"
 #include "asm_utility.hpp"
 #include "beam_defs.hpp"
 #include "beamparser.hpp"
-#include "execution.hpp"
 #include "bif.hpp"
+#include "execution.hpp"
 #include "external_term.hpp"
 #include "parsing.hpp"
 #include "pcb.hpp"
@@ -41,34 +42,14 @@ ErlReturnCode resume_process(ProcessControlBlock *pcb) {
   return setup_and_go_label(pcb, pcb->get_shared<RESUME_LABEL>());
 }
 
-ProcessControlBlock *Scheduler::pick_next() {
-  PROFILE();
-
-  if (runnable.empty()) {
-    executing_process = nullptr;
-    return nullptr;
-  }
-
-  auto pcb = runnable.front();
-  runnable.pop_front();
-
-  pcb->set_shared<REDUCTIONS>(1000);
-
-  executing_process = pcb;
-  return pcb;
-}
-
 bool Scheduler::signal(ProcessControlBlock *process) {
-  auto it = waiting.find(process);
+  auto removed = waiting.remove(process);
 
-  if (it == waiting.end()) {
-    return false;
+  if (removed) {
+    runnable.push(process);
   }
 
-  auto node = waiting.extract(it);
-  runnable.push_back(std::move(node.value()));
-
-  return true;
+  return removed;
 }
 
 void Emulator::register_beam_sources(std::vector<BeamSrc *> sources) {
@@ -114,7 +95,7 @@ ErlTerm Emulator::get_atom_current(std::string atom_name) {
   auto pcb = scheduler.get_current_process();
   auto atom_index = pcb->get_shared<CODE_CHUNK_P>()->atom_chunk->atom_index;
   auto it = atom_index.find(atom_name);
-      
+
   if (it == atom_index.end()) {
     return make_atom(0); // this atom will be ignored since it is never used
   }
@@ -133,23 +114,16 @@ std::string Emulator::get_atom_string_current(ErlTerm e) {
   return value;
 }
 
-ErlTerm Emulator::run(ProcessControlBlock *pcb) {
-  PROFILE();
-
-  auto &scheduler = emulator_main.scheduler;
-  scheduler.runnable.push_back(pcb);
-
 #ifdef ENABLE_SCHEDULER_LOG
 #define SLOG(...) LOG(INFO) << __VA_ARGS__
 #else
 #define SLOG(...) (void)0
 #endif
 
-#ifdef ENABLE_SCHEDULER_LOG
-  auto count = 1;
-#endif
+void scheduler_loop(Scheduler &scheduler, ProcessControlBlock *root_pcb) {
+  ProcessControlBlock *to_run;
+  while (scheduler.runnable.pop(to_run)) {
 
-  while (auto to_run = scheduler.pick_next()) {
     SLOG("Now executing: " << to_run);
 
     auto result = resume_process(to_run);
@@ -159,17 +133,15 @@ ErlTerm Emulator::run(ProcessControlBlock *pcb) {
       throw std::logic_error("Internal process finished with an error");
     }
     case FINISH: {
-      if (to_run != pcb) {
+      if (to_run != root_pcb) {
         delete to_run;
-      } else {
-        io_write(to_run->get_shared<XREG_ARRAY>()[0]);
       }
       SLOG("A process finished: " << to_run);
       break;
     }
     case YIELD: {
       SLOG("A process yielded: " << to_run);
-      scheduler.runnable.push_back(to_run);
+      scheduler.runnable.push(to_run);
       break;
     }
     case WAIT: {
@@ -184,11 +156,23 @@ ErlTerm Emulator::run(ProcessControlBlock *pcb) {
       throw std::runtime_error(
           "A process has failed due to a lack of heap space");
     }
-
-    SLOG("After " << count++ << ":");
-    SLOG("\twaiting: " << get_queue_string(scheduler.waiting));
-    SLOG("\trunnable: " << get_queue_string(scheduler.runnable));
   }
+}
+
+ErlTerm Emulator::run(ProcessControlBlock *pcb) {
+  PROFILE();
+
+  {
+    auto n_cores = std::thread::hardware_concurrency();
+
+    std::vector<std::jthread> threads;
+    scheduler.runnable.push(pcb);
+
+    for (uint i = 0; i < n_cores; i++) {
+      threads.emplace_back(
+          std::jthread(scheduler_loop, emulator_main.scheduler, pcb));
+    }
+  } // threads join
 
   return pcb->get_shared<XREG_ARRAY>()[0];
 }
