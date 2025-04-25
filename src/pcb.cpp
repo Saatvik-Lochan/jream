@@ -7,6 +7,7 @@
 #include <glog/logging.h>
 #include <iterator>
 #include <memory>
+#include <mutex>
 
 ErlTerm make_pid(ProcessControlBlock *pcb) {
   return (reinterpret_cast<uint64_t>(pcb) & PID_TAGGING_MASK) + 0b0011;
@@ -20,9 +21,18 @@ ProcessControlBlock *from_pid(ErlTerm term) {
 
 void ProcessControlBlock::queue_message(Message *msg) {
   PROFILE();
+  std::lock_guard<std::mutex> guard(message_queue);
   auto mbox_tail = get_shared<MBOX_TAIL>();
   *mbox_tail = msg;
   set_shared<MBOX_TAIL>(msg->get_next_address());
+}
+
+bool ProcessControlBlock::msg_q_empty() {
+  std::lock_guard<std::mutex> guard(message_queue);
+  auto tail = get_shared<MBOX_TAIL>();
+  auto saved = get_shared<MBOX_SAVE>();
+
+  return tail == saved;
 }
 
 std::span<ErlTerm> get_next_to_space(ProcessControlBlock *pcb,

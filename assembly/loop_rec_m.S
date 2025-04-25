@@ -1,7 +1,7 @@
-# check if save == tail
 load_shared t0, MBOX_SAVE
 load_shared t1, MBOX_TAIL
 
+# check if save == tail
 # if yes jump to label
 split
 

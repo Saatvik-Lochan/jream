@@ -7,7 +7,6 @@
 #include "../include/parsing.hpp"
 #include "../include/riscv_gen.hpp"
 #include "../include/setup_logging.hpp"
-#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -41,9 +40,7 @@ std::unique_ptr<BeamSrc> get_beam_file(BeamFileConstructor b) {
 }
 
 void set_current_pcb(ProcessControlBlock &pcb) {
-  emulator_main.scheduler.runnable.clear();
-  emulator_main.scheduler.runnable.push_back(&pcb);
-  emulator_main.scheduler.pick_next();
+  emulator_main.scheduler.executing_process = &pcb;
 }
 
 std::unique_ptr<ProcessControlBlock> get_process(CodeChunk *code_chunk,
@@ -1423,7 +1420,7 @@ TEST(RISCV, Spawn) {
   auto new_xregs = spawned_process->get_shared<XREG_ARRAY>();
 
   auto &runnable = emulator_main.scheduler.runnable;
-  ASSERT_NE(std::ranges::find(runnable, spawned_process), runnable.end());
+  ASSERT_TRUE(runnable.contains(spawned_process));
   ASSERT_EQ(new_xregs[0], 10);
   ASSERT_EQ(new_xregs[1], 20);
   ASSERT_EQ(new_xregs[2], 30);
@@ -1563,7 +1560,7 @@ TEST(RISCV, Send) {
   auto xreg = pcb->get_shared<XREG_ARRAY>();
 
   auto other_pcb = get_process(code_chunk);
-  emulator_main.scheduler.waiting.insert(other_pcb.get());
+  emulator_main.scheduler.waiting.insert_if_empty(other_pcb.get());
 
   std::vector<ErlTerm> list = {0, 1, 2, 3, 4};
 
@@ -1586,9 +1583,10 @@ TEST(RISCV, Send) {
   ASSERT_EQ(msg_vec, list);
   ASSERT_NE(msg_payload, erl_list);
 
-  const auto &scheduler = emulator_main.scheduler;
-  const auto &runnable = scheduler.runnable;
-  ASSERT_NE(std::ranges::find(runnable, other_pcb.get()), runnable.end());
+  auto &scheduler = emulator_main.scheduler;
+  auto &runnable = scheduler.runnable;
+
+  ASSERT_FALSE(runnable.contains(other_pcb.get()));
   ASSERT_FALSE(scheduler.waiting.contains(other_pcb.get()));
 }
 

@@ -6,15 +6,10 @@
 
 #include "beam_defs.hpp"
 #include "messages.hpp"
+#include "pcb.hpp"
 #include <cstdint>
 
-struct CompileLabelReturn {
-  const uint8_t *label_loc;
-  uint64_t **new_compacted_arg_p_array;
-};
-
-const uint8_t *get_or_compile_label(CodeChunk *code_chunk,
-                                         uint64_t func_index);
+const uint8_t *get_or_compile_label(CodeChunk *code_chunk, uint64_t func_index);
 
 void print_int(uint64_t a);
 void update_code_chunk_registers(CodeChunk *code_chunk);
@@ -23,6 +18,10 @@ void send_message(ErlTerm *);
 uint64_t compare(uint64_t term1, uint64_t term2);
 void print_op_name(uint64_t op_code);
 void execute_minor_gc(size_t new_term_size, size_t xregs);
+
+void lock_msg_queue(ProcessControlBlock *pcb);
+void unlock_msg_queue(ProcessControlBlock *pcb);
+
 void log_function(size_t module_index, size_t function_index, size_t arity);
 void log_label(uint64_t label);
 void log_xregs(size_t num_xregs);
@@ -43,6 +42,8 @@ inline std::uintptr_t all_funs[] = {
     CAST(compare),                     // m_asm: COMPARE
     CAST(print_op_name),               // m_asm: PRINT_OP_NAME
     CAST(execute_minor_gc),            // m_asm: EXECUTE_GC
+    CAST(lock_msg_queue),              // m_asm: LOCK_MSG_Q
+    CAST(unlock_msg_queue),            // m_asm: UNLOCK_MSG_Q
     CAST(log_function),                // m_asm: LOG_FUNC_INFO
     CAST(log_label),                   // m_asm: LOG_LABEL
     CAST(log_xregs),                   // m_asm: LOG_XREGS

@@ -5,6 +5,7 @@
 #include "garbage_collection.hpp"
 #include "messages.hpp"
 #include <cstdint>
+#include <mutex>
 #include <unordered_map>
 
 #include "beam_defs.hpp"
@@ -55,7 +56,9 @@ struct __attribute__((aligned(16))) ProcessControlBlock {
   std::unordered_map<uint64_t, ErlTerm> process_dict;
 
   // message passing
+  std::mutex message_queue;
   void queue_message(Message *msg);
+  bool msg_q_empty();
 
   std::span<ErlTerm> get_stack() {
     return std::span<ErlTerm>{get_shared<STOP>(), heap.data() + heap.size()};

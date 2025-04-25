@@ -7,6 +7,7 @@
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
+#include <mutex>
 #include <queue>
 #include <sched.h>
 #include <type_traits>
@@ -25,7 +26,7 @@ enum ErlReturnCode {
 
 struct ThreadSafeQueue {
 private:
-  std::queue<ProcessControlBlock *> queue;
+  std::deque<ProcessControlBlock *> queue;
   std::mutex mtx;
   std::condition_variable cv;
   bool shutdown = false;
@@ -34,7 +35,7 @@ public:
   void push(ProcessControlBlock *p) {
     {
       std::lock_guard<std::mutex> lock(mtx);
-      queue.push(std::move(p));
+      queue.push_back(std::move(p));
     }
     cv.notify_one();
   }
@@ -47,7 +48,7 @@ public:
       return false;
 
     out = std::move(queue.front());
-    queue.pop();
+    queue.pop_front();
     return true;
   }
 
@@ -58,6 +59,16 @@ public:
     }
     cv.notify_all();
   }
+
+  void clear() {
+    std::lock_guard<std::mutex> lock(mtx);
+    queue.clear();
+  }
+
+  bool contains(ProcessControlBlock *pcb) {
+    std::lock_guard<std::mutex> lock(mtx);
+    return std::ranges::find(queue, pcb) != queue.end();
+  }
 };
 
 struct WaitingPool {
@@ -67,15 +78,26 @@ private:
 
 public:
   // Insert a process into the pool
-  void insert(ProcessControlBlock *pcb) {
+  bool insert_if_empty(ProcessControlBlock *pcb) {
     std::lock_guard<std::mutex> lock(mtx);
+
+    if (pcb->msg_q_empty()) {
+      return false;
+    }
+
     pool.insert(pcb);
+    return true;
   }
 
   // Remove a process by ID; return it if found
   bool remove(ProcessControlBlock *pcb) {
     std::lock_guard<std::mutex> lock(mtx);
     return static_cast<bool>(pool.erase(pcb));
+  }
+
+  bool contains(ProcessControlBlock *pcb) {
+    std::lock_guard<std::mutex> lock(mtx);
+    return pool.contains(pcb);
   }
 };
 
@@ -86,7 +108,6 @@ struct Scheduler {
   bool signal(ProcessControlBlock *process);
   ProcessControlBlock *get_current_process() { return executing_process; }
 
-private:
   static thread_local ProcessControlBlock *executing_process;
 };
 

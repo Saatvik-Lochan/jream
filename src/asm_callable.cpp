@@ -122,3 +122,11 @@ void log_function(size_t module_index, size_t function_index, size_t arity) {
   LOG(INFO) << "Entering function - " << module_name << ":" << function_name
             << "/" << arity;
 }
+
+void lock_msg_queue(ProcessControlBlock *pcb) {
+  pcb->message_queue.lock();
+}
+
+void unlock_msg_queue(ProcessControlBlock *pcb) {
+  pcb->message_queue.unlock();
+}

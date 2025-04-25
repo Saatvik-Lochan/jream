@@ -70,7 +70,7 @@ BIFReturn spawn_1(uint64_t fun_raw) {
   std::copy(header_ptr + 2, header_ptr + 2 + num_free, new_x_reg + func_arity);
 
   // move to ready queue
-  emulator_main.scheduler.runnable.push_back(pcb);
+  emulator_main.scheduler.runnable.push(pcb);
 
   // prepare return value
   return make_pid(pcb);

@@ -13,13 +13,14 @@
 #include "asm_utility.hpp"
 #include "beam_defs.hpp"
 #include "beamparser.hpp"
-#include "bif.hpp"
 #include "execution.hpp"
 #include "external_term.hpp"
 #include "parsing.hpp"
 #include "pcb.hpp"
 #include "precompiled.hpp"
 #include "profiler.hpp"
+
+thread_local ProcessControlBlock *Scheduler::executing_process = nullptr;
 
 ErlReturnCode setup_and_go_label(ProcessControlBlock *pcb, uint64_t label_num) {
   PROFILE();
@@ -121,9 +122,9 @@ std::string Emulator::get_atom_string_current(ErlTerm e) {
 #endif
 
 void scheduler_loop(Scheduler &scheduler, ProcessControlBlock *root_pcb) {
-  ProcessControlBlock *to_run;
-  while (scheduler.runnable.pop(to_run)) {
+  auto &to_run = scheduler.executing_process;
 
+  while (scheduler.runnable.pop(to_run)) {
     SLOG("Now executing: " << to_run);
 
     auto result = resume_process(to_run);
@@ -135,6 +136,10 @@ void scheduler_loop(Scheduler &scheduler, ProcessControlBlock *root_pcb) {
     case FINISH: {
       if (to_run != root_pcb) {
         delete to_run;
+      } else {
+        // other threads will stop waiting on pop the next time the
+        // queue is empty
+        scheduler.runnable.stop();
       }
       SLOG("A process finished: " << to_run);
       break;
@@ -146,7 +151,10 @@ void scheduler_loop(Scheduler &scheduler, ProcessControlBlock *root_pcb) {
     }
     case WAIT: {
       SLOG("A process is waiting: " << to_run);
-      scheduler.waiting.insert(to_run);
+      auto inserted = scheduler.waiting.insert_if_empty(to_run);
+      if (!inserted) {
+        scheduler.runnable.push(to_run);
+      }
       break;
     }
     case BADMATCH: {
@@ -169,8 +177,8 @@ ErlTerm Emulator::run(ProcessControlBlock *pcb) {
     scheduler.runnable.push(pcb);
 
     for (uint i = 0; i < n_cores; i++) {
-      threads.emplace_back(
-          std::jthread(scheduler_loop, emulator_main.scheduler, pcb));
+      threads.emplace_back(scheduler_loop, std::ref(emulator_main.scheduler),
+                           pcb);
     }
   } // threads join
 
