@@ -266,16 +266,17 @@ TEST(ErlTerm, DeepCopyNestedShared) {
   assert_deepcopy_list(copy_ptr[1], tuple_ptr[1]);
 }
 
-ErlTerm try_parse(std::string term, bool parse_multiple = false) {
+std::pair<ErlTerm, std::unique_ptr<ProcessControlBlock>>
+try_parse(std::string term, bool parse_multiple = false) {
 
   auto code_chunk = get_minimal_code_chunk();
   auto pcb = get_process(code_chunk);
 
   // when
   if (!parse_multiple) {
-    return parse_term(term);
+    return {parse_term(term), std::move(pcb)};
   } else {
-    return parse_multiple_terms(term);
+    return {parse_multiple_terms(term), std::move(pcb)};
   }
 }
 
@@ -283,7 +284,7 @@ TEST(ErlTerm, ParseList) {
   std::string test = "[1, 2, 3, 4, 5].";
 
   // when
-  auto result = try_parse(test);
+  auto [result, pcb] = try_parse(test);
 
   // then
   auto vec = vec_from_erl_list(result);
@@ -300,7 +301,7 @@ TEST(ErlTerm, ParseListBadFormatting) {
   std::string test = "[  1 , 2  , 3 , 4  , 5 ].";
 
   // when
-  auto result = try_parse(test);
+  auto [result, pcb] = try_parse(test);
 
   // then
   auto vec = vec_from_erl_list(result);
@@ -317,7 +318,7 @@ TEST(ErlTerm, ParseMix) {
   std::string test = "{1, [2, 3], 4}.";
 
   // when
-  auto result = try_parse(test);
+  auto [result, pcb] = try_parse(test);
 
   // then
   ASSERT_EQ(result.getErlMajorType(), TUPLE_ET);
@@ -345,7 +346,7 @@ TEST(ErlTerm, ParseMultiple) {
   std::string test = "1, 2, 3, 4.";
 
   // when
-  auto result = try_parse(test, true);
+  auto [result, pcb] = try_parse(test, true);
 
   // then
   auto received_vec = vec_from_erl_list(result);
@@ -362,7 +363,7 @@ TEST(ErlTerm, ParseUnderscoreInt) {
   std::string test = "10_000";
 
   // when
-  auto result = try_parse(test);
+  auto [result, pcb] = try_parse(test);
 
   // then
   ASSERT_EQ(result, mi(10000));
