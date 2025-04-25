@@ -13,7 +13,7 @@ struct CompileLabelReturn {
   uint64_t **new_compacted_arg_p_array;
 };
 
-CompileLabelReturn get_or_compile_label(CodeChunk *code_chunk,
+const uint8_t *get_or_compile_label(CodeChunk *code_chunk,
                                          uint64_t func_index);
 
 void print_int(uint64_t a);

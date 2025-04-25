@@ -473,6 +473,23 @@ TEST(Assembly, CreateLoadDoubleWord) {
   }
 }
 
+TEST(Assembly, SetITypeImm) {
+  uint8_t rd = 31;
+  uint8_t rs = 10;
+  int16_t imm = 100;
+
+  // when
+  auto result = create_load_doubleword(rd, rs, imm);
+  set_imm_I_type_instruction(result, imm);
+
+  // then
+  uint8_t should[4] = {0x83, 0x3f, 0x45, 0x06};
+
+  for (int i = 0; i < 4; i++) {
+    ASSERT_EQ(result.raw[i], should[i]);
+  }
+}
+
 TEST(Assembly, CreateBranchEquals) {
   uint8_t rs1 = 5;
   uint8_t rs2 = 6;

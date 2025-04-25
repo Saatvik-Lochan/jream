@@ -30,7 +30,6 @@ CodeChunk::CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
   compiled_functions = new const uint8_t *[function_count];
   std::fill(compiled_functions, compiled_functions + function_count, nullptr);
 
-  // compact args for easy asm usage
   const auto len = instructions.size();
   assert(len != 0);
 

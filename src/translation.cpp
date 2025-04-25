@@ -57,6 +57,14 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
                                                    CodeSection code_sec) {
   PROFILE();
   std::vector<uint8_t> compiled;
+
+  struct ArgFixupRequest {
+    size_t instr_index;
+    uint64_t *arg_array;
+  };
+
+  std::vector<ArgFixupRequest>
+      arg_requests; // indices of auipc + load instructions to fix
   auto &label_offsets = code_chunk.label_offsets;
 
   // convenience lambdas
@@ -74,29 +82,16 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       };
 
   // add setup arguments to the list for when needed
-  const auto add_setup_args_code =
-      [&](std::initializer_list<uint64_t> args) {
-        auto arg_arr = new uint64_t[args.size()];
-        std::copy(args.begin(), args.end(), arg_arr);
+  const auto add_setup_args_code = [&](std::initializer_list<uint64_t> args) {
+    auto arg_arr = new uint64_t[args.size()];
+    std::copy(args.begin(), args.end(), arg_arr);
 
-        auto &compacted = code_chunk.compacted_arg_p_array;
-        auto next_free = compacted.size();
+    // store the offset of the arg
+    arg_requests.emplace_back(compiled.size(), arg_arr);
 
-        compacted.push_back(arg_arr);
-
-        // load the pointer at index'th value in the argument array (pointer
-        // to this in s2=x18) to the s3=x19 register
-
-        if (next_free <= mask(8)) { // * 8 < 12 bits with a signed immediate
-          add_riscv_instr(create_load_doubleword(19, 18, next_free * 8));
-        } else {
-          add_riscv_instrs(create_load_immediate(19, next_free));
-          add_riscv_instr(create_shift_left_logical_immediate(19, 19, 3));
-          add_riscv_instr(create_load_doubleword(19, 19, 0));
-        }
-
-        next_free++;
-      };
+    add_riscv_instr(create_add_upper_immediate_to_pc(19, 0));
+    add_riscv_instr(create_load_doubleword(19, 19, 0));
+  };
 
   // create load/store appropriate
   const auto add_store_appropriate = [&](Argument arg, uint8_t src_reg,
@@ -1083,6 +1078,48 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     int16_t offset = label_val - index;
 
     set_imm_B_type_instruction(*as_riscv_instr, offset);
+  }
+
+  // fix arg array requests
+  for (auto [auipc_index, arg_array] : arg_requests) {
+    auto offset_from_start = compiled.size();
+
+    // little endian ordering
+    for (int i = 0; i < 8; i++) {
+      compiled.push_back((reinterpret_cast<uint64_t>(arg_array) >> (i * 8)) &
+                         mask(8));
+    }
+
+    auto offset = offset_from_start - auipc_index;
+
+    // 32nd bit cannot be set (will be interpreted as signed)
+    if (offset > mask(31)) {
+      throw std::logic_error(
+          "Code size too large. Cannot link argument array.");
+    }
+
+    int32_t casted_offset = offset;
+
+    // round while shifting down - this is to prevent signed issues
+    // (since the 12th bit of load immediate might be one)
+    auto auipc_imm = (casted_offset + (1 << 11)) >> 12;
+    auto load_imm = casted_offset - (auipc_imm << 12);
+
+    LOG(INFO) << auipc_imm;
+    LOG(INFO) << load_imm;
+
+    auto update =
+        [&compiled](auto index, auto imm, auto set_instr) {
+          RISCV_Instruction riscv_instr;
+          std::memcpy(&riscv_instr, &compiled[index], 4);
+          set_instr(riscv_instr, imm);
+          std::memcpy(&compiled[index], &riscv_instr, 4);
+        };
+
+    auto load_index = auipc_index + 4;
+
+    update(auipc_index, auipc_imm, set_imm_U_type_instruction);
+    update(load_index, load_imm, set_imm_I_type_instruction);
   }
 
   code_chunk.label_offsets = label_offsets;
