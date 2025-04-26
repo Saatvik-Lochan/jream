@@ -9,6 +9,7 @@
 #include <compare>
 #include <glog/logging.h>
 #include <iostream>
+#include <mutex>
 
 void print_int(uint64_t a) { std::cout << a << std::endl; }
 
@@ -21,12 +22,12 @@ const uint8_t *get_or_compile_label(CodeChunk *code_chunk, uint64_t label) {
   LOG(INFO) << "\tcompiling label: " << label;
 #endif
 
-  if (compiled_code == nullptr) {
+  std::call_once(code_chunk->compiled_flags[func_index], [&]() {
 #ifdef ENABLE_JIT_LOG
     LOG(INFO) << "\tcompiling function: " << func_index;
 #endif
     compiled_code = compile_erlang_func(*code_chunk, func_index);
-  }
+  });
 
   auto offset = code_chunk->label_offsets[label];
   auto label_loc = compiled_code + offset;
@@ -69,8 +70,10 @@ void send_message(ErlTerm *xregs) {
   ProcessControlBlock *process = from_pid(destination_pid);
 
   auto size = get_heap_size(message);
-  auto heap_frag = process->allocate_heap_frag(size);
+  auto heap_frag = new ErlTerm[size];
   auto copied_handle = deepcopy(message, heap_frag);
+
+  process->assign_heap_frag({heap_frag, size});
 
   auto msg = new Message(copied_handle);
   process->queue_message(msg);
@@ -122,10 +125,6 @@ void log_function(size_t module_index, size_t function_index, size_t arity) {
             << "/" << arity;
 }
 
-void lock_msg_queue(ProcessControlBlock *pcb) {
-  pcb->message_queue.lock();
-}
+void lock_msg_queue(ProcessControlBlock *pcb) { pcb->message_queue.lock(); }
 
-void unlock_msg_queue(ProcessControlBlock *pcb) {
-  pcb->message_queue.unlock();
-}
+void unlock_msg_queue(ProcessControlBlock *pcb) { pcb->message_queue.unlock(); }

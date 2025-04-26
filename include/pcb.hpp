@@ -75,10 +75,16 @@ struct __attribute__((aligned(16))) ProcessControlBlock {
   }
 
   ErlTerm *allocate_heap_frag(size_t size) {
-    std::lock_guard<std::mutex> lock(heap_frags);
     auto ptr = new ErlTerm[size];
+
+    std::lock_guard<std::mutex> lock(heap_frags);
     heap_fragments.push_back({ptr, size});
     return ptr;
+  }
+
+  void assign_heap_frag(std::span<ErlTerm> span) {
+    std::lock_guard<std::mutex> lock(heap_frags);
+    heap_fragments.push_back(span);
   }
 
   // gc
@@ -93,11 +99,11 @@ struct __attribute__((aligned(16))) ProcessControlBlock {
   // ctor/dtor
   ProcessControlBlock(EntryPoint entry_point, size_t heap_size = 1024);
   ~ProcessControlBlock() {
-    for (auto val : heap_fragments) {
-      delete[] val.data();
-    }
-    delete[] heap.data();
-    delete[] get_shared<XREG_ARRAY>();
+    /*for (auto val : heap_fragments) {*/
+    /*  delete[] val.data();*/
+    /*}*/
+    /*delete[] heap.data();*/
+    /*delete[] get_shared<XREG_ARRAY>();*/
   }
 };
 

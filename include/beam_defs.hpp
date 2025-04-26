@@ -4,9 +4,11 @@
 #include "external_term.hpp"
 #include "op_arity.hpp"
 
+#include <atomic>
 #include <cassert>
 #include <cstdint>
 #include <cstring>
+#include <mutex>
 #include <unordered_map>
 #include <vector>
 
@@ -184,6 +186,7 @@ struct CodeChunk {
 
   const uint8_t *volatile *label_jump_locations;
   const uint8_t **compiled_functions;
+  std::once_flag *compiled_flags;
 
   volatile EntryPoint *external_jump_locations = nullptr;
 

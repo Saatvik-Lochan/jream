@@ -30,6 +30,8 @@ CodeChunk::CodeChunk(std::vector<Instruction> instrs, uint32_t function_count,
   compiled_functions = new const uint8_t *[function_count];
   std::fill(compiled_functions, compiled_functions + function_count, nullptr);
 
+  compiled_flags = new std::once_flag[function_count];
+
   const auto len = instructions.size();
   assert(len != 0);
 
@@ -248,7 +250,8 @@ ExportFunctionId BeamSrc::get_external_id(GlobalFunctionId global) {
   assert(module == global.module);
 
   const auto &map = export_table_chunk.func_to_export;
-  auto id_it = map.find(global.function_name + "/" + std::to_string(global.arity));
+  auto id_it =
+      map.find(global.function_name + "/" + std::to_string(global.arity));
 
   if (id_it == map.end()) {
     throw std::logic_error(

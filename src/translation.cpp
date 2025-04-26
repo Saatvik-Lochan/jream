@@ -1109,9 +1109,6 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     auto auipc_imm = (casted_offset + (1 << 11)) >> 12;
     auto load_imm = casted_offset - (auipc_imm << 12);
 
-    LOG(INFO) << auipc_imm;
-    LOG(INFO) << load_imm;
-
     auto update =
         [&compiled](auto index, auto imm, auto set_instr) {
           RISCV_Instruction riscv_instr;

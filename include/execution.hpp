@@ -10,9 +10,16 @@
 #include <mutex>
 #include <queue>
 #include <sched.h>
+#include <sstream>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
+
+#ifdef ENABLE_SCHEDULER_LOG
+#define SLOG(...) LOG(INFO) << __VA_ARGS__
+#else
+#define SLOG(...) (void)0
+#endif
 
 // must match with meta_assembly_compile
 enum ErlReturnCode {
@@ -81,10 +88,12 @@ public:
   bool insert_if_empty(ProcessControlBlock *pcb) {
     std::lock_guard<std::mutex> lock(mtx);
 
-    if (pcb->msg_q_empty()) {
+    if (!pcb->msg_q_empty()) {
       return false;
     }
 
+    SLOG(std::format("Inserting {:x} into the waiting pool",
+                     reinterpret_cast<uintptr_t>(pcb)));
     pool.insert(pcb);
     return true;
   }
@@ -98,6 +107,21 @@ public:
   bool contains(ProcessControlBlock *pcb) {
     std::lock_guard<std::mutex> lock(mtx);
     return pool.contains(pcb);
+  }
+
+  std::string print_contents() {
+    std::lock_guard<std::mutex> lock(mtx);
+    std::ostringstream out;
+
+    out << "{ ";
+
+    for (auto i : pool) {
+      out << i << " ";
+    }
+
+    out << "}";
+
+    return out.str();
   }
 };
 
