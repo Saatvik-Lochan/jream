@@ -110,19 +110,21 @@ ErlTerm *ProcessControlBlock::do_gc(size_t size, size_t xregs) {
   // do gc
   std::span<ErlTerm> new_heap_space(to_space.data(),
                                     to_space.size() - to_space_stack.size());
+
+  auto copied_heap_frags = get_and_clear_heap_frags();
   auto root_set = get_root_set(this, xregs, to_space_stack);
   auto result = minor_gc(root_set, new_heap_space,
                          {.heap_start = heap.data(),
                           .heap_top = htop,
                           .highwater = highwater,
-                          .frags = heap_fragments},
+                          .frags = copied_heap_frags},
                          old_heap);
 
   // store in case we need in the future
   prev_to_space = heap;
 
   // dealloc heap frags
-  for (auto frags : heap_fragments) {
+  for (auto frags : copied_heap_frags) {
     delete[] frags.data();
   }
 

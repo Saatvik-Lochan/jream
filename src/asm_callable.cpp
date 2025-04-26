@@ -15,7 +15,6 @@ void print_int(uint64_t a) { std::cout << a << std::endl; }
 const uint8_t *get_or_compile_label(CodeChunk *code_chunk, uint64_t label) {
   PROFILE();
   uint64_t func_index = code_chunk->label_func_table[label];
-
   auto &compiled_code = code_chunk->compiled_functions[func_index];
 
 #ifdef ENABLE_JIT_LOG

@@ -787,7 +787,9 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     }
 
     case REMOVE_MESSAGE_OP: {
+      add_code(get_riscv(LOCK_QUEUE_SNIP));
       add_code(get_riscv(REMOVE_SNIP));
+      add_code(get_riscv(UNLOCK_QUEUE_SNIP));
       break;
     }
 
@@ -828,8 +830,10 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto label = instr.arguments[0];
       assert(label.tag == LABEL_TAG);
 
+      add_code(get_riscv(LOCK_QUEUE_SNIP));
       add_code(get_riscv(LOOP_REC_END_SNIP));
       reserve_branch_label(label.arg_raw.arg_num);
+      add_code(get_riscv(UNLOCK_QUEUE_SNIP));
       // guaranteed branch - should replace with jump
       add_riscv_instr(create_branch_equal(0, 0, 0));
       break;
