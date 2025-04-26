@@ -1,11 +1,9 @@
 #include <atomic>
 #include <cstdlib>
-#include <future>
 #include <glog/logging.h>
 
 #include <cassert>
 #include <cstdint>
-#include <stdatomic.h>
 #include <stdexcept>
 #include <string>
 #include <strings.h>
@@ -130,8 +128,11 @@ void scheduler_loop(Scheduler &scheduler, ProcessControlBlock *root_pcb,
   PROFILE();
   auto &to_run = scheduler.executing_process;
 
+  moodycamel::ConsumerToken ctok(scheduler.runnable.queue);
+  moodycamel::ProducerToken ptok(scheduler.runnable.queue);
+
   while (!done.load(std::memory_order_acquire) &&
-         scheduler.runnable.pop(to_run)) {
+         scheduler.runnable.pop(ctok, to_run)) {
     SLOG("Now executing: " << to_run);
 
     to_run->set_shared<REDUCTIONS>(1000);
@@ -147,7 +148,7 @@ void scheduler_loop(Scheduler &scheduler, ProcessControlBlock *root_pcb,
       } else {
         // other threads will stop waiting on pop
         done.store(true, std::memory_order_release);
-        scheduler.runnable.push_stop(num_threads);
+        scheduler.runnable.push_stop(ptok, num_threads);
         return;
       }
       SLOG("A process finished: " << to_run);

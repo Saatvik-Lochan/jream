@@ -2,6 +2,8 @@
 #define EXECUTION_H
 
 #include "beam_defs.hpp"
+#include "libs/blockingconcurrentqueue.h"
+#include "libs/concurrentqueue.h"
 #include "pcb.hpp"
 #include "profiler.hpp"
 #include <algorithm>
@@ -15,7 +17,6 @@
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
-#include "libs/blockingconcurrentqueue.h"
 
 #ifdef ENABLE_SCHEDULER_LOG
 #define SLOG(...) LOG(INFO) << __VA_ARGS__
@@ -33,24 +34,28 @@ enum ErlReturnCode {
   HEAP_SPACE = 4
 };
 
+struct QueueVal {
+  ProcessControlBlock *pcb;
+  bool is_quit = false;
+};
+
 struct ThreadSafeQueue {
-private:
-  struct QueueVal {
-    ProcessControlBlock *pcb;
-    bool is_quit = false;
-  };
   moodycamel::BlockingConcurrentQueue<QueueVal> queue;
 
-public:
+  void push(moodycamel::ProducerToken &ptok, ProcessControlBlock *p) {
+    PROFILE();
+    queue.enqueue(ptok, {p});
+  }
+
   void push(ProcessControlBlock *p) {
     PROFILE();
     queue.enqueue({p});
   }
 
-  bool pop(ProcessControlBlock *&out) {
+  bool pop(moodycamel::ConsumerToken &ctok, ProcessControlBlock *&out) {
     PROFILE();
     QueueVal val;
-    queue.wait_dequeue(val);
+    queue.wait_dequeue(ctok, val);
 
     if (val.is_quit == true) {
       return false;
@@ -61,16 +66,14 @@ public:
     return true;
   }
 
-  void push_stop(size_t num) {
+  void push_stop(moodycamel::ProducerToken &ptok, size_t num) {
     auto stop_tokens = new QueueVal[num];
     QueueVal stop = {.pcb = nullptr, .is_quit = true};
     std::fill_n(stop_tokens, num, stop);
-    queue.enqueue_bulk(stop_tokens, num);
+    queue.enqueue_bulk(ptok, stop_tokens, num);
   }
 
-  bool contains(ProcessControlBlock *pcb) {
-    return false;
-  }
+  bool contains(ProcessControlBlock *pcb) { return false; }
 };
 
 struct WaitingPool {
