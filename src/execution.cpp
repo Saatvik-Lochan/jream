@@ -1,8 +1,11 @@
+#include <atomic>
 #include <cstdlib>
+#include <future>
 #include <glog/logging.h>
 
 #include <cassert>
 #include <cstdint>
+#include <stdatomic.h>
 #include <stdexcept>
 #include <string>
 #include <strings.h>
@@ -122,11 +125,13 @@ std::string Emulator::get_atom_string_current(ErlTerm e) {
 #define SLOG(...) (void)0
 #endif
 
-void scheduler_loop(Scheduler &scheduler, ProcessControlBlock *root_pcb) {
+void scheduler_loop(Scheduler &scheduler, ProcessControlBlock *root_pcb,
+                    size_t num_threads, std::atomic<bool> &done) {
   PROFILE();
   auto &to_run = scheduler.executing_process;
 
-  while (scheduler.runnable.pop(to_run)) {
+  while (!done.load(std::memory_order_acquire) &&
+         scheduler.runnable.pop(to_run)) {
     SLOG("Now executing: " << to_run);
 
     to_run->set_shared<REDUCTIONS>(1000);
@@ -140,9 +145,10 @@ void scheduler_loop(Scheduler &scheduler, ProcessControlBlock *root_pcb) {
       if (to_run != root_pcb) {
         delete to_run;
       } else {
-        // other threads will stop waiting on pop the next time the
-        // queue is empty
-        scheduler.runnable.stop();
+        // other threads will stop waiting on pop
+        done.store(true, std::memory_order_release);
+        scheduler.runnable.push_stop(num_threads);
+        return;
       }
       SLOG("A process finished: " << to_run);
       break;
@@ -173,16 +179,17 @@ void scheduler_loop(Scheduler &scheduler, ProcessControlBlock *root_pcb) {
 ErlTerm Emulator::run(ProcessControlBlock *pcb) {
   PROFILE();
 
+  std::atomic<bool> done = false;
+
   {
-    /*auto n_cores = std::thread::hardware_concurrency() - 1;*/
-    auto n_cores = 1;
+    auto n_cores = std::thread::hardware_concurrency();
 
     std::vector<std::jthread> threads;
     scheduler.runnable.push(pcb);
 
     for (uint i = 0; i < n_cores; i++) {
       threads.emplace_back(scheduler_loop, std::ref(emulator_main.scheduler),
-                           pcb);
+                           pcb, n_cores, std::ref(done));
     }
   } // threads join
 

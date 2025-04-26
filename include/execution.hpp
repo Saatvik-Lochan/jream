@@ -4,17 +4,18 @@
 #include "beam_defs.hpp"
 #include "pcb.hpp"
 #include "profiler.hpp"
+#include <algorithm>
 #include <cassert>
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
 #include <mutex>
-#include <queue>
 #include <sched.h>
 #include <sstream>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
+#include "libs/blockingconcurrentqueue.h"
 
 #ifdef ENABLE_SCHEDULER_LOG
 #define SLOG(...) LOG(INFO) << __VA_ARGS__
@@ -34,50 +35,41 @@ enum ErlReturnCode {
 
 struct ThreadSafeQueue {
 private:
-  std::deque<ProcessControlBlock *> queue;
-  std::mutex mtx;
-  std::condition_variable cv;
-  bool shutdown = false;
+  struct QueueVal {
+    ProcessControlBlock *pcb;
+    bool is_quit = false;
+  };
+  moodycamel::BlockingConcurrentQueue<QueueVal> queue;
 
 public:
   void push(ProcessControlBlock *p) {
     PROFILE();
-    {
-      std::lock_guard<std::mutex> lock(mtx);
-      queue.push_back(std::move(p));
-    }
-    cv.notify_one();
+    queue.enqueue({p});
   }
 
   bool pop(ProcessControlBlock *&out) {
     PROFILE();
-    std::unique_lock<std::mutex> lock(mtx);
-    cv.wait(lock, [&] { return shutdown || !queue.empty(); });
+    QueueVal val;
+    queue.wait_dequeue(val);
 
-    if (shutdown && queue.empty())
+    if (val.is_quit == true) {
       return false;
+    }
 
-    out = std::move(queue.front());
-    queue.pop_front();
+    out = val.pcb;
+
     return true;
   }
 
-  void stop() {
-    {
-      std::lock_guard<std::mutex> lock(mtx);
-      shutdown = true;
-    }
-    cv.notify_all();
-  }
-
-  void clear() {
-    std::lock_guard<std::mutex> lock(mtx);
-    queue.clear();
+  void push_stop(size_t num) {
+    auto stop_tokens = new QueueVal[num];
+    QueueVal stop = {.pcb = nullptr, .is_quit = true};
+    std::fill_n(stop_tokens, num, stop);
+    queue.enqueue_bulk(stop_tokens, num);
   }
 
   bool contains(ProcessControlBlock *pcb) {
-    std::lock_guard<std::mutex> lock(mtx);
-    return std::ranges::find(queue, pcb) != queue.end();
+    return false;
   }
 };
 

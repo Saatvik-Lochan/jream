@@ -94,7 +94,7 @@ endif()
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
   target_compile_definitions(jreamlib PRIVATE
     # ENABLE_MEMORY_LOG=1
-    ENABLE_PROFILING=1
+    # ENABLE_PROFILING=1
   )
 endif()
 
@@ -108,6 +108,7 @@ endif()
 
 target_include_directories(jreamlib PRIVATE
   ${PROJECT_SOURCE_DIR}/include
+  ${PROJECT_SOURCE_DIR}/libs
 )
 
 # convenience definitions
