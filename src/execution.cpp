@@ -135,7 +135,7 @@ void scheduler_loop(Scheduler &scheduler, ProcessControlBlock *root_pcb,
          scheduler.runnable.pop(ctok, to_run)) {
     SLOG("Now executing: " << to_run);
 
-    to_run->set_shared<REDUCTIONS>(1000);
+    to_run->set_shared<REDUCTIONS>(10000);
     auto result = resume_process(to_run);
 
     switch (result) {
