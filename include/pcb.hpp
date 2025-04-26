@@ -11,6 +11,7 @@
 
 #include "beam_defs.hpp"
 #include "generated/shared_variables.hpp"
+#include "profiler.hpp"
 
 #define ENUM_TYPE(ENUM, TYPE)                                                  \
   template <> struct getFieldType<ENUM> {                                      \
@@ -66,24 +67,26 @@ struct __attribute__((aligned(16))) ProcessControlBlock {
   }
 
   // should use this when allocating from a BIF
-  std::mutex heap_frags;
+  std::mutex frag_mtx;
   std::vector<std::span<ErlTerm>> heap_fragments;
 
   std::vector<std::span<ErlTerm>> get_and_clear_heap_frags() {
-    std::lock_guard<std::mutex> lock(heap_frags);
+    std::lock_guard<std::mutex> lock(frag_mtx);
     return std::exchange(heap_fragments, {}); // for gc
   }
 
   ErlTerm *allocate_heap_frag(size_t size) {
+    PROFILE();
     auto ptr = new ErlTerm[size];
 
-    std::lock_guard<std::mutex> lock(heap_frags);
+    std::lock_guard<std::mutex> lock(frag_mtx);
     heap_fragments.push_back({ptr, size});
     return ptr;
   }
 
   void assign_heap_frag(std::span<ErlTerm> span) {
-    std::lock_guard<std::mutex> lock(heap_frags);
+    PROFILE();
+    std::lock_guard<std::mutex> lock(frag_mtx);
     heap_fragments.push_back(span);
   }
 

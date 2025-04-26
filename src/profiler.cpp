@@ -1,5 +1,5 @@
 #include "profiler.hpp"
 
 #ifdef ENABLE_PROFILING
-std::vector<TracerFrame> Tracer::stack;
+thread_local std::vector<Frame> Tracer::stack;
 #endif

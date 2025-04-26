@@ -44,9 +44,8 @@ ErlReturnCode resume_process(ProcessControlBlock *pcb) {
 }
 
 bool Scheduler::signal(ProcessControlBlock *process) {
+  PROFILE();
   auto removed = waiting.remove(process);
-  LOG(INFO) << waiting.print_contents();
-  LOG(INFO) << waiting.contains(process);
 
   if (removed) {
     runnable.push(process);
@@ -124,6 +123,7 @@ std::string Emulator::get_atom_string_current(ErlTerm e) {
 #endif
 
 void scheduler_loop(Scheduler &scheduler, ProcessControlBlock *root_pcb) {
+  PROFILE();
   auto &to_run = scheduler.executing_process;
 
   while (scheduler.runnable.pop(to_run)) {
@@ -173,8 +173,8 @@ ErlTerm Emulator::run(ProcessControlBlock *pcb) {
   PROFILE();
 
   {
-    auto n_cores = std::thread::hardware_concurrency();
-    /*auto n_cores = 1;*/
+    /*auto n_cores = std::thread::hardware_concurrency();*/
+    auto n_cores = 1;
 
     std::vector<std::jthread> threads;
     scheduler.runnable.push(pcb);

@@ -3,6 +3,7 @@
 
 #include "beam_defs.hpp"
 #include "pcb.hpp"
+#include "profiler.hpp"
 #include <cassert>
 #include <condition_variable>
 #include <cstdint>
@@ -40,6 +41,7 @@ private:
 
 public:
   void push(ProcessControlBlock *p) {
+    PROFILE();
     {
       std::lock_guard<std::mutex> lock(mtx);
       queue.push_back(std::move(p));
@@ -48,6 +50,7 @@ public:
   }
 
   bool pop(ProcessControlBlock *&out) {
+    PROFILE();
     std::unique_lock<std::mutex> lock(mtx);
     cv.wait(lock, [&] { return shutdown || !queue.empty(); });
 
@@ -86,6 +89,7 @@ private:
 public:
   // Insert a process into the pool
   bool insert_if_empty(ProcessControlBlock *pcb) {
+    PROFILE();
     std::lock_guard<std::mutex> lock(mtx);
 
     if (!pcb->msg_q_empty()) {
@@ -100,6 +104,7 @@ public:
 
   // Remove a process by ID; return it if found
   bool remove(ProcessControlBlock *pcb) {
+    PROFILE();
     std::lock_guard<std::mutex> lock(mtx);
     return static_cast<bool>(pool.erase(pcb));
   }

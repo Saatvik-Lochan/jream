@@ -1,6 +1,7 @@
 #ifndef PROFILER_H
 #define PROFILER_H
 
+#include <mutex>
 #ifdef ENABLE_PROFILING
 
 #include <chrono>
@@ -8,41 +9,45 @@
 #include <string>
 #include <vector>
 
-typedef std::pair<std::string, std::chrono::steady_clock::time_point>
-    TracerFrame;
+using Frame = std::pair<std::string, std::chrono::steady_clock::time_point>;
 
-// doesn't work in multithreaded situation
 class Tracer {
 public:
   static void push(const std::string &name) {
-    stack.emplace_back(name, std::chrono::steady_clock::now());
+    get_stack().emplace_back(name, std::chrono::steady_clock::now());
   }
 
   static void pop() {
+    auto &stack = get_stack();
     if (!stack.empty()) {
       auto [name, start] = stack.back();
       stack.pop_back();
 
-      // Measure time in microseconds
       auto dur = std::chrono::duration_cast<std::chrono::microseconds>(
                      std::chrono::steady_clock::now() - start)
                      .count();
 
-      // Create the full stack string
       std::string folded;
       for (const auto &[fn, _] : stack) {
         folded += fn + ";";
       }
       folded += name;
 
-      // Emit the line
+      std::lock_guard<std::mutex> lock(get_mutex());
       std::ofstream out("trace.folded", std::ios::app);
       out << folded << " " << dur << "\n";
     }
   }
 
 private:
-  static std::vector<TracerFrame> stack;
+  static thread_local std::vector<Frame> stack;
+
+  static std::vector<Frame> &get_stack() { return stack; }
+
+  static std::mutex &get_mutex() {
+    static std::mutex m;
+    return m;
+  }
 };
 
 class Profiler {

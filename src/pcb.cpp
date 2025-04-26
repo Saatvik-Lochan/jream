@@ -28,6 +28,7 @@ void ProcessControlBlock::queue_message(Message *msg) {
 }
 
 bool ProcessControlBlock::msg_q_empty() {
+  PROFILE();
   std::lock_guard<std::mutex> guard(message_queue);
   auto tail = get_shared<MBOX_TAIL>();
   auto saved = get_shared<MBOX_SAVE>();
