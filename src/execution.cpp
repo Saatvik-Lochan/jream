@@ -174,8 +174,8 @@ ErlTerm Emulator::run(ProcessControlBlock *pcb) {
   PROFILE();
 
   {
-    auto n_cores = std::thread::hardware_concurrency() - 1;
-    /*auto n_cores = 1;*/
+    /*auto n_cores = std::thread::hardware_concurrency() - 1;*/
+    auto n_cores = 1;
 
     std::vector<std::jthread> threads;
     scheduler.runnable.push(pcb);
