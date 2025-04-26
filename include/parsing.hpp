@@ -164,6 +164,7 @@ ErlTerm parse_terms_into_list(const std::string &term, T *pcb) {
 template <ErlAllocator T>
 std::pair<GlobalFunctionId, std::vector<ErlTerm>>
 parse_func_call(const std::string &term, T allocator) {
+  PROFILE();
   auto colon_pos = term.find(':');
   auto paren_pos = term.find('(');
 

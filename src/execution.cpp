@@ -129,6 +129,7 @@ void scheduler_loop(Scheduler &scheduler, ProcessControlBlock *root_pcb) {
   while (scheduler.runnable.pop(to_run)) {
     SLOG("Now executing: " << to_run);
 
+    to_run->set_shared<REDUCTIONS>(1000);
     auto result = resume_process(to_run);
 
     switch (result) {
@@ -173,8 +174,8 @@ ErlTerm Emulator::run(ProcessControlBlock *pcb) {
   PROFILE();
 
   {
-    /*auto n_cores = std::thread::hardware_concurrency();*/
-    auto n_cores = 1;
+    auto n_cores = std::thread::hardware_concurrency() - 1;
+    /*auto n_cores = 1;*/
 
     std::vector<std::jthread> threads;
     scheduler.runnable.push(pcb);
@@ -189,9 +190,7 @@ ErlTerm Emulator::run(ProcessControlBlock *pcb) {
 }
 
 ErlTerm Emulator::read_and_execute(std::string func_string) {
-  PROFILE_INIT();
   PROFILE();
-
   auto [func_id, arguments] =
       parse_func_call<ArgumentAllocator>(func_string, ArgumentAllocator{});
   auto file_name = func_id.module + ".beam";

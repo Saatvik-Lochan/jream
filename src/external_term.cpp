@@ -414,6 +414,7 @@ std::string to_string(std::vector<ErlTerm> terms, std::string start,
 }
 
 std::string to_string(ErlTerm erl_term) {
+  PROFILE();
   switch (erl_term.getTagType()) {
   case NIL_T:
   case LIST_T: {
