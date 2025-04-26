@@ -62,7 +62,6 @@ endif()
 # main library
 add_library(jreamlib 
   src/garbage_collection.cpp
-  src/profiler.cpp
   src/beamparser.cpp
   src/translation.cpp
   src/bif.cpp
@@ -95,6 +94,7 @@ endif()
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
   target_compile_definitions(jreamlib PRIVATE
     # ENABLE_MEMORY_LOG=1
+    ENABLE_PROFILING=1
   )
 endif()
 

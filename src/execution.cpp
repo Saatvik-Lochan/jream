@@ -194,7 +194,6 @@ ErlTerm Emulator::run(ProcessControlBlock *pcb) {
 }
 
 ErlTerm Emulator::read_and_execute(std::string func_string) {
-  PROFILE_INIT();
   PROFILE();
 
   auto [func_id, arguments] =
