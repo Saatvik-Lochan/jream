@@ -19,10 +19,11 @@ sd ra, 0(sp)
 # 
 
 mv s1, a1 # pcb pointer (necessary for load_shared/store_shared)
-# s2 is the compacted arg array (assigned by setuping up code_chunk_p)
+# s2 caches the register X0 (see below)
 # s3 used for local arg array (see add_setup_args in translate_code_section)
 mv s4, a2 # all function array (necessary for call_cxx_fun)
 load_shared s5, XREG_ARRAY 
+ld s2, 0(s5) 
 # s6 is the label loc pointer (assigned by setuping up code_chunk_p)
 mv s7, a3 # pointer to teardown code
 mv s8, zero # the exit code value

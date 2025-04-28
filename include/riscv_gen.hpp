@@ -231,6 +231,9 @@ inline RISCV_Instruction create_store_doubleword(uint8_t rs1, uint8_t rs2,
 inline RISCV_Instruction create_load_x_reg(uint8_t riscv_dest_reg,
                                            int16_t x_reg_num,
                                            uint8_t x_array_register) {
+  if (x_reg_num == 0) {
+    return create_add_immediate(riscv_dest_reg, 18, 0);
+  }
 
   // ld riscv_dest_reg, x_reg_num(s5)
   return create_load_doubleword(riscv_dest_reg, x_array_register,
@@ -250,11 +253,16 @@ create_load_y_reg(uint8_t riscv_dest_reg, uint16_t y_reg_num,
                              (y_reg_num + 1) * 8)};
 }
 
-inline RISCV_Instruction create_store_x_reg(uint8_t riscv_dest_reg,
+inline RISCV_Instruction create_store_x_reg(uint8_t risv_src_reg,
                                             uint16_t x_reg_num,
                                             uint8_t x_array_register) {
+
+  if (x_reg_num == 0) {
+    return create_add_immediate(18, risv_src_reg, 0);
+  }
+
   // sd riscv_dest_reg, x_reg_num(s5)
-  return create_store_doubleword(x_array_register, riscv_dest_reg,
+  return create_store_doubleword(x_array_register, risv_src_reg,
                                  x_reg_num * 8);
 }
 

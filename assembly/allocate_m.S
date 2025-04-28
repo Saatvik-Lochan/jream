@@ -13,8 +13,14 @@
 
   # load size and live regs
   mv a0, t0
+
+  # restore x0 to be included in the liveset
+  sd s2, 0(s5)
+
   # a1 has the number of live registers already
   call_cxx_fun EXECUTE_GC
+
+  ld s2, 0(s5)
 
   # redo calculation
   load_shared t1, STOP

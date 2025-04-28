@@ -8,7 +8,6 @@ call_cxx_fun COMPILE_LABEL
 
 # set value in table to point to label loc
 sd a0, 0(s9)
-mv s2, a1  # update the new argument pointer
 
 # then jump 
 jr a0

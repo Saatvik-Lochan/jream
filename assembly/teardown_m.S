@@ -1,6 +1,9 @@
 # let s8 be the value register
 mv a0, s8
 
+# restore x0 to array
+sd s2, 0(s5) 
+
 ld ra, 0(sp)
 ld s1, 8(sp)
 ld s2, 16(sp)

@@ -751,6 +751,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
           [&](uint64_t bif) {
             add_setup_args_code({{5, bif}});
             add_code(get_riscv(CALL_EXT_BIF_SNIP));
+            add_riscv_instr(create_store_x_reg(10, 0, 21));
           },
           [](uint64_t index) {
             throw std::logic_error(
@@ -766,6 +767,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
           [&](uint64_t bif) {
             add_setup_args_code({{5, bif}});
             add_code(get_riscv(CALL_EXT_BIF_SNIP));
+            add_riscv_instr(create_store_x_reg(10, 0, 21));
             add_code(get_riscv(RETURN_SNIP));
           },
           [](uint64_t index) {
@@ -787,6 +789,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
           [&](uint64_t bif) {
             add_setup_args_code({{5, bif}});
             add_code(get_riscv(CALL_EXT_BIF_SNIP));
+            add_riscv_instr(create_store_x_reg(10, 0, 21));
 
             add_setup_args_code({{5, to_dealloc_val}});
             add_code(get_riscv(DEALLOCATE_SNIP));
