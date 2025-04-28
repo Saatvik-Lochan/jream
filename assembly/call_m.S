@@ -1,7 +1,7 @@
 # load label we are going to
 # must be a1 since it is implicitly used as an argument when going to compile
 # stub
-  load_arg a1, 0
+  # a1 already has the label
 
   la t0, 2f # load pc relative address at the end
   store_shared t0, CODE_POINTER

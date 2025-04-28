@@ -6,7 +6,7 @@
   ld t1, 0(t0)  # load CP
 
   # load N
-  load_arg t2, 0
+  # N is already in t2
   slli t2, t2, 3
   add t0, t0, t2
 

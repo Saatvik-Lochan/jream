@@ -71,6 +71,8 @@ def transform_if_necessary(line: str):
     if line.startswith("load_arg"):
         tokens = get_tokens(line)
 
+        raise Exception("load arg deprecated")
+
         assert (len(tokens) == 3)
         assert (tokens[0] == "load_arg")
 

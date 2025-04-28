@@ -1,6 +1,6 @@
 # Deallocate
   load_shared t1, STOP
-  load_arg t0, 0
+  #  words to deallocate are in t0
 
 # pop and restore code pointer
   ld t2, 0(t1)

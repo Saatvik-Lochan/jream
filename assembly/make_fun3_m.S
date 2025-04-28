@@ -1,5 +1,5 @@
   # load index
-  load_arg t2, 0 
+  # index is in t2
   load_shared t1, HTOP
 
 # num words to allocate is loaded into t0 before this snippet

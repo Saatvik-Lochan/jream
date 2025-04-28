@@ -1,6 +1,4 @@
   # takes two arguments
-  # the first is the function pointer
-  # the second is the one argument
-load_arg t0, 0
-load_arg a0, 1
+  # the first is the function pointer in t0
+  # the second is the one argument in a0
 jalr t0

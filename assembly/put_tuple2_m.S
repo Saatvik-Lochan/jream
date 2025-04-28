@@ -1,5 +1,5 @@
   # i.e amount to allocate (including header)
-  load_arg t0, 0
+  # amount to allocate is in t0
   load_shared t1, HTOP
 
   # create and store header

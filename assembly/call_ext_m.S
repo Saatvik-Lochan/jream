@@ -1,5 +1,5 @@
   # load index in table
-  load_arg t0, 1
+  # load_arg t0, 1
   slli t3, t0, 3
   add t0, t0, s10
 

@@ -1,9 +1,9 @@
 # Allocate
-  load_arg t0, 0
   load_shared t1, STOP
   load_shared t2, HTOP
   
 # mul 8 (width of an ErlTerm) (width of an ErlTerm)
+  # t0 has the amount to allocate
   addi t0, t0, 1  # add 1 for code pointer
   slli s9, t0, 3  # size in s9 so it survives the gc if necessary
   sub t1, t1, s9  # stack grows down
@@ -13,7 +13,7 @@
 
   # load size and live regs
   mv a0, t0
-  load_arg a1, 1
+  # a1 has the number of live registers already
   call_cxx_fun EXECUTE_GC
 
   # redo calculation

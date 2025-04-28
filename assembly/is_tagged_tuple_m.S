@@ -19,12 +19,12 @@
   # branch if t1 != t2
 
   srli t1, t3, 6
-  load_arg t2, 0
+  # t2 has arity
 
   split
   # branch if t1 != t2
 
   ld t1, 8(t0)  # first element
-  load_arg t2, 1
+  # t2 has the atom
 
   # branch if t1 != t2

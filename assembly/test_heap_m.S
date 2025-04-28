@@ -6,11 +6,11 @@
   sub t0, t0, t1  
 
   # space needed
-  load_arg a0, 0 
+  # a0 has the number of words
   slli t1, a0, 3
 
   bge t0, t1, 1f
 
-  load_arg a1, 1
+  # a1 has the live registers
   call_cxx_fun EXECUTE_GC
 1:

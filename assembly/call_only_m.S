@@ -1,7 +1,7 @@
 # load label we are going to
 # must be a1 since it is implicitly used as an argument when going to compile
 # stub
-  load_arg a1, 0
+ # a1 has the label to jump to
 
 # check reductions - maybe yields
   load_shared t0, REDUCTIONS

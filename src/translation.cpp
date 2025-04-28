@@ -60,7 +60,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
   struct ArgFixupRequest {
     size_t instr_index;
-    uint64_t *arg_array;
+    std::vector<uint64_t> arguments;
   };
 
   std::vector<ArgFixupRequest>
@@ -82,16 +82,54 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       };
 
   // add setup arguments to the list for when needed
-  const auto add_setup_args_code = [&](std::initializer_list<uint64_t> args) {
-    auto arg_arr = new uint64_t[args.size()];
-    std::copy(args.begin(), args.end(), arg_arr);
+  const auto add_setup_args_code =
+      [&](std::initializer_list<std::pair<uint8_t, uint64_t>> args) {
+        std::vector<std::pair<uint8_t, uint64_t>> small;
+        std::vector<std::pair<uint8_t, uint64_t>> large;
 
-    // store the offset of the arg
-    arg_requests.emplace_back(compiled.size(), arg_arr);
+        for (auto val : args) {
+          if ((val.second << 52) >> 52 == val.second) {
+            // i.e fits in signed 12 bit immediate
+            small.push_back(val);
+          } else {
+            large.push_back(val);
+          }
+        }
 
-    add_riscv_instr(create_add_upper_immediate_to_pc(19, 0));
-    add_riscv_instr(create_load_doubleword(19, 19, 0));
-  };
+        for (auto [reg, val] : small) {
+          add_riscv_instr(create_add_immediate(reg, 0, val));
+        }
+
+        auto large_count = large.size();
+
+        if (large_count == 0) {
+          return;
+        }
+
+        auto auipc_index = compiled.size();
+        add_riscv_instr(create_add_upper_immediate_to_pc(19, 0));
+        add_riscv_instr(create_add_immediate(19, 19, 0));
+        // x19 stores the offset from auipc to the start of the arguments
+
+        // the offset of the current load to it's argument
+        ssize_t load_offset = 0;
+        std::vector<uint64_t> large_args;
+
+        for (auto [reg, val] : large) {
+          if (load_offset > static_cast<ssize_t>(mask(11))) {
+            throw std::domain_error(
+                "Load offset cannot be greater than would fit in an immediate");
+          }
+
+          add_riscv_instr(create_load_doubleword(reg, 19, load_offset));
+          large_args.push_back(val);
+
+          // each argument is 8 further back
+          load_offset += 8;
+        }
+
+        arg_requests.emplace_back(auipc_index, std::move(large_args));
+      };
 
   // create load/store appropriate
   const auto add_store_appropriate = [&](Argument arg, uint8_t src_reg,
@@ -117,9 +155,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
   auto add_load_appropriate = [&](Argument arg, uint8_t dest_reg,
                                   uint8_t spare_reg) {
     auto add_literal = [&](ErlTerm lit) {
-      add_setup_args_code({lit});
-      // ld dest_reg, 0(s3)
-      add_riscv_instr(create_load_doubleword(dest_reg, 19, 0));
+      add_setup_args_code({{dest_reg, lit}});
     };
 
     switch (arg.tag) {
@@ -194,17 +230,6 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     add_riscv_instr(create_branch_not_equal(6, 7, 0));
   };
 
-  auto add_branches_after = [&](uint64_t label,
-                                std::initializer_list<AsmSnippet> snips) {
-    for (auto snip : snips) {
-
-      add_code(get_riscv(snip));
-
-      reserve_branch_label(label);
-      add_riscv_instr(create_branch_not_equal(6, 7, 0));
-    }
-  };
-
   auto test_heap_type = [&](Instruction instr, AsmSnippet stack_check,
                             AsmSnippet heap_check) {
     auto label = instr.arguments[0];
@@ -277,7 +302,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
         add_riscv_instr(create_add_immediate(10 + bif_args.size(), 0, *live));
       }
 
-      add_setup_args_code({*result});
+      add_setup_args_code({{5, *result}});
       add_code(get_riscv(BIF_SNIP));
 
       if (fail_label) {
@@ -393,13 +418,13 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
     case DEBUG_EXECUTE_ARBITRARY: {
       auto function_pointer = instr.arguments[0];
-      auto flag_pos = instr.arguments[1];
+      auto func_arg = instr.arguments[1];
 
       assert(function_pointer.tag == LITERAL_TAG);
-      assert(flag_pos.tag == LITERAL_TAG);
+      assert(func_arg.tag == LITERAL_TAG);
 
-      add_setup_args_code(
-          {function_pointer.arg_raw.arg_num, flag_pos.arg_raw.arg_num});
+      add_setup_args_code({{5, function_pointer.arg_raw.arg_num},
+                           {10, func_arg.arg_raw.arg_num}});
 
       add_code(get_riscv(DEBUG_EXECUTE_ARIBITRARY_SNIP));
       break;
@@ -485,7 +510,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto live = instr.arguments[1];
       assert(live.tag == LITERAL_TAG);
 
-      add_setup_args_code({words, live.arg_raw.arg_num});
+      add_setup_args_code({{10, words}, {11, live.arg_raw.arg_num}});
 
       add_code(get_riscv(TEST_HEAP_SNIP));
       break;
@@ -498,7 +523,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto live = instr.arguments[1];
       assert(live.tag == LITERAL_TAG);
 
-      add_setup_args_code({alloc_amount.arg_raw.arg_num, live.arg_raw.arg_num});
+      add_setup_args_code(
+          {{5, alloc_amount.arg_raw.arg_num}, {11, live.arg_raw.arg_num}});
       add_code(get_riscv(ALLOCATE_SNIP));
       break;
     }
@@ -513,12 +539,13 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto live = instr.arguments[2];
       assert(live.tag == LITERAL_TAG);
 
-      add_setup_args_code({alloc_amount.arg_raw.arg_num, live.arg_raw.arg_num});
+      add_setup_args_code(
+          {{5, alloc_amount.arg_raw.arg_num}, {11, live.arg_raw.arg_num}});
       add_code(get_riscv(ALLOCATE_SNIP));
 
       // loading live number twice!
       const uint64_t words = heap_get_words_needed(heap_need);
-      add_setup_args_code({words, live.arg_raw.arg_num});
+      add_setup_args_code({{10, words}, {11, live.arg_raw.arg_num}});
       add_code(get_riscv(TEST_HEAP_SNIP));
       break;
     }
@@ -527,7 +554,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto alloc_amount = instr.arguments[0];
       assert(alloc_amount.tag == LITERAL_TAG);
 
-      add_setup_args_code({alloc_amount.arg_raw.arg_num});
+      add_setup_args_code({{5, alloc_amount.arg_raw.arg_num}});
       add_code(get_riscv(DEALLOCATE_SNIP));
       break;
     }
@@ -540,7 +567,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto remaining = instr.arguments[1];
       assert(remaining.tag == LITERAL_TAG);
 
-      add_setup_args_code({to_reduce.arg_raw.arg_num});
+      add_setup_args_code({{7, to_reduce.arg_raw.arg_num}});
       add_code(get_riscv(TRIM_SNIP));
       break;
     }
@@ -580,7 +607,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
       add_log_xregs(arity.arg_raw.arg_num);
 
-      add_setup_args_code({label.arg_raw.arg_num});
+      add_setup_args_code({{11, label.arg_raw.arg_num}});
 
       // check reductions and maybe yield
       add_code(get_riscv(CALL_SNIP));
@@ -596,7 +623,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       assert(label.tag == LABEL_TAG);
 
       add_log_xregs(arity.arg_raw.arg_num);
-      add_setup_args_code({label.arg_raw.arg_num});
+      add_setup_args_code({{11, label.arg_raw.arg_num}});
 
       add_code(get_riscv(CALL_ONLY_SNIP));
       break;
@@ -614,7 +641,8 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       assert(deallocate.tag == LITERAL_TAG);
 
       add_log_xregs(arity.arg_raw.arg_num);
-      add_setup_args_code({label.arg_raw.arg_num, deallocate.arg_raw.arg_num});
+      add_setup_args_code(
+          {{11, label.arg_raw.arg_num}, {5, deallocate.arg_raw.arg_num}});
 
       add_code(get_riscv(CALL_LAST_SNIP));
       break;
@@ -721,7 +749,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_call_ext(
           instr,
           [&](uint64_t bif) {
-            add_setup_args_code({bif});
+            add_setup_args_code({{5, bif}});
             add_code(get_riscv(CALL_EXT_BIF_SNIP));
           },
           [](uint64_t index) {
@@ -736,7 +764,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_call_ext(
           instr,
           [&](uint64_t bif) {
-            add_setup_args_code({bif});
+            add_setup_args_code({{5, bif}});
             add_code(get_riscv(CALL_EXT_BIF_SNIP));
             add_code(get_riscv(RETURN_SNIP));
           },
@@ -757,10 +785,10 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_call_ext(
           instr,
           [&](uint64_t bif) {
-            add_setup_args_code({bif});
+            add_setup_args_code({{5, bif}});
             add_code(get_riscv(CALL_EXT_BIF_SNIP));
 
-            add_setup_args_code({to_dealloc_val});
+            add_setup_args_code({{5, to_dealloc_val}});
             add_code(get_riscv(DEALLOCATE_SNIP));
             add_code(get_riscv(RETURN_SNIP));
           },
@@ -795,7 +823,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto label = instr.arguments[0];
       assert(label.tag == LABEL_TAG);
 
-      add_setup_args_code({label.arg_raw.arg_num});
+      add_setup_args_code({{5, label.arg_raw.arg_num}});
       add_code(get_riscv(WAIT_SNIP));
       break;
     }
@@ -913,7 +941,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       assert(element.tag == LITERAL_TAG);
       auto destination = instr.arguments[2];
 
-      add_setup_args_code({element.arg_raw.arg_num});
+      add_setup_args_code({{6, element.arg_raw.arg_num}});
 
       // load source into t0
       add_load_appropriate(source, 5, 6);
@@ -930,7 +958,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
       auto elements_vec = elements.arg_raw.arg_vec_p;
 
-      add_setup_args_code({elements_vec->size() + 1});
+      add_setup_args_code({{5, elements_vec->size() + 1}});
 
       add_code(get_riscv(PUT_TUPLE2_SNIP));
 
@@ -953,7 +981,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
       auto num_free = freeze_list_val->size();
 
-      add_setup_args_code({index.arg_raw.arg_num});
+      add_setup_args_code({{7, index.arg_raw.arg_num}});
 
       // now we alloc heap space and store index
       // store num spots to allocate in t0
@@ -1013,13 +1041,26 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto atom = instr.arguments[3];
       assert(atom.tag == ATOM_TAG);
 
-      add_setup_args_code(
-          {arity.arg_raw.arg_num, make_atom(atom.arg_raw.arg_num)});
-
       add_load_appropriate(source, 5, 6);
-      add_branches_after(label.arg_raw.arg_num,
-                         {IS_TAGGED_TUPLE_1_SNIP, IS_TAGGED_TUPLE_2_SNIP,
-                          IS_TAGGED_TUPLE_3_SNIP, IS_TAGGED_TUPLE_4_SNIP});
+
+      auto label_val = label.arg_raw.arg_num;
+
+      for (auto snip : {IS_TAGGED_TUPLE_1_SNIP, IS_TAGGED_TUPLE_2_SNIP}) {
+        add_code(get_riscv(snip));
+        reserve_branch_label(label_val);
+        add_riscv_instr(create_branch_not_equal(6, 7, 0));
+      }
+
+      add_setup_args_code({{7, arity.arg_raw.arg_num}});
+      add_code(get_riscv(IS_TAGGED_TUPLE_3_SNIP));
+      reserve_branch_label(label_val);
+      add_riscv_instr(create_branch_not_equal(6, 7, 0));
+
+      add_setup_args_code({{7, make_atom(atom.arg_raw.arg_num)}});
+      add_code(get_riscv(IS_TAGGED_TUPLE_4_SNIP));
+      reserve_branch_label(label_val);
+      add_riscv_instr(create_branch_not_equal(6, 7, 0));
+
       break;
     }
 
@@ -1043,7 +1084,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       assert(arity.tag == LITERAL_TAG);
 
       // setup args
-      add_setup_args_code({arity.arg_raw.arg_num});
+      add_setup_args_code({{5, arity.arg_raw.arg_num}});
 
       // load soucre into t1
       add_load_appropriate(source, 6, 5);
@@ -1085,9 +1126,10 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     auto offset_from_start = compiled.size();
 
     // little endian ordering
-    for (int i = 0; i < 8; i++) {
-      compiled.push_back((reinterpret_cast<uint64_t>(arg_array) >> (i * 8)) &
-                         mask(8));
+    for (auto arg : arg_array) {
+      for (int i = 0; i < 8; i++) {
+        compiled.push_back((arg >> (i * 8)) & mask(8));
+      }
     }
 
     auto offset = offset_from_start - auipc_index;
@@ -1103,20 +1145,19 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     // round while shifting down - this is to prevent signed issues
     // (since the 12th bit of load immediate might be one)
     auto auipc_imm = (casted_offset + (1 << 11)) >> 12;
-    auto load_imm = casted_offset - (auipc_imm << 12);
+    auto add_imm = casted_offset - (auipc_imm << 12);
 
-    auto update =
-        [&compiled](auto index, auto imm, auto set_instr) {
-          RISCV_Instruction riscv_instr;
-          std::memcpy(&riscv_instr, &compiled[index], 4);
-          set_instr(riscv_instr, imm);
-          std::memcpy(&compiled[index], &riscv_instr, 4);
-        };
+    auto update = [&compiled](auto index, auto imm, auto set_instr) {
+      RISCV_Instruction riscv_instr;
+      std::memcpy(&riscv_instr, &compiled[index], 4);
+      set_instr(riscv_instr, imm);
+      std::memcpy(&compiled[index], &riscv_instr, 4);
+    };
 
-    auto load_index = auipc_index + 4;
+    auto add_index = auipc_index + 4;
 
     update(auipc_index, auipc_imm, set_imm_U_type_instruction);
-    update(load_index, load_imm, set_imm_I_type_instruction);
+    update(add_index, add_imm, set_imm_I_type_instruction);
   }
 
   code_chunk.label_offsets = label_offsets;

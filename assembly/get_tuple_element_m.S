@@ -4,7 +4,7 @@
   untag t0, t0
 
   # load Element num
-  load_arg t1, 0
+  # element number is in t1
   slli t2, t1, 3
 
   # skip the header - we don't do an arity check!

@@ -1,5 +1,5 @@
 # What to load if call_ext is actually to a bif
-  load_arg t0, 0
+  # t0 has the bif pointer to jump to
   jalr t0
 
   # result is in a0, success/failure in a1 though we don't check it here
