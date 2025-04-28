@@ -51,6 +51,13 @@ struct RISCV_Instruction {
   }
 };
 
+static_assert(std::is_trivially_copyable<RISCV_Instruction>::value,
+              "RISCV_Instruction must be trivially copyable");
+static_assert(sizeof(RISCV_Instruction) == 4,
+              "RISCV_Instruction must be exactly 4 bytes");
+static_assert(offsetof(RISCV_Instruction, raw) == 0,
+              "raw[] should be at offset 0");
+
 inline void set_imm_B_type_instruction(RISCV_Instruction &instr, int16_t imm) {
   assert(-4096 < imm && imm < 4096);
   assert((imm & 0b1) == 0); // last bit is ignored
@@ -60,6 +67,26 @@ inline void set_imm_B_type_instruction(RISCV_Instruction &instr, int16_t imm) {
   instr.set_bits(7, 8, imm, 11);
   instr.set_bits(31, 32, imm, 12);
 }
+
+inline void set_imm_U_type_instruction(RISCV_Instruction &instr, uint32_t imm) {
+  // i.e. 20 bits or less
+  assert((imm >> 20) == 0);
+  instr.set_bits(12, 32, imm);
+}
+
+inline void set_imm_S_type_instruction(RISCV_Instruction &instr, int16_t imm) {
+  assert(-2047 < imm && imm < 2048);
+
+  instr.set_bits(7, 12, imm, 0);
+  instr.set_bits(25, 32, imm, 5);
+}
+
+inline void set_imm_I_type_instruction(RISCV_Instruction &instr, int16_t imm) {
+  assert(-2047 < imm && imm < 2048);
+
+  instr.set_bits(20, 32, imm, 0);
+}
+
 
 inline RISCV_Instruction create_B_type_instruction(uint8_t opcode,
                                                    uint8_t funct3, uint8_t rs1,
@@ -81,7 +108,6 @@ inline RISCV_Instruction create_B_type_instruction(uint8_t opcode,
 inline RISCV_Instruction create_I_type_instruction(uint8_t opcode, uint8_t rd,
                                                    uint8_t funct3, uint8_t rs1,
                                                    int16_t imm) {
-  assert(-2047 < imm && imm < 2048);
   assert(0 <= rd && rd < 32);
   assert(0 <= rs1 && rs1 < 32);
 
@@ -91,7 +117,7 @@ inline RISCV_Instruction create_I_type_instruction(uint8_t opcode, uint8_t rd,
   out.set_rs1(rs1);
   out.set_rd(rd);
 
-  out.set_bits(20, 32, imm, 0);
+  set_imm_I_type_instruction(out, imm);
 
   return out;
 }
@@ -99,7 +125,6 @@ inline RISCV_Instruction create_I_type_instruction(uint8_t opcode, uint8_t rd,
 inline RISCV_Instruction create_S_type_instruction(uint8_t opcode,
                                                    uint8_t funct3, uint8_t rs1,
                                                    uint8_t rs2, int16_t imm) {
-  assert(-2047 < imm && imm < 2048);
   assert(0 <= rs1 && rs1 < 32);
   assert(0 <= rs2 && rs2 < 32);
 
@@ -109,22 +134,19 @@ inline RISCV_Instruction create_S_type_instruction(uint8_t opcode,
   out.set_rs1(rs1);
   out.set_rs2(rs2);
 
-  out.set_bits(7, 12, imm, 0);
-  out.set_bits(25, 32, imm, 5);
+  set_imm_S_type_instruction(out, imm);
 
   return out;
 }
 
 inline RISCV_Instruction create_U_type_instruction(uint8_t opcode, uint8_t rd,
                                                    uint32_t imm) {
-  // i.e. 20 bits or less
-  assert((imm >> 20) == 0);
 
   RISCV_Instruction out;
   out.set_opcode(opcode);
-  out.set_rd(opcode);
+  out.set_rd(rd);
 
-  out.set_bits(12, 32, imm, 0);
+  set_imm_U_type_instruction(out, imm);
 
   return out;
 }
@@ -178,6 +200,13 @@ create_shift_left_logical_immediate(uint8_t rd, uint8_t rs, int16_t imm) {
 
 inline RISCV_Instruction create_load_upper_immediate(uint8_t rd, uint32_t imm) {
   constexpr auto op_code_bits = 0b0110111;
+
+  return create_U_type_instruction(op_code_bits, rd, imm);
+}
+
+inline RISCV_Instruction create_add_upper_immediate_to_pc(uint8_t rd,
+                                                          int32_t imm) {
+  constexpr auto op_code_bits = 0b0010111;
 
   return create_U_type_instruction(op_code_bits, rd, imm);
 }
