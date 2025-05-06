@@ -4,6 +4,7 @@ release_build
 reldeb_build
 clang_build
 test_build
+final_build
 assembly/build
 **/generated/*
 
