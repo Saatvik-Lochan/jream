@@ -1,8 +1,5 @@
 -module(gray).
--export([main/0, main/1, gray/1]).
-
-main() ->
-  io:write(gray_burn(0, 0, 5000)).
+-export([main/1, gray/1]).
 
 main(N) ->
   io:write(gray_burn(0, 0, N)).

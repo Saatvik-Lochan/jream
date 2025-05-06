@@ -28,7 +28,7 @@ void ProcessControlBlock::queue_message(Message *msg) {
 std::span<ErlTerm> get_next_to_space(ProcessControlBlock *pcb,
                                      size_t alloc_amount) {
   PROFILE();
-  // in words
+  // space in words
   auto highwater_num = std::distance(pcb->heap.data(), pcb->highwater);
   auto required_amount = pcb->heap.size() + alloc_amount - highwater_num;
 
@@ -73,7 +73,7 @@ get_root_set(ProcessControlBlock *pcb, size_t xregs, std::span<ErlTerm> stack) {
   }
 
   // process dict elements
-  for (auto& [_, value] : pcb->process_dict) {
+  for (auto &[_, value] : pcb->process_dict) {
     out.emplace_back(std::span<ErlTerm>(std::addressof(value), 1));
   }
 
@@ -86,10 +86,7 @@ ErlTerm *ProcessControlBlock::do_gc(size_t size, size_t xregs) {
   auto htop = get_shared<HTOP>();
   std::span<ErlTerm> to_space = get_next_to_space(this, size);
 
-#ifdef ENABLE_MEMORY_LOG
-  LOG(INFO) << "GC: old_size: " << heap.size()
-            << " | new_size: " << to_space.size();
-#endif
+  MLOG("GC: old_size: " << heap.size() << " | new_size: " << to_space.size());
 
   // copy stack
   auto stack_span = get_stack();

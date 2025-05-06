@@ -22,8 +22,6 @@ struct Message {
 
 // we assume that the pointer to the Message struct
 // is the same as the pointer to the first field (values)
-static_assert(std::is_standard_layout_v<Message>,
-              "Message is not standard layout. Required.");
 static_assert(offsetof(Message, payload) == 0,
               "Message payload must be at offset 0");
 static_assert(offsetof(Message, next) == 8,

@@ -13,6 +13,7 @@
 #define ENUM_TYPE(ENUM, TYPE)                                                  \
   template <> struct getFieldType<ENUM> {                                      \
     using type = TYPE;                                                         \
+    static_assert(sizeof(TYPE) == 8);                                          \
   };
 
 template <PCBSharedFields> struct getFieldType {

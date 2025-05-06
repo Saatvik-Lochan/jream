@@ -53,7 +53,7 @@ std::optional<uintptr_t> bif_from_id(std::string bif_string) {
   return std::make_optional(result->second);
 }
 
-inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
+inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
                                                    CodeSection code_sec) {
   PROFILE();
   std::vector<uint8_t> compiled;
@@ -65,7 +65,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
   std::vector<ArgFixupRequest>
       arg_requests; // indices of auipc + load instructions to fix
-  auto &label_offsets = code_chunk.label_offsets;
+  const auto &label_offsets = code_chunk.label_offsets;
 
   // convenience lambdas
   auto add_code = [&compiled](const std::span<const uint8_t> &code) {
@@ -82,7 +82,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       };
 
   // add setup arguments to the list for when needed
-  const auto add_setup_args_code =
+  const auto add_store_in_register =
       [&](std::initializer_list<std::pair<uint8_t, uint64_t>> args) {
         std::vector<std::pair<uint8_t, uint64_t>> small;
         std::vector<std::pair<uint8_t, uint64_t>> large;
@@ -155,7 +155,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
   auto add_load_appropriate = [&](Argument arg, uint8_t dest_reg,
                                   uint8_t spare_reg) {
     auto add_literal = [&](ErlTerm lit) {
-      add_setup_args_code({{dest_reg, lit}});
+      add_store_in_register({{dest_reg, lit}});
     };
 
     switch (arg.tag) {
@@ -207,7 +207,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
   std::vector<LinkRequest> link_requests;
 
   // must be called before adding the branch instr
-  auto reserve_branch_label = [&link_requests, &compiled](uint64_t label) {
+  auto submit_branch_link_request = [&link_requests, &compiled](uint64_t label) {
     ssize_t curr_offset = compiled.size();
     link_requests.push_back(
         LinkRequest{.branch_instr_location = curr_offset, .label = label});
@@ -226,7 +226,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     add_load_appropriate(source, 5, 6);
     add_code(get_riscv(stack_check));
 
-    reserve_branch_label(label_val);
+    submit_branch_link_request(label_val);
     add_riscv_instr(create_branch_not_equal(6, 7, 0));
   };
 
@@ -243,12 +243,12 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     add_load_appropriate(source, 5, 6);
     add_code(get_riscv(stack_check));
 
-    reserve_branch_label(label_val);
+    submit_branch_link_request(label_val);
     add_riscv_instr(create_branch_not_equal(6, 7, 0));
 
     add_code(get_riscv(heap_check));
 
-    reserve_branch_label(label_val);
+    submit_branch_link_request(label_val);
     add_riscv_instr(create_branch_not_equal(6, 7, 0));
   };
 
@@ -267,7 +267,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
     add_code(get_riscv(DO_COMP_SNIP));
 
-    reserve_branch_label(label_val);
+    submit_branch_link_request(label_val);
 
     // branch based of if return is lt/ge/ne/eq 0
     add_riscv_instr(
@@ -278,6 +278,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
                           Argument dest_reg, uint64_t bif_num,
                           size_t instr_index,
                           std::optional<uint64_t> live = std::nullopt) {
+    assert(bif_args.size() <= 8);
     for (size_t i = 0; i < bif_args.size(); i++) {
       // load into a0, ..., aN
       add_load_appropriate(bif_args[i], 10 + i, 5);
@@ -302,11 +303,11 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
         add_riscv_instr(create_add_immediate(10 + bif_args.size(), 0, *live));
       }
 
-      add_setup_args_code({{5, *result}});
+      add_store_in_register({{5, *result}});
       add_code(get_riscv(BIF_SNIP));
 
       if (fail_label) {
-        reserve_branch_label(fail_label);
+        submit_branch_link_request(fail_label);
         // i.e. if a1 is not 0, then branch
         add_riscv_instr(create_branch_not_equal(11, 0, 0));
       }
@@ -423,7 +424,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       assert(function_pointer.tag == LITERAL_TAG);
       assert(func_arg.tag == LITERAL_TAG);
 
-      add_setup_args_code({{5, function_pointer.arg_raw.arg_num},
+      add_store_in_register({{5, function_pointer.arg_raw.arg_num},
                            {10, func_arg.arg_raw.arg_num}});
 
       add_code(get_riscv(DEBUG_EXECUTE_ARIBITRARY_SNIP));
@@ -510,7 +511,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto live = instr.arguments[1];
       assert(live.tag == LITERAL_TAG);
 
-      add_setup_args_code({{10, words}, {11, live.arg_raw.arg_num}});
+      add_store_in_register({{10, words}, {11, live.arg_raw.arg_num}});
 
       add_code(get_riscv(TEST_HEAP_SNIP));
       break;
@@ -523,7 +524,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto live = instr.arguments[1];
       assert(live.tag == LITERAL_TAG);
 
-      add_setup_args_code(
+      add_store_in_register(
           {{5, alloc_amount.arg_raw.arg_num}, {11, live.arg_raw.arg_num}});
       add_code(get_riscv(ALLOCATE_SNIP));
       break;
@@ -539,13 +540,13 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto live = instr.arguments[2];
       assert(live.tag == LITERAL_TAG);
 
-      add_setup_args_code(
+      add_store_in_register(
           {{5, alloc_amount.arg_raw.arg_num}, {11, live.arg_raw.arg_num}});
       add_code(get_riscv(ALLOCATE_SNIP));
 
       // loading live number twice!
       const uint64_t words = heap_get_words_needed(heap_need);
-      add_setup_args_code({{10, words}, {11, live.arg_raw.arg_num}});
+      add_store_in_register({{10, words}, {11, live.arg_raw.arg_num}});
       add_code(get_riscv(TEST_HEAP_SNIP));
       break;
     }
@@ -554,7 +555,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto alloc_amount = instr.arguments[0];
       assert(alloc_amount.tag == LITERAL_TAG);
 
-      add_setup_args_code({{5, alloc_amount.arg_raw.arg_num}});
+      add_store_in_register({{5, alloc_amount.arg_raw.arg_num}});
       add_code(get_riscv(DEALLOCATE_SNIP));
       break;
     }
@@ -567,7 +568,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto remaining = instr.arguments[1];
       assert(remaining.tag == LITERAL_TAG);
 
-      add_setup_args_code({{7, to_reduce.arg_raw.arg_num}});
+      add_store_in_register({{7, to_reduce.arg_raw.arg_num}});
       add_code(get_riscv(TRIM_SNIP));
       break;
     }
@@ -607,7 +608,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
       add_log_xregs(arity.arg_raw.arg_num);
 
-      add_setup_args_code({{11, label.arg_raw.arg_num}});
+      add_store_in_register({{11, label.arg_raw.arg_num}});
 
       // check reductions and maybe yield
       add_code(get_riscv(CALL_SNIP));
@@ -623,7 +624,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       assert(label.tag == LABEL_TAG);
 
       add_log_xregs(arity.arg_raw.arg_num);
-      add_setup_args_code({{11, label.arg_raw.arg_num}});
+      add_store_in_register({{11, label.arg_raw.arg_num}});
 
       add_code(get_riscv(CALL_ONLY_SNIP));
       break;
@@ -641,7 +642,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       assert(deallocate.tag == LITERAL_TAG);
 
       add_log_xregs(arity.arg_raw.arg_num);
-      add_setup_args_code(
+      add_store_in_register(
           {{11, label.arg_raw.arg_num}, {5, deallocate.arg_raw.arg_num}});
 
       add_code(get_riscv(CALL_LAST_SNIP));
@@ -749,7 +750,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_call_ext(
           instr,
           [&](uint64_t bif) {
-            add_setup_args_code({{5, bif}});
+            add_store_in_register({{5, bif}});
             add_code(get_riscv(CALL_EXT_BIF_SNIP));
             add_riscv_instr(create_store_x_reg(10, 0, 21));
           },
@@ -765,7 +766,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_call_ext(
           instr,
           [&](uint64_t bif) {
-            add_setup_args_code({{5, bif}});
+            add_store_in_register({{5, bif}});
             add_code(get_riscv(CALL_EXT_BIF_SNIP));
             add_riscv_instr(create_store_x_reg(10, 0, 21));
             add_code(get_riscv(RETURN_SNIP));
@@ -787,11 +788,11 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       add_call_ext(
           instr,
           [&](uint64_t bif) {
-            add_setup_args_code({{5, bif}});
+            add_store_in_register({{5, bif}});
             add_code(get_riscv(CALL_EXT_BIF_SNIP));
             add_riscv_instr(create_store_x_reg(10, 0, 21));
 
-            add_setup_args_code({{5, to_dealloc_val}});
+            add_store_in_register({{5, to_dealloc_val}});
             add_code(get_riscv(DEALLOCATE_SNIP));
             add_code(get_riscv(RETURN_SNIP));
           },
@@ -826,7 +827,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       auto label = instr.arguments[0];
       assert(label.tag == LABEL_TAG);
 
-      add_setup_args_code({{5, label.arg_raw.arg_num}});
+      add_store_in_register({{5, label.arg_raw.arg_num}});
       add_code(get_riscv(WAIT_SNIP));
       break;
     }
@@ -841,7 +842,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       assert(label.tag == LABEL_TAG);
 
       add_code(get_riscv(LOOP_REC_1_SNIP));
-      reserve_branch_label(label.arg_raw.arg_num);
+      submit_branch_link_request(label.arg_raw.arg_num);
 
       // beq t0, t1, LABEL
       add_riscv_instr(create_branch_equal(5, 6, 0));
@@ -860,7 +861,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       assert(label.tag == LABEL_TAG);
 
       add_code(get_riscv(LOOP_REC_END_SNIP));
-      reserve_branch_label(label.arg_raw.arg_num);
+      submit_branch_link_request(label.arg_raw.arg_num);
       // guaranteed branch - should replace with jump
       add_riscv_instr(create_branch_equal(0, 0, 0));
       break;
@@ -886,14 +887,14 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
         assert(label.tag == LABEL_TAG);
 
         add_load_appropriate(arg, 6, 7);
-        reserve_branch_label(label.arg_raw.arg_num);
+        submit_branch_link_request(label.arg_raw.arg_num);
 
         // branch to label if source is equal to the value to check
         add_riscv_instr(create_branch_equal(5, 6, 0));
       }
 
       // i.e. guaranteed jump - should replace with a normal jump instr
-      reserve_branch_label(fail_label.arg_raw.arg_num);
+      submit_branch_link_request(fail_label.arg_raw.arg_num);
       add_riscv_instr(create_branch_equal(0, 0, 0));
 
       break;
@@ -944,7 +945,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       assert(element.tag == LITERAL_TAG);
       auto destination = instr.arguments[2];
 
-      add_setup_args_code({{6, element.arg_raw.arg_num}});
+      add_store_in_register({{6, element.arg_raw.arg_num}});
 
       // load source into t0
       add_load_appropriate(source, 5, 6);
@@ -961,7 +962,7 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
       auto elements_vec = elements.arg_raw.arg_vec_p;
 
-      add_setup_args_code({{5, elements_vec->size() + 1}});
+      add_store_in_register({{5, elements_vec->size() + 1}});
 
       add_code(get_riscv(PUT_TUPLE2_SNIP));
 
@@ -984,11 +985,10 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
       auto num_free = freeze_list_val->size();
 
-      add_setup_args_code({{7, index.arg_raw.arg_num}});
+      add_store_in_register({{7, index.arg_raw.arg_num}});
+      add_store_in_register({{5, num_free + 2}});
 
       // now we alloc heap space and store index
-      // store num spots to allocate in t0
-      add_riscv_instr(create_add_immediate(5, 0, num_free + 2));
       add_code(get_riscv(MAKE_FUN3_SNIP));
 
       // now pointing to pos right after the index loc
@@ -1050,18 +1050,18 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
 
       for (auto snip : {IS_TAGGED_TUPLE_1_SNIP, IS_TAGGED_TUPLE_2_SNIP}) {
         add_code(get_riscv(snip));
-        reserve_branch_label(label_val);
+        submit_branch_link_request(label_val);
         add_riscv_instr(create_branch_not_equal(6, 7, 0));
       }
 
-      add_setup_args_code({{7, arity.arg_raw.arg_num}});
+      add_store_in_register({{7, arity.arg_raw.arg_num}});
       add_code(get_riscv(IS_TAGGED_TUPLE_3_SNIP));
-      reserve_branch_label(label_val);
+      submit_branch_link_request(label_val);
       add_riscv_instr(create_branch_not_equal(6, 7, 0));
 
-      add_setup_args_code({{7, make_atom(atom.arg_raw.arg_num)}});
+      add_store_in_register({{7, make_atom(atom.arg_raw.arg_num)}});
       add_code(get_riscv(IS_TAGGED_TUPLE_4_SNIP));
-      reserve_branch_label(label_val);
+      submit_branch_link_request(label_val);
       add_riscv_instr(create_branch_not_equal(6, 7, 0));
 
       break;
@@ -1087,14 +1087,14 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
       assert(arity.tag == LITERAL_TAG);
 
       // setup args
-      add_setup_args_code({{5, arity.arg_raw.arg_num}});
+      add_store_in_register({{5, arity.arg_raw.arg_num}});
 
       // load soucre into t1
       add_load_appropriate(source, 6, 5);
       add_code(get_riscv(TEST_ARITY_SNIP));
 
       auto label_val = label.arg_raw.arg_num;
-      reserve_branch_label(label_val);
+      submit_branch_link_request(label_val);
 
       // bne t0, t1
       add_riscv_instr(create_branch_not_equal(5, 6, 0));
@@ -1162,8 +1162,6 @@ inline std::vector<uint8_t> translate_code_section(CodeChunk &code_chunk,
     update(auipc_index, auipc_imm, set_imm_U_type_instruction);
     update(add_index, add_imm, set_imm_I_type_instruction);
   }
-
-  code_chunk.label_offsets = label_offsets;
 
   return compiled;
 }
