@@ -15,7 +15,7 @@ const uint8_t *get_or_compile_label(CodeChunk *code_chunk,
 void print_int(uint64_t a);
 void update_code_chunk_registers(CodeChunk *code_chunk);
 void free_msg(Message *);
-void send_message(ErlTerm *);
+void send_message(uint64_t, uint64_t);
 uint64_t compare(uint64_t term1, uint64_t term2);
 void print_op_name(uint64_t op_code);
 void execute_minor_gc(size_t new_term_size, size_t xregs);

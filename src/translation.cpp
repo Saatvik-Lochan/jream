@@ -948,7 +948,7 @@ inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
       add_store_in_register({{6, element.arg_raw.arg_num}});
 
       // load source into t0
-      add_load_appropriate(source, 5, 6);
+      add_load_appropriate(source, 5, 7);
       add_code(get_riscv(GET_TUPLE_ELEMENT_SNIP));
 
       add_store_appropriate(destination, 5, 6);

@@ -61,11 +61,8 @@ void update_code_chunk_registers(CodeChunk *code_chunk) {
 #pragma GCC diagnostic pop
 }
 
-void send_message(ErlTerm *xregs) {
+void send_message(uint64_t destination_pid, uint64_t message) {
   PROFILE();
-
-  uint64_t destination_pid = xregs[0];
-  uint64_t message = xregs[1];
 
   ProcessControlBlock *process = from_pid(destination_pid);
 

@@ -1,36 +1,28 @@
 -module(merge).
--export([main/0, main_s/0, main_split/0, test/0]).
+-export([sort/0, mp_sort/0]).
 
-main() ->
+mp_sort() ->
   {ok, [List]} = file:consult("list.txt"),
-  io:write(merge_sort(List)).
-
-main_s() ->
-  {ok, [List]} = file:consult("list.txt"),
-  io:write(sort(List)).
-
-main_split() ->
-  {ok, [List]} = file:consult("list.txt"),
-  io:write(split(List)).
-
-test() ->
-  io:write(merge([100], [200])).
+  io:write(mp_sort(List)).
 
 % Entry point
-merge_sort(List) ->
+mp_sort(List) ->
     case length(List) =< 1 of
         true -> List;
         false ->
             {Left, Right} = split(List),
             Parent = self(),
-            spawn(fun() -> Parent ! merge_sort(Left) end),
-            SortedRight = merge_sort(Right),
+            spawn(fun() -> Parent ! mp_sort(Left) end),
+            SortedRight = mp_sort(Right),
             receive
                 SortedLeft -> merge(SortedLeft, SortedRight)
             end
     end.
 
- % Non spawning for testing
+sort() ->
+  {ok, [List]} = file:consult("list.txt"),
+  io:write(sort(List)).
+
 sort([]) -> [];
 sort([A]) -> [A];
 sort(List) ->
