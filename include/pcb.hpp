@@ -102,11 +102,12 @@ struct __attribute__((aligned(16))) ProcessControlBlock {
   // ctor/dtor
   ProcessControlBlock(EntryPoint entry_point, size_t heap_size = 1024);
   ~ProcessControlBlock() {
-    /*for (auto val : heap_fragments) {*/
-    /*  delete[] val.data();*/
-    /*}*/
-    /*delete[] heap.data();*/
-    /*delete[] get_shared<XREG_ARRAY>();*/
+    std::lock_guard<std::mutex> lock(frag_mtx);
+    for (auto val : heap_fragments) {
+      delete[] val.data();
+    }
+    delete[] heap.data();
+    delete[] get_shared<XREG_ARRAY>();
   }
 };
 
