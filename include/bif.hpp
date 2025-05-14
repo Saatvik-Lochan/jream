@@ -36,6 +36,7 @@ BIFReturn test_fail(uint64_t a, uint64_t b);
 BIFReturn spawn_1(uint64_t fun_raw);
 BIFReturn erl_length(uint64_t list_raw);
 BIFReturn self();
+BIFReturn erl_rem(int64_t a, int64_t b);
 BIFReturn erl_div(int64_t a, int64_t b);
 BIFReturn erl_sub(int64_t a, int64_t b);
 BIFReturn erl_add(int64_t a, int64_t b);
@@ -69,6 +70,7 @@ const inline std::unordered_map<std::string, uintptr_t> name_bif_map = {
     MAP("erlang:spawn/1", spawn_1),
     MAP("erlang:length/1", erl_length),
     MAP("erlang:self/0", self),
+    MAP("erlang:rem/2", erl_rem),
     MAP("erlang:div/2", erl_div),
     MAP("erlang:error/1", erl_error),
 

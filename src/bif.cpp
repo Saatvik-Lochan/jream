@@ -102,6 +102,10 @@ BIFReturn erl_div(int64_t a, int64_t b) {
   return do_arith(a, b, [](auto a, auto b) { return a / b; });
 }
 
+BIFReturn erl_rem(int64_t a, int64_t b) {
+  return do_arith(a, b, [](auto a, auto b) { return a % b; });
+}
+
 BIFReturn erl_sub(int64_t a, int64_t b) {
   PROFILE();
   // the 0b1111 for each a and b cancel out
