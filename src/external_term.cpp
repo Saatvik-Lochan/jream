@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <format>
 #include <iterator>
+#include <optional>
 #include <stack>
 #include <stdexcept>
 #include <string>
@@ -413,11 +414,37 @@ std::string to_string(std::vector<ErlTerm> terms, std::string start,
   return out_string + end;
 }
 
+std::optional<std::string> erl_list_as_string(const std::vector<ErlTerm> &vec) {
+
+  std::string out;
+
+  for (auto term : vec) {
+    if ((term & 0b1111) == 0b1111) { // small_int tag
+      uint64_t value = term >> 4;
+      if (value < 256) {
+        out.push_back(static_cast<char>(static_cast<unsigned char>(value)));
+      } else {
+        return std::nullopt; // value out of char range
+      }
+    } else {
+      return std::nullopt; // not a small int
+    }
+  }
+
+  return out;
+}
+
 std::string to_string(ErlTerm erl_term) {
   switch (erl_term.getTagType()) {
   case NIL_T:
   case LIST_T: {
     std::vector<ErlTerm> out = vec_from_erl_list(erl_term);
+    auto string_opt = erl_list_as_string(out);
+
+    if (string_opt) {
+      return *string_opt;
+    }
+
     return to_string(out, "[", "]");
   }
   case BOXED_T: {
