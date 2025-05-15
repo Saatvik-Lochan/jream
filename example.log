@@ -1,0 +1,650 @@
+Log file created at: 2025/05/15 10:52:01
+Running on machine: ubuntu
+Running duration (h:mm:ss): 0:00:00
+Log line format: [IWEF]yyyymmdd hh:mm:ss.uuuuuu threadid file:line] msg
+module: AtU8, size: 84
+module: Code, size: 384
+sub_size: 16
+label count: 21
+function count: 7
+module: StrT, size: 0
+module: ImpT, size: 76
+module: ExpT, size: 40
+  anonymous func count: 3
+module: LitT, size: 33
+num_literals: 2
+0: [2, 1]
+1: {[], []}
+module: Meta, size: 29
+module: LocT, size: 52
+module: Attr, size: 40
+module: CInf, size: 103
+module: Dbgi, size: 100
+module: Line, size: 37
+module: Type, size: 116
+AtomChunk
+    1:  small
+    2:  sort
+    3:  io
+    4:  write
+    5:  split
+    6:  erlang
+    7:  length
+    8:  div
+    9:  -
+    10:  merge
+    11:  module_info
+    12:  get_module_info
+Import Table Chunk
+    0: io:write/1
+    1: erlang:length/1
+    2: erlang:div/2
+    3: erlang:-/2
+    4: erlang:get_module_info/1
+    5: erlang:get_module_info/2
+Export Table Chunk
+    0: module_info - label 20, arity 1
+    1: module_info - label 18, arity 0
+    2: sort - label 2, arity 0
+Function Table Chunk:
+Literal Chunk
+    [2, 1]
+    {[], []}
+CodeChunk
+name | op_code/arity
+
+  label | 1/1 
+    Literal = 1
+
+  line | 153/1 
+    Literal = 1
+
+  func_info | 2/3 
+    Atom = small
+    Atom = sort
+    Literal = 0
+
+  label | 1/1 
+    Literal = 2
+
+  allocate | 12/2 
+    Literal = 0
+    Literal = 0
+
+  move | 64/2 
+    Extended Literal = [2, 1]
+    X Register = x0
+
+  line | 153/1 
+    Literal = 2
+
+  call | 4/2 
+    Literal = 1
+    Label = 4
+
+  call_ext_last | 8/3 
+    Literal = 1
+    Literal = 0
+    Literal = 0
+
+  label | 1/1 
+    Literal = 3
+
+  line | 153/1 
+    Literal = 3
+
+  func_info | 2/3 
+    Atom = small
+    Atom = sort
+    Literal = 1
+
+  label | 1/1 
+    Literal = 4
+
+  is_nonempty_list | 56/2 
+    Label = 5
+    X Register = x0
+
+  get_tl | 163/2 
+    X Register = x0
+    X Register = x1
+
+  is_ne_exact | 44/3 
+    Label = 5
+    X Register = x1
+    Atom = NIL (not atom)
+
+  allocate | 12/2 
+    Literal = 1
+    Literal = 1
+
+  init_yregs | 172/1 
+    Extended List = [ Y Register = y0]
+
+  line | 153/1 
+    Literal = 4
+
+  call | 4/2 
+    Literal = 1
+    Label = 7
+
+  get_tuple_element | 66/3 
+    X Register = x0
+    Literal = 0
+    X Register = x1
+
+  get_tuple_element | 66/3 
+    X Register = x0
+    Literal = 1
+    Y Register = y0
+
+  move | 64/2 
+    X Register = x1
+    X Register = x0
+
+  line | 153/1 
+    Literal = 5
+
+  call | 4/2 
+    Literal = 1
+    Label = 4
+
+  swap | 169/2 
+    Y Register = y0
+    X Register = x0
+
+  call | 4/2 
+    Literal = 1
+    Label = 4
+
+  move | 64/2 
+    X Register = x0
+    X Register = x1
+
+  move | 64/2 
+    Y Register = y0
+    X Register = x0
+
+  call_last | 5/3 
+    Literal = 2
+    Label = 13
+    Literal = 1
+
+  label | 1/1 
+    Literal = 5
+
+  return | 19/0 
+
+  label | 1/1 
+    Literal = 6
+
+  line | 153/1 
+    Literal = 6
+
+  func_info | 2/3 
+    Atom = small
+    Atom = split
+    Literal = 1
+
+  label | 1/1 
+    Literal = 7
+
+  line | 153/1 
+    Literal = 7
+
+  gc_bif1 | 124/5 
+    Label = 0
+    Literal = 1
+    Literal = 1
+    X Register = x0
+    X Register = x1
+
+  gc_bif2 | 125/6 
+    Label = 0
+    Literal = 2
+    Literal = 2
+    X Register = x1
+    Integer = 2
+    X Register = x1
+
+  swap | 169/2 
+    X Register = x0
+    X Register = x1
+
+  call_only | 6/2 
+    Literal = 2
+    Label = 9
+
+  label | 1/1 
+    Literal = 8
+
+  line | 153/1 
+    Literal = 8
+
+  func_info | 2/3 
+    Atom = small
+    Atom = split
+    Literal = 2
+
+  label | 1/1 
+    Literal = 9
+
+  is_nil | 52/2 
+    Label = 10
+    X Register = x1
+
+  move | 64/2 
+    Extended Literal = {[], []}
+    X Register = x0
+
+  return | 19/0 
+
+  label | 1/1 
+    Literal = 10
+
+  is_eq_exact | 43/3 
+    Label = 11
+    X Register = x0
+    Integer = 0
+
+  test_heap | 16/2 
+    Literal = 3
+    Literal = 2
+
+  put_tuple2 | 164/2 
+    X Register = x0
+    Extended List = [ Atom = NIL (not atom), X Register = x1]
+
+  return | 19/0 
+
+  label | 1/1 
+    Literal = 11
+
+  get_list | 65/3 
+    X Register = x1
+    X Register = x2
+    X Register = x3
+
+  is_lt | 39/3 
+    Label = 8
+    Integer = 0
+    X Register = x0
+
+  line | 153/1 
+    Literal = 9
+
+  gc_bif2 | 125/6 
+    Label = 0
+    Literal = 4
+    Literal = 3
+    X Register = x0
+    Integer = 1
+    X Register = x0
+
+  allocate | 12/2 
+    Literal = 1
+    Literal = 4
+
+  move | 64/2 
+    X Register = x2
+    Y Register = y0
+
+  move | 64/2 
+    X Register = x3
+    X Register = x1
+
+  call | 4/2 
+    Literal = 2
+    Label = 9
+
+  test_heap | 16/2 
+    Literal = 5
+    Literal = 1
+
+  get_tuple_element | 66/3 
+    X Register = x0
+    Literal = 0
+    X Register = x1
+
+  get_tuple_element | 66/3 
+    X Register = x0
+    Literal = 1
+    X Register = x0
+
+  put_list | 69/3 
+    Y Register = y0
+    X Register = x1
+    X Register = x1
+
+  put_tuple2 | 164/2 
+    X Register = x0
+    Extended List = [ X Register = x1, X Register = x0]
+
+  deallocate | 18/1 
+    Literal = 1
+
+  return | 19/0 
+
+  label | 1/1 
+    Literal = 12
+
+  line | 153/1 
+    Literal = 10
+
+  func_info | 2/3 
+    Atom = small
+    Atom = merge
+    Literal = 2
+
+  label | 1/1 
+    Literal = 13
+
+  is_nil | 52/2 
+    Label = 14
+    X Register = x0
+
+  move | 64/2 
+    X Register = x1
+    X Register = x0
+
+  return | 19/0 
+
+  label | 1/1 
+    Literal = 14
+
+  is_nil | 52/2 
+    Label = 15
+    X Register = x1
+
+  return | 19/0 
+
+  label | 1/1 
+    Literal = 15
+
+  get_list | 65/3 
+    X Register = x0
+    X Register = x2
+    X Register = x3
+
+  get_list | 65/3 
+    X Register = x1
+    X Register = x4
+    X Register = x5
+
+  is_ge | 40/3 
+    Label = 16
+    X Register = x4
+    X Register = x2
+
+  allocate | 12/2 
+    Literal = 1
+    Literal = 4
+
+  move | 64/2 
+    X Register = x2
+    Y Register = y0
+
+  move | 64/2 
+    X Register = x3
+    X Register = x0
+
+  line | 153/1 
+    Literal = 11
+
+  call | 4/2 
+    Literal = 2
+    Label = 13
+
+  test_heap | 16/2 
+    Literal = 2
+    Literal = 1
+
+  put_list | 69/3 
+    Y Register = y0
+    X Register = x0
+    X Register = x0
+
+  deallocate | 18/1 
+    Literal = 1
+
+  return | 19/0 
+
+  label | 1/1 
+    Literal = 16
+
+  allocate | 12/2 
+    Literal = 1
+    Literal = 6
+
+  move | 64/2 
+    X Register = x4
+    Y Register = y0
+
+  move | 64/2 
+    X Register = x5
+    X Register = x1
+
+  line | 153/1 
+    Literal = 12
+
+  call | 4/2 
+    Literal = 2
+    Label = 13
+
+  test_heap | 16/2 
+    Literal = 2
+    Literal = 1
+
+  put_list | 69/3 
+    Y Register = y0
+    X Register = x0
+    X Register = x0
+
+  deallocate | 18/1 
+    Literal = 1
+
+  return | 19/0 
+
+  label | 1/1 
+    Literal = 17
+
+  line | 153/1 
+    Literal = 0
+
+  func_info | 2/3 
+    Atom = small
+    Atom = module_info
+    Literal = 0
+
+  label | 1/1 
+    Literal = 18
+
+  move | 64/2 
+    Atom = small
+    X Register = x0
+
+  call_ext_only | 78/2 
+    Literal = 1
+    Literal = 4
+
+  label | 1/1 
+    Literal = 19
+
+  line | 153/1 
+    Literal = 0
+
+  func_info | 2/3 
+    Atom = small
+    Atom = module_info
+    Literal = 1
+
+  label | 1/1 
+    Literal = 20
+
+  move | 64/2 
+    X Register = x0
+    X Register = x1
+
+  move | 64/2 
+    Atom = small
+    X Register = x0
+
+  call_ext_only | 78/2 
+    Literal = 2
+    Literal = 5
+
+  int_code_end | 3/0 
+Now executing: 0x7ffff541b310
+	resuming at label: 2
+	compiling label: 2
+	compiling function: 0
+Allocating memory for code size: 400 at 0x7ff846253000
+Entering function - small:sort/0
+|-> AT LABEL: 2
+allocate: 12
+move: 64
+line: 153
+call: 4
+x registers at this moment:
+  0. [2, 1]
+	compiling label: 4
+	compiling function: 1
+Allocating memory for code size: 936 at 0x7ff846252000
+Entering function - small:sort/1
+|-> AT LABEL: 4
+is_nonempty_list: 56
+get_tl: 163
+is_ne_exact: 44
+allocate: 12
+init_yregs: 172
+line: 153
+call: 4
+x registers at this moment:
+  0. [2, 1]
+	compiling label: 7
+	compiling function: 2
+Allocating memory for code size: 308 at 0x7ff846251000
+Entering function - small:split/1
+|-> AT LABEL: 7
+line: 153
+gc_bif1: 124
+gc_bif2: 125
+swap: 169
+call_only: 6
+x registers at this moment:
+  0. 1
+  1. [2, 1]
+	compiling label: 9
+	compiling function: 3
+Allocating memory for code size: 1104 at 0x7ff846250000
+Entering function - small:split/2
+|-> AT LABEL: 9
+is_nil: 52
+|-> AT LABEL: 10
+is_eq_exact: 43
+|-> AT LABEL: 11
+get_list: 65
+is_lt: 39
+line: 153
+gc_bif2: 125
+allocate: 12
+move: 64
+move: 64
+call: 4
+x registers at this moment:
+  0. 0
+  1. [1]
+Entering function - small:split/2
+|-> AT LABEL: 9
+is_nil: 52
+|-> AT LABEL: 10
+is_eq_exact: 43
+test_heap: 16
+put_tuple2: 164
+return: 19
+x registers at this moment:
+  0. {[], [1]}
+test_heap: 16
+get_tuple_element: 66
+get_tuple_element: 66
+put_list: 69
+put_tuple2: 164
+deallocate: 18
+return: 19
+x registers at this moment:
+  0. {[2], [1]}
+get_tuple_element: 66
+get_tuple_element: 66
+move: 64
+line: 153
+call: 4
+x registers at this moment:
+  0. [2]
+Entering function - small:sort/1
+|-> AT LABEL: 4
+is_nonempty_list: 56
+get_tl: 163
+is_ne_exact: 44
+|-> AT LABEL: 5
+return: 19
+x registers at this moment:
+  0. [2]
+swap: 169
+call: 4
+x registers at this moment:
+  0. [1]
+Entering function - small:sort/1
+|-> AT LABEL: 4
+is_nonempty_list: 56
+get_tl: 163
+is_ne_exact: 44
+|-> AT LABEL: 5
+return: 19
+x registers at this moment:
+  0. [1]
+move: 64
+move: 64
+call_last: 5
+x registers at this moment:
+  0. [2]
+  1. [1]
+	compiling label: 13
+	compiling function: 4
+Allocating memory for code size: 1248 at 0x7ff84624f000
+Entering function - small:merge/2
+|-> AT LABEL: 13
+is_nil: 52
+|-> AT LABEL: 14
+is_nil: 52
+|-> AT LABEL: 15
+get_list: 65
+get_list: 65
+is_ge: 40
+|-> AT LABEL: 16
+allocate: 12
+move: 64
+move: 64
+line: 153
+call: 4
+x registers at this moment:
+  0. [2]
+  1. []
+Entering function - small:merge/2
+|-> AT LABEL: 13
+is_nil: 52
+|-> AT LABEL: 14
+is_nil: 52
+return: 19
+x registers at this moment:
+  0. [2]
+test_heap: 16
+put_list: 69
+deallocate: 18
+return: 19
+x registers at this moment:
+  0. [1, 2]
+call_ext_last: 8
+A process finished: 0x7ffff541b310
+After 1:
+	waiting: {}
+	runnable: {}
