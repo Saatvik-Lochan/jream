@@ -1009,6 +1009,11 @@ inline std::vector<uint8_t> translate_code_section(const CodeChunk &code_chunk,
       break;
     }
 
+    case IS_NE_EXACT_OP: {
+      add_comparison(instr, 0x0);
+      break;
+    }
+
     case IS_GE_OP: {
       // funct3 for lt, since we branch when ge
       add_comparison(instr, 0x4);

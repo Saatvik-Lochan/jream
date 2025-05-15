@@ -299,7 +299,7 @@ inline auto ErlTerm::operator<=>(const ErlTerm &other) const {
   }
   case LIST_ET: {
     auto this_list = ErlList(term);
-    auto other_list = ErlList(term);
+    auto other_list = ErlList(other);
 
     auto this_iter = this_list.begin();
     auto other_iter = other_list.begin();

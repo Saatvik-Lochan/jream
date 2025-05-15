@@ -105,6 +105,13 @@ if(GENERATIONAL_GC)
   )
 endif()
 
+option(DISPLAY_STRINGS "Represent lists of integerers less than 256 as strings" ON)
+if(DISPLAY_STRINGS) 
+  target_compile_definitions(jreamlib PRIVATE
+    ENABLE_DISPLAY_STRING=1
+  )
+endif()
+
 target_include_directories(jreamlib PRIVATE
   ${PROJECT_SOURCE_DIR}/include
 )

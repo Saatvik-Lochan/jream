@@ -439,11 +439,14 @@ std::string to_string(ErlTerm erl_term) {
   case NIL_T:
   case LIST_T: {
     std::vector<ErlTerm> out = vec_from_erl_list(erl_term);
+
+#ifdef ENABLE_DISPLAY_STRING
     auto string_opt = erl_list_as_string(out);
 
     if (string_opt) {
       return *string_opt;
     }
+#endif
 
     return to_string(out, "[", "]");
   }

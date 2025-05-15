@@ -2114,7 +2114,7 @@ TEST(RISCV, CompListGTLen) {
       {make_small_int(1), make_small_int(2), make_small_int(3)},
       get_nil_term());
 
-  auto should_ge_jump = false;
+  auto should_ge_jump = true;
   do_compare_test(IS_GE_OP, arg1, arg2, should_ge_jump);
   do_compare_test(IS_LT_OP, arg1, arg2, !should_ge_jump);
 }
@@ -2195,6 +2195,31 @@ TEST(RISCV, CompEqExactTrue) {
 
   auto should_jump = false;
   do_compare_test(IS_EQ_EXACT_OP, arg1, arg2, should_jump);
+}
+
+TEST(RISCV, CompNEExactFalse) {
+  auto arg1 = make_small_int(0);
+  auto arg2 = make_small_int(0);
+
+  auto should_jump = true;
+  do_compare_test(IS_NE_EXACT_OP, arg1, arg2, should_jump);
+}
+
+
+TEST(RISCV, CompNEExactTrue) {
+  auto arg1 = make_small_int(0);
+  auto arg2 = make_small_int(10);
+
+  auto should_jump = false;
+  do_compare_test(IS_NE_EXACT_OP, arg1, arg2, should_jump);
+}
+
+TEST(RISCV, CompNEListNil) {
+  auto arg1 = erl_list_from_range({mi(1), mi(2), mi(3), mi(4)}, get_nil_term());
+  auto arg2 = get_nil_term();
+
+  auto should_jump = false;
+  do_compare_test(IS_NE_EXACT_OP, arg1, arg2, should_jump);
 }
 
 TEST(RISCV, Badmatch) {

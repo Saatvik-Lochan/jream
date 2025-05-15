@@ -44,7 +44,7 @@ spawn() ->
 % cond receive
 spawn_and_uncond_receive() ->
   Pid = spawn(fun() -> uncond_receive() end),
-  "Msg received" ! Pid.
+  Pid ! "Msg received".
 
 uncond_receive() ->
   receive
@@ -55,7 +55,7 @@ uncond_receive() ->
 % uncond_receive receive
 spawn_and_cond_receive(A) ->
   Pid = spawn(fun() -> cond_receive() end),
-  A ! Pid.
+  Pid ! A.
 
 cond_receive() ->
   receive
